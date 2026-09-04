@@ -36,17 +36,23 @@
     </distributionManagement>
 
     <!-- Pins the transitive org.seleniumhq.selenium:* modules to a single consistent version.
-         Without this, io.appium:java-client:9.4.0 declares a version RANGE ([4.26.0,5.0)) for
-         selenium-api/selenium-remote-driver/selenium-support that Maven resolves to a NEWER
-         version (4.48.0) than our explicit selenium-java dependency below, even though
-         selenium-java itself resolves to 4.30.0, causing a real compile failure
-         (org.openqa.selenium.ContextAware missing from 4.48.0, required by appium-java-client). -->
+         Appium's java-client declares its Selenium deps as a version RANGE, so without this
+         Maven can resolve selenium-api/selenium-remote-driver/selenium-support to a DIFFERENT,
+         newer version than our explicit selenium-java dependency below.
+
+         VERSION NOTE: appium-java-client trails Selenium's release cadence; it only commits
+         to compatibility with the Selenium version current as of its own release (see the
+         compatibility matrix in https://github.com/appium/java-client#readme). Rather than
+         downgrading Selenium far below the web SDK's original 4.47.0 to satisfy an old Appium
+         client, we upgraded appium-java-client to 10.1.1 (latest, documented compatible with
+         Selenium 4.40.0+) and pinned Selenium to 4.44.0, the highest version still within
+         10.1.1's documented compatibility range. -->
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>org.seleniumhq.selenium</groupId>
                 <artifactId>selenium-bom</artifactId>
-                <version>4.30.0</version>
+                <version>4.44.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -55,16 +61,16 @@
 
     <dependencies>
         <!-- ===== Mobile/Appium (merged in from mobile-functional-test-automation-sdk) ===== -->
-        <dependency><groupId>io.appium</groupId><artifactId>java-client</artifactId><version>9.4.0</version></dependency>
+        <dependency><groupId>io.appium</groupId><artifactId>java-client</artifactId><version>10.1.1</version></dependency>
         <dependency><groupId>com.browserstack</groupId><artifactId>browserstack-java-sdk</artifactId><version>LATEST</version><scope>compile</scope></dependency>
 
         <dependency><groupId>org.testng</groupId><artifactId>testng</artifactId><version>7.3.0</version><scope>compile</scope></dependency>
-        <!-- NOTE: pinned to 4.30.0 (not the newer 4.47.0 used by the standalone web SDK) because
-             io.appium:java-client:9.4.0 depends on org.openqa.selenium.ContextAware, which was
-             removed from Selenium by 4.47.0 (verified by a real compile failure during the
-             web+mobile SDK merge). Revisit if/when a java-client version compatible with a newer
-             Selenium is adopted. -->
-        <dependency><groupId>org.seleniumhq.selenium</groupId><artifactId>selenium-java</artifactId><version>4.30.0</version></dependency>
+        <!-- NOTE: pinned to 4.44.0 (not the web SDK's original 4.47.0), the highest version
+             documented as compatible with appium-java-client:10.1.1's compatibility matrix
+             (https://github.com/appium/java-client#readme). Appium's client trails Selenium's
+             release cadence, so a small gap vs. the latest Selenium is expected/normal here;
+             revisit both together next time either is upgraded. -->
+        <dependency><groupId>org.seleniumhq.selenium</groupId><artifactId>selenium-java</artifactId><version>4.44.0</version></dependency>
         <dependency><groupId>com.google.guava</groupId><artifactId>guava</artifactId><version>33.4.8-jre</version></dependency>
         <dependency><groupId>io.github.bonigarcia</groupId><artifactId>webdrivermanager</artifactId><version>6.3.4</version></dependency>
         <dependency><groupId>org.apache.poi</groupId><artifactId>poi-ooxml</artifactId><version>3.17</version></dependency>
