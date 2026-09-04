@@ -1,0 +1,130 @@
+# Test Case Gap Report
+
+> **What is this file?**
+> This file documents a test case that **cannot be fully automated** due to
+> missing, ambiguous, or incomplete information in the source test case.
+> It must be resolved before automation can proceed.
+>
+> **Location:** `docs/test-case-gaps/`
+> **Do NOT delete this file** until the gap is resolved and the test is implemented.
+
+---
+
+## Identification
+
+| Field | Value |
+|---|---|
+| **Report File** | `<!-- e.g. ADO-12345-gap-report.md -->` |
+| **Test Case ID** | `<!-- ADO Work Item ID or file reference -->` |
+| **Test Case Title** | `<!-- Full title of the test case -->` |
+| **Source** | `<!-- Azure DevOps / local file path -->` |
+| **Target Test Class** | `<!-- e.g. Test_LoginPage.java (not yet created) -->` |
+| **Date Reported** | `<!-- YYYY-MM-DD -->` |
+| **Reported By** | `<!-- Copilot / developer name -->` |
+| **Status** | `BLOCKED` |
+
+---
+
+## Blocking Gaps — Checklist
+
+Check all that apply:
+
+- [ ] **Missing preconditions** — test case does not specify required system state or setup steps
+- [ ] **Ambiguous action steps** — step description is too vague to map to a UI interaction
+- [ ] **No expected result** — one or more steps have no defined expected outcome to assert
+- [ ] **Missing test data** — required input values (usernames, IDs, dates, etc.) not specified
+- [ ] **UI element not described** — step references a UI element with no locator hint or description
+- [ ] **Environment / dependency missing** — test requires a service, dataset, or config not available
+- [ ] **Step order unclear** — steps are ambiguous in sequence or have conflicting conditions
+- [ ] **Out-of-scope action** — step requires interaction outside the application (e.g., database, email server) with no test helper available
+- [ ] **Incomplete negative scenario** — error condition referenced but not fully described
+- [ ] **Other** — describe below
+
+---
+
+## Gap Detail
+
+> For each checked item above, explain specifically what is missing.
+
+### Gap 1 — [Gap Type from checklist]
+**Affected Step(s):** Step N, Step M
+
+**What is missing:**
+```
+<!-- Describe exactly what information is missing that prevents automation -->
+```
+
+**Why it blocks automation:**
+```
+<!-- Explain why the test cannot be implemented without this information -->
+```
+
+---
+
+### Gap 2 — [Gap Type from checklist] *(if applicable)*
+**Affected Step(s):**
+
+**What is missing:**
+
+**Why it blocks automation:**
+
+---
+
+*(Add more Gap sections as needed)*
+
+---
+
+## Partially Implementable Steps
+
+> List any steps that CAN be automated right now, if partial implementation is useful.
+
+| ADO Step | Can Automate? | Notes |
+|---|---|---|
+| Step 1 — Navigate to login page | ✅ Yes | Standard navigation |
+| Step 2 — Enter credentials | ✅ Yes | Test data available |
+| Step 3 — Verify error type X | ❌ No | Error message text not specified |
+
+---
+
+## Recommended Resolution
+
+> What needs to happen before this test can be automated?
+
+- [ ] **Product Owner / BA to clarify:** `<!-- what question needs answering -->`
+- [ ] **QA to add expected result to ADO Step N:** `<!-- which step -->`
+- [ ] **Dev to expose test data:** `<!-- what data is needed -->`
+- [ ] **ADO test case to be updated:** `<!-- which field needs updating -->`
+- [ ] **Other:** `<!-- describe -->`
+
+**Assigned to:** `<!-- person or team responsible for resolving the gap -->`
+**Target resolution date:** `<!-- YYYY-MM-DD or sprint -->`
+
+---
+
+## Impact on Test Suite
+
+| Item | Detail |
+|---|---|
+| **Test class affected** | Not created / partially created |
+| **Excel sheet** | Not created / rows set to `runMode=N` |
+| **Blocked assertions** | List of assertions that cannot be written |
+| **Risk if not resolved** | `<!-- e.g. "Login error scenarios uncovered" -->` |
+
+---
+
+## Resolution Log
+
+> Update this section when the gap is resolved.
+
+| Date | Action Taken | By |
+|---|---|---|
+| <!-- date --> | <!-- what was clarified or fixed --> | <!-- who --> |
+
+---
+
+## Next Steps After Resolution
+
+1. Re-open the source test case in ADO and verify gaps are filled.
+2. Run `#create-test` or `#ado-sync-test` Copilot prompt to implement/update the test.
+3. Delete or archive this gap report file once the test is fully implemented and passing.
+4. Update `runMode` from `N` to `Y` in the Excel sheet for any previously blocked rows.

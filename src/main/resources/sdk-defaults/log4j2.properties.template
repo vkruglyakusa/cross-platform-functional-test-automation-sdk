@@ -1,0 +1,57 @@
+# SDK Log4j2 Configuration Template
+# Produces two separate log files:
+#   test-output/logs/project.log  - consumer project classes (com.{project}.automation.*)
+#   test-output/logs/sdk.log      - SDK internal classes (com.test.automation.sdk.*)
+# Both are also written to the console.
+
+status = warn
+name = PropertiesConfig
+
+# ── Appenders ────────────────────────────────────────────────────────────────
+
+appender.console.type = Console
+appender.console.name = STDOUT
+appender.console.layout.type = PatternLayout
+appender.console.layout.pattern = %d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n
+
+# Project log - consumer test classes
+appender.projectFile.type = RollingFile
+appender.projectFile.name = PROJECT_LOG
+appender.projectFile.fileName = test-output/logs/project.log
+appender.projectFile.filePattern = test-output/logs/project-%d{yyyy-MM-dd}-%i.log.gz
+appender.projectFile.layout.type = PatternLayout
+appender.projectFile.layout.pattern = %d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n
+appender.projectFile.policies.type = Policies
+appender.projectFile.policies.size.type = SizeBasedTriggeringPolicy
+appender.projectFile.policies.size.size = 10MB
+appender.projectFile.strategy.type = DefaultRolloverStrategy
+appender.projectFile.strategy.max = 5
+
+# SDK log - SDK internal classes
+appender.sdkFile.type = RollingFile
+appender.sdkFile.name = SDK_LOG
+appender.sdkFile.fileName = test-output/logs/sdk.log
+appender.sdkFile.filePattern = test-output/logs/sdk-%d{yyyy-MM-dd}-%i.log.gz
+appender.sdkFile.layout.type = PatternLayout
+appender.sdkFile.layout.pattern = %d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n
+appender.sdkFile.policies.type = Policies
+appender.sdkFile.policies.size.type = SizeBasedTriggeringPolicy
+appender.sdkFile.policies.size.size = 10MB
+appender.sdkFile.strategy.type = DefaultRolloverStrategy
+appender.sdkFile.strategy.max = 5
+
+# ── Loggers ──────────────────────────────────────────────────────────────────
+
+# SDK internal logger - goes to sdk.log + console
+logger.sdk.name = com.test.automation.sdk
+logger.sdk.level = info
+logger.sdk.additivity = false
+logger.sdk.appenderRefs = sdkFile, stdout
+logger.sdk.appenderRef.sdkFile.ref = SDK_LOG
+logger.sdk.appenderRef.stdout.ref = STDOUT
+
+# Root logger (catches all consumer project classes) - goes to project.log + console
+rootLogger.level = info
+rootLogger.appenderRefs = projectFile, stdout
+rootLogger.appenderRef.projectFile.ref = PROJECT_LOG
+rootLogger.appenderRef.stdout.ref = STDOUT

@@ -1,0 +1,90 @@
+# ============================================================
+# Mailinator Email Templates Configuration
+# Copy this file to your project's configuration/ directory
+# as mailinator-email-templates.yaml and customize for your app.
+#
+# Each template defines how to identify and extract content from
+# a specific type of email notification received via Mailinator.
+#
+# Fields:
+#   subjectContains   - Optional. Text the email subject must contain.
+#   urlPathPatterns   - Comma-separated URL path segments to match (for link extraction).
+#   excludePatterns   - Comma-separated patterns that disqualify a URL match.
+#   textPattern       - Java regex with ONE capture group for text extraction from body.
+#                       Used by getTextFromEmail(); group(1) is the extracted value.
+#                       Example: "Your code is: (\\d{6})"
+#   masks             - Comma-separated ordered transformations applied to the result.
+#                       Supported: uppercase, lowercase, trim,
+#                                  substring:start:end  (-1 = to end of string),
+#                                  dateFormat:inputPattern:outputPattern,
+#                                  replaceAll:regex:replacement
+#
+# Usage (in test classes — always call via TestBase, never import MailinatorEmailReader directly):
+#   Link  : String url  = getEmailUrl("templateName", baseURL, emailAddress);
+#   Link  : String url  = getConfirmationEmailUrl(baseURL, emailAddress);   // shorthand
+#   Text  : String text = getEmailText("templateName", emailAddress);
+#   Clean : deleteEmailById(emailId);   // only needed for explicit cleanup; auto-delete runs after each get* call
+# ============================================================
+
+templates:
+
+  # ----------------------------------------------------------
+  # URL extraction templates
+  # ----------------------------------------------------------
+
+  confirmation:
+    subjectContains: "Confirm Your Email"
+    urlPathPatterns: "validateToken,validateReset,validateChangeEmail"
+    excludePatterns: "deactivate,amp;"
+    textPattern: ""
+    masks: ""
+
+  deactivation:
+    subjectContains: ""
+    urlPathPatterns: "deactivate"
+    excludePatterns: "amp;"
+    textPattern: ""
+    masks: ""
+
+  passwordReset:
+    subjectContains: "Reset Your Password"
+    urlPathPatterns: "validateReset"
+    excludePatterns: "amp;"
+    textPattern: ""
+    masks: ""
+
+  # ----------------------------------------------------------
+  # Text extraction templates
+  # ----------------------------------------------------------
+
+  # Extract a 6-digit OTP code from the email body
+  # otpCode:
+  #   subjectContains: "Your Verification Code"
+  #   urlPathPatterns: ""
+  #   excludePatterns: ""
+  #   textPattern: "Your code is: (\\d{6})"
+  #   masks: "trim"
+
+  # Extract and reformat a date from a confirmation email
+  # registrationDate:
+  #   subjectContains: "Registration Confirmed"
+  #   urlPathPatterns: ""
+  #   excludePatterns: ""
+  #   textPattern: "Registration date: (\\d{2}/\\d{2}/\\d{4})"
+  #   masks: "trim,dateFormat:MM/dd/yyyy:yyyy-MM-dd"
+
+  # Extract an account ID and normalize to uppercase
+  # accountId:
+  #   subjectContains: "Account Created"
+  #   urlPathPatterns: ""
+  #   excludePatterns: ""
+  #   textPattern: "Account ID: ([A-Za-z0-9-]+)"
+  #   masks: "trim,uppercase"
+
+  # Extract a full name from a welcome email
+  # welcomeName:
+  #   subjectContains: "Welcome"
+  #   urlPathPatterns: ""
+  #   excludePatterns: ""
+  #   textPattern: "Hello, ([A-Za-z ]+)!"
+  #   masks: "trim"

@@ -1,0 +1,221 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.test.automation</groupId>
+    <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>cross-platform-functional-test-automation-sdk</name>
+    <description>
+        Unified web (Selenium) + mobile (Appium/Android/iOS) functional test automation SDK.
+        Merges the formerly-separate functional-test-automation-sdk (web) and
+        mobile-functional-test-automation-sdk (mobile) into a single artifact: shared
+        config/reporting/Excel/crawler utilities live under com.test.automation.sdk.*,
+        mobile-only driver/execution/crawler/page-object code lives under
+        com.test.automation.sdk.mobile.* (unchanged package names from the mobile SDK,
+        so no consumer import changes are required).
+    </description>
+
+    <properties>
+        <maven.compiler.source>20</maven.compiler.source>
+        <maven.compiler.target>20</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Default BrowserStack SDK config file for mobile consumers; overridden per-consumer if needed. -->
+        <browserstackConfigFile>browserstack.yml</browserstackConfigFile>
+    </properties>
+
+    <distributionManagement>
+      <repository>
+        <id>cross-platform-functional-test-automation-sdk</id>
+        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+      </repository>
+    </distributionManagement>
+
+    <!-- Pins the transitive org.seleniumhq.selenium:* modules to a single consistent version.
+         Without this, io.appium:java-client:9.4.0 declares a version RANGE ([4.26.0,5.0)) for
+         selenium-api/selenium-remote-driver/selenium-support that Maven resolves to a NEWER
+         version (4.48.0) than our explicit selenium-java dependency below, even though
+         selenium-java itself resolves to 4.30.0, causing a real compile failure
+         (org.openqa.selenium.ContextAware missing from 4.48.0, required by appium-java-client). -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-bom</artifactId>
+                <version>4.30.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- ===== Mobile/Appium (merged in from mobile-functional-test-automation-sdk) ===== -->
+        <dependency><groupId>io.appium</groupId><artifactId>java-client</artifactId><version>9.4.0</version></dependency>
+        <dependency><groupId>com.browserstack</groupId><artifactId>browserstack-java-sdk</artifactId><version>LATEST</version><scope>compile</scope></dependency>
+
+        <dependency><groupId>org.testng</groupId><artifactId>testng</artifactId><version>7.3.0</version><scope>compile</scope></dependency>
+        <!-- NOTE: pinned to 4.30.0 (not the newer 4.47.0 used by the standalone web SDK) because
+             io.appium:java-client:9.4.0 depends on org.openqa.selenium.ContextAware, which was
+             removed from Selenium by 4.47.0 (verified by a real compile failure during the
+             web+mobile SDK merge). Revisit if/when a java-client version compatible with a newer
+             Selenium is adopted. -->
+        <dependency><groupId>org.seleniumhq.selenium</groupId><artifactId>selenium-java</artifactId><version>4.30.0</version></dependency>
+        <dependency><groupId>com.google.guava</groupId><artifactId>guava</artifactId><version>33.4.8-jre</version></dependency>
+        <dependency><groupId>io.github.bonigarcia</groupId><artifactId>webdrivermanager</artifactId><version>6.3.4</version></dependency>
+        <dependency><groupId>org.apache.poi</groupId><artifactId>poi-ooxml</artifactId><version>3.17</version></dependency>
+        <dependency><groupId>org.apache.poi</groupId><artifactId>poi</artifactId><version>3.17</version></dependency>
+        <dependency><groupId>commons-io</groupId><artifactId>commons-io</artifactId><version>2.16.1</version></dependency>
+        <dependency><groupId>org.apache.commons</groupId><artifactId>commons-lang3</artifactId><version>3.12.0</version></dependency>
+        <dependency><groupId>com.aventstack</groupId><artifactId>extentreports</artifactId><version>4.0.9</version></dependency>
+        <dependency><groupId>org.apache.logging.log4j</groupId><artifactId>log4j-api</artifactId><version>2.20.0</version></dependency>
+        <dependency><groupId>org.apache.logging.log4j</groupId><artifactId>log4j-core</artifactId><version>2.20.0</version></dependency>
+        <dependency><groupId>org.glassfish.jersey.core</groupId><artifactId>jersey-client</artifactId><version>2.24.1</version></dependency>
+        <dependency><groupId>org.glassfish.jersey.media</groupId><artifactId>jersey-media-jaxb</artifactId><version>2.24.1</version></dependency>
+        <dependency><groupId>org.glassfish.jersey.media</groupId><artifactId>jersey-media-multipart</artifactId><version>2.24.1</version></dependency>
+        <dependency><groupId>net.sourceforge.csvjdbc</groupId><artifactId>csvjdbc</artifactId><version>1.0.28</version></dependency>
+        <dependency><groupId>com.opencsv</groupId><artifactId>opencsv</artifactId><version>4.2</version></dependency>
+        <dependency><groupId>org.json</groupId><artifactId>json</artifactId><version>20240303</version></dependency>
+        <dependency><groupId>com.googlecode.json-simple</groupId><artifactId>json-simple</artifactId><version>1.1.1</version></dependency>
+        <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>2.17.2</version></dependency>
+        <dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId><version>2.11.0</version></dependency>
+        <dependency><groupId>com.monitorjbl</groupId><artifactId>xlsx-streamer</artifactId><version>2.1.0</version></dependency>
+        <dependency><groupId>org.apache.pdfbox</groupId><artifactId>pdfbox</artifactId><version>3.0.0-RC1</version></dependency>
+        <dependency><groupId>io.qameta.allure</groupId><artifactId>allure-testng</artifactId><version>2.23.0</version><scope>compile</scope></dependency>
+        <dependency><groupId>io.qameta.allure</groupId><artifactId>allure-attachments</artifactId><version>2.23.0</version></dependency>
+        <dependency><groupId>io.qameta.allure</groupId><artifactId>allure-java-commons</artifactId><version>2.23.0</version></dependency>
+        <dependency><groupId>org.aspectj</groupId><artifactId>aspectjweaver</artifactId><version>1.9.5</version><scope>compile</scope></dependency>
+        <dependency><groupId>org.hamcrest</groupId><artifactId>hamcrest-all</artifactId><version>1.3</version></dependency>
+        <!--
+        TODO: Enable after com.manybrain:mailinator-client:1.0 is available in the local Maven repository.
+        <dependency>
+            <groupId>com.manybrain</groupId>
+            <artifactId>mailinator-client</artifactId>
+            <version>1.0</version>
+        </dependency>
+        -->
+
+        <!-- ===== Accessibility (axe-core) — internal implementation ===== -->
+        <!-- Deque axe-core Selenium binding: powers AccessibilityChecker engine layer 1 -->
+        <dependency>
+            <groupId>com.deque.html.axe-core</groupId>
+            <artifactId>selenium</artifactId>
+            <version>4.10.1</version>
+        </dependency>
+        <!-- SLF4J API — required by the accessibility classes (uses SLF4J for logging) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.13</version>
+        </dependency>
+        <!-- SLF4J → Log4j 2 bridge: routes accessibility SLF4J calls to the SDK's Log4j2.
+             log4j-slf4j2-impl (for SLF4J 2.x) was first released with log4j 2.18.0. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>2.20.0</version>
+        </dependency>
+
+        <!-- SDK unit tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.9.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.9.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>4.11.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <extensions>
+            <!-- Enables preemptive HTTPS authentication for Azure Artifacts deploy -->
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-http</artifactId>
+                <version>3.5.3</version>
+            </extension>
+        </extensions>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.1.2</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>20</source>
+                    <target>20</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>package</phase>
+                        <goals><goal>jar</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <failOnError>false</failOnError>
+                    <doclint>none</doclint>
+                    <quiet>true</quiet>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>package</phase>
+                        <goals><goal>jar</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.22.2</version>
+                <configuration>
+                    <!-- Run JUnit 5 tests; skip browser-dependent tests via tag -->
+                    <excludedGroups>browser</excludedGroups>
+                </configuration>
+                <dependencies>
+                    <!-- Force JUnit Platform provider so TestNG on classpath doesn't take over -->
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-junit-platform</artifactId>
+                        <version>2.22.2</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+
+
+
+
+

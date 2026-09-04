@@ -1,0 +1,129 @@
+# ============================================================
+# functional-test-automation-sdk Configuration File
+# Copy this file to your project's configuration/ directory
+# as sdk-config.yaml and fill in your values.
+#
+# IMPORTANT: Add configuration/sdk-config.yaml to .gitignore
+#            if it contains sensitive API keys.
+# ============================================================
+
+# ------------------------------------------------------------
+# Browser Settings
+# ------------------------------------------------------------
+browser:
+  default: chrome                   # chrome | firefox | edge
+  headless: false                   # true for CI environments
+  windowSize: "1920x1080"
+  pageLoadTimeoutSeconds: 30
+  implicitWaitSeconds: 0            # keep 0; use explicit waits
+  scriptTimeoutSeconds: 30
+  chromeDriverPath: ""              # optional: absolute path to a local chromedriver binary
+                                    # leave empty (default) to let WebDriverManager resolve
+                                    # the latest version matching the installed Chrome browser
+                                    # example: "C:/tools/chromedriver/chromedriver.exe"
+
+# ------------------------------------------------------------
+# Proxy Settings
+# ------------------------------------------------------------
+proxy:
+  enabled: false
+  host: ""                          # e.g. proxy.company.com or bcpxy.nycnet
+  port: 8080
+  username: ""
+  password: ""
+  noProxy: "localhost,127.0.0.1"    # JVM http.nonProxyHosts (pipe-separated on some JVMs)
+  bypassList: "localhost;<-loopback>" # Chrome --proxy-bypass-list (semicolon-separated)
+
+# ------------------------------------------------------------
+# API Keys & External Services
+# ------------------------------------------------------------
+api:
+  mailinator:
+    apiKey: "YOUR_MAILINATOR_API_KEY"
+    domain: "mailinator.com"
+    privateDomain: true
+    inboxPollIntervalSeconds: 3
+    inboxPollTimeoutSeconds: 60
+    inboxInitialWaitSeconds: 5      # wait before first poll to allow email delivery
+
+# ------------------------------------------------------------
+# Logging Settings
+# Log file paths should normally stay under reporting.logsDir below.
+# ------------------------------------------------------------
+logging:
+  level: INFO                       # TRACE | DEBUG | INFO | WARN | ERROR
+  sdkLogFile: "test-output/logs/sdk.log"      # should live under reporting.logsDir
+  seleniumLogFile: "test-output/logs/selenium.log"
+  browserLogFile: "test-output/logs/browser.log"
+  enableSeleniumLogs: true
+  enableBrowserConsoleLogs: true
+  enableDriverLogs: false           # verbose chromedriver output
+
+# ------------------------------------------------------------
+# Screenshot Settings
+# ------------------------------------------------------------
+screenshots:
+  captureOnFailure: true
+  captureOnStep: false
+
+# ------------------------------------------------------------
+# Crawler / PageObjectGenerator Settings
+# ------------------------------------------------------------
+crawler:
+  pageObject:
+    package: "com.mycompany.automation.uiActions"    # target Java package for generated page objects
+    outputDir: "src/main/java/com/mycompany/automation/uiActions/"  # relative path to write .java files
+
+# ------------------------------------------------------------
+# Reporting / Output Directories
+# All test artifacts land under these paths.
+# Override any individual dir with the matching -D flag shown.
+# ------------------------------------------------------------
+reporting:
+  screenshotsDir: "test-output/screenshots"     # failure + step screenshots     (-Dreporting.screenshotsDir)
+  domDumpsDir:    "test-output/dom-dumps"        # DOM snapshots on failure        (-Dreporting.domDumpsDir)
+  logsDir:        "test-output/logs"             # sdk / selenium / browser logs   (-Dreporting.logsDir)
+  crawlerDir:     "test-output/crawler"          # locator discovery reports       (-Dreporting.crawlerDir)
+  accessibilityDir: "test-output/accessibility"  # a11y JSON / Excel / HTML        (-Dreporting.accessibilityDir)
+  gapOutputDir:   "docs/test-case-gaps"          # gap-report.md / blocker-report.md (-Dreporting.gapOutputDir)
+
+# ------------------------------------------------------------
+# Accessibility Testing (axe-core + WCAG checks)
+# Powered by the SDK's built-in accessibility engine.
+# Set enabled: true to activate scans automatically after
+# every test via the TestNG listener, OR call
+# TestBase.runAccessibilityScan() / assertNoAccessibilityViolations()
+# directly in test methods.
+# Output files go to reporting.accessibilityDir above.
+# ------------------------------------------------------------
+accessibility:
+  checking.enabled: false           # master on/off switch — false by default (opt-in)
+  fail.on.violation: false          # throw AccessibilityViolationException on any violation
+  wcag.tags: "wcag2a,wcag2aa"       # axe-core tag set to evaluate
+  debug: false                      # print [A11Y DEBUG] lines to stdout for troubleshooting
+                                    # output directory is controlled by reporting.accessibilityDir above
+
+  # -- Noise reduction & de-duplication ----------------------
+  session.noise.threshold: MINOR    # MINOR | MODERATE | SERIOUS | CRITICAL
+  session.max.scans.per.url: 1      # max scans per URL per run (0 = unlimited)
+  session.dedup.cooldown.ms: 0      # ms between successive scans of the same URL
+  session.dedup.dom.fingerprint: true  # skip re-scan when page content unchanged
+  session.allowed.rules: ""         # comma-separated axe rule IDs to suppress
+  session.allowed.urls: ""          # comma-separated URL fragments to skip entirely
+
+  # -- SPA / async rendering ---------------------------------
+  session.spa.poll.interval.ms: 0   # poll for client-side URL changes; ms (0 = off)
+  scan.wait.enabled: true           # wait for DOM to settle before scanning
+  scan.wait.timeout.ms: 5000        # max wait before scanning anyway
+  scan.iframe.max.depth: 3          # levels of nested iFrames to recurse into
+
+  # -- Engine selection (all enabled by default) -------------
+  # axe-core (Layer 1) is always on.
+  engine.interaction.enabled: true  # keyboard nav, touch targets, focus, text spacing, reflow
+  engine.wcag22.enabled: true       # WCAG 2.2: focus appearance, dragging, target size min
+  engine.structural.enabled: true   # headings, landmarks, page title, language, link text, dup IDs
+  engine.motion.enabled: true       # auto-play media, prefers-reduced-motion
+
+  # -- Dynamic content (modals / dialogs) --------------------
+  scan.on.dialog: false             # auto-scan when a modal/dialog/overlay appears
+  scan.dialog.poll.interval.ms: 1000

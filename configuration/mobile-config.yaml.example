@@ -1,0 +1,25 @@
+# =============================================================================
+# mobile-config.yaml.example
+# Copy this file to mobile-config.yaml (kept out of git, see .gitignore) and
+# fill in project-specific values. Read by com.test.automation.sdk.mobile.config.MobileConfigReader.
+# =============================================================================
+
+# URL of the local Appium server, used only when running under the "local" Maven
+# profile (testInBrowserstack=false). Not used when running against BrowserStack.
+appium:
+  localUrl: "http://127.0.0.1:4723/"
+
+android:
+  # Path to the .apk under test, relative to the project root, used only for local runs.
+  # For BrowserStack runs the app is referenced via browserstack.yml's "app: bs://<app-id>" instead.
+  appPath: "apps/app-debug.apk"
+  # Local emulator/device name (e.g. "Pixel_6_API_34" or a USB-attached device's ADB id).
+  deviceName: ""
+  automationName: "UiAutomator2"
+
+ios:
+  # Path to the .ipa/.app under test, relative to the project root, used only for local runs.
+  appPath: "apps/App.ipa"
+  # Local simulator/device name (e.g. "iPhone 15").
+  deviceName: ""
+  automationName: "XCUITest"

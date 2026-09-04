@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  test-automation-sdk — Log4j2 Configuration Template
+  Copy to: configuration/log4j2.xml in your consumer project
+
+  Log files:
+    test-output/logs/sdk.log      — SDK and test framework messages
+    test-output/logs/selenium.log — WebDriver / Selenium messages
+    test-output/logs/browser.log  — Browser console / ChromeDriver output
+    Console                       — All levels during development
+-->
+<Configuration status="WARN" monitorInterval="30">
+
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%-5level] [%t] %logger{36} — %msg%n</Property>
+        <Property name="SDK_LOG_FILE">test-output/logs/sdk.log</Property>
+        <Property name="SELENIUM_LOG_FILE">test-output/logs/selenium.log</Property>
+        <Property name="BROWSER_LOG_FILE">test-output/logs/browser.log</Property>
+    </Properties>
+
+    <Appenders>
+
+        <!-- Console — all messages during development -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <!-- SDK log — framework, test base, page objects, utilities -->
+        <RollingFile name="SdkFileAppender"
+                     fileName="${SDK_LOG_FILE}"
+                     filePattern="test-output/logs/sdk-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+        <!-- Selenium log — WebDriver operations -->
+        <RollingFile name="SeleniumFileAppender"
+                     fileName="${SELENIUM_LOG_FILE}"
+                     filePattern="test-output/logs/selenium-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+        <!-- Browser log — ChromeDriver and browser console output -->
+        <RollingFile name="BrowserFileAppender"
+                     fileName="${BROWSER_LOG_FILE}"
+                     filePattern="test-output/logs/browser-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+
+        <!-- SDK core — TestBase, page objects, utilities -->
+        <Logger name="com.test.automation.sdk" level="DEBUG" additivity="false">
+            <AppenderRef ref="SdkFileAppender"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- Consumer project test classes and page objects -->
+        <Logger name="com.automation" level="DEBUG" additivity="false">
+            <AppenderRef ref="SdkFileAppender"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- Selenium WebDriver -->
+        <Logger name="org.openqa.selenium" level="INFO" additivity="false">
+            <AppenderRef ref="SeleniumFileAppender"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- WebDriverManager -->
+        <Logger name="io.github.bonigarcia" level="INFO" additivity="false">
+            <AppenderRef ref="SeleniumFileAppender"/>
+        </Logger>
+
+        <!-- ChromeDriver / browser output -->
+        <Logger name="org.openqa.selenium.remote" level="DEBUG" additivity="false">
+            <AppenderRef ref="BrowserFileAppender"/>
+            <AppenderRef ref="SeleniumFileAppender"/>
+        </Logger>
+
+        <!-- Suppress noisy third-party loggers -->
+        <Logger name="org.apache.http" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="io.netty" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- Root — everything else at INFO -->
+        <Root level="INFO">
+            <AppenderRef ref="SdkFileAppender"/>
+            <AppenderRef ref="Console"/>
+        </Root>
+
+    </Loggers>
+
+</Configuration>

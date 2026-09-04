@@ -1,0 +1,41 @@
+# =============================================================================
+# browserstack.yml.example
+# Copy to browserstack.yml at the PROJECT ROOT (not configuration/ -- the
+# BrowserStack Java SDK reads this filename from the working directory by
+# default) and fill in real values. Keep browserstack.yml out of git -- see
+# .gitignore. Do NOT commit real credentials (see strategy doc section 10 for
+# why this matters).
+# =============================================================================
+
+# Prefer environment variables over inline credentials:
+#   BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY
+userName: <your-browserstack-username>
+accessKey: <your-browserstack-access-key>
+framework: testng
+
+appiumVersion: 2.15.0
+
+projectName: <your-project-name>
+buildName: 0.1.0
+
+# App under test. Upload via the BrowserStack App Automate REST API
+# (https://api-cloud.browserstack.com/app-automate/upload) or the BrowserStack
+# UI, then paste the returned "bs://<app-id>" value here.
+app: bs://<app-id>
+
+platforms:
+  - platformName: android
+    platformVersion: "14.0"
+    deviceName: Google Pixel 8
+  # - platformName: ios
+  #   platformVersion: "17"
+  #   deviceName: iPhone 15
+
+parallelsPerPlatform: 1
+
+debug: true
+networkLogs: false
+consoleLogs: errors
+video: true
+autoAcceptAlerts: true
+testObservability: false

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven settings.xml template for functional-test-automation-sdk
+  Copy this to: ~/.m2/settings.xml (or merge into your existing settings.xml)
+
+  Replace YOUR_PAT_HERE with a Personal Access Token from:
+  https://dev.azure.com/clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d
+  Required scope: Packaging (Read & Write)
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
+
+  <!-- NYC proxy -- required on-premise; remove if working remotely without proxy -->
+  <proxies>
+    <proxy>
+      <id>http-proxy-settings</id>
+      <active>true</active>
+      <protocol>http</protocol>
+      <host>bcpxy.nycnet</host>
+      <port>8080</port>
+      <nonProxyHosts>10.*|192.168.*|172.16.*|*.nycnet|*nycnet|localhost|*.visualstudio.com|*.pkgs.visualstudio.com|*.dev.azure.com</nonProxyHosts>
+    </proxy>
+  </proxies>
+
+  <servers>
+    <!--
+      Server ID MUST match the <id> in pom.xml <distributionManagement><repository>
+      Username: use your Azure DevOps organization name or any non-empty string
+      Password: your Personal Access Token (PAT)
+    -->
+    <server>
+      <id>functional-test-automation-sdk</id>
+      <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+      <password>YOUR_PAT_HERE</password>
+      <configuration>
+        <httpConfiguration>
+          <all>
+            <usePreemptive>true</usePreemptive>
+          </all>
+        </httpConfiguration>
+      </configuration>
+    </server>
+  </servers>
+
+</settings>
