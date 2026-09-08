@@ -134,6 +134,42 @@ public class AccessibilityChecker {
     //   [8] pageUrl  [9] engine     [10] helpUrl      [11] timestamp
     private static final List<Object[]> EXCEL_ISSUE_ROWS = Collections.synchronizedList(new ArrayList<>());
 
+    /**
+     * In-memory accumulation of normalized findings (see {@link AccessibilityFinding}),
+     * populated alongside the JSON/Excel artifacts. Additive — does not affect any
+     * existing output format.
+     */
+    private static final List<AccessibilityFinding> FINDINGS = Collections.synchronizedList(new ArrayList<>());
+
+    /**
+     * Returns an unmodifiable snapshot of every {@link AccessibilityFinding} recorded
+     * so far in this JVM (axe-core Layer 1 violations + incomplete, plus Interaction/
+     * WCAG 2.2/Structural/Motion layer issues). Useful for baseline/regression
+     * comparison or a custom dashboard without parsing JSON/Excel artifacts.
+     */
+    public static List<AccessibilityFinding> getFindings() {
+        synchronized (FINDINGS) {
+            return Collections.unmodifiableList(new ArrayList<>(FINDINGS));
+        }
+    }
+
+    /** Clears accumulated {@link AccessibilityFinding}s (e.g. between test suites). */
+    public static void resetFindings() {
+        FINDINGS.clear();
+    }
+
+    /** Maps axe-core violations + incomplete rules for one scan into {@link AccessibilityFinding}s. */
+    private static void recordFindings(List<Rule> violations, List<Rule> incomplete, String pageUrl, Results results) {
+        String engineVersion = (results != null && results.getTestEngine() != null)
+                ? results.getTestEngine().getVersion() : null;
+        for (Rule rule : violations) {
+            FINDINGS.addAll(AccessibilityFinding.fromAxeRule(rule, pageUrl, null, engineVersion, false));
+        }
+        for (Rule rule : incomplete) {
+            FINDINGS.addAll(AccessibilityFinding.fromAxeRule(rule, pageUrl, null, engineVersion, true));
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Reporter wiring
     // -----------------------------------------------------------------------
@@ -338,6 +374,7 @@ public class AccessibilityChecker {
             logFindings(pageName, violations, incomplete, tags, scopeInfo);
             logToConsole(pageName, violations);
             writeScanArtifact(pageName, pageUrl, tags, violations, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
+            recordFindings(violations, incomplete, pageUrl, results);
 
             if (!violations.isEmpty() && isFailOnViolation()) {
                 throw new AccessibilityViolationException(buildFailureSummary(pageName, violations));
@@ -388,6 +425,7 @@ public class AccessibilityChecker {
             logFindings(pageName, violations, incomplete, tags, scopeInfo);
             logToConsole(pageName, violations);
             writeScanArtifact(pageName, pageUrl, tags, violations, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
+            recordFindings(violations, incomplete, pageUrl, results);
             if (!violations.isEmpty()) throw new AccessibilityViolationException(buildFailureSummary(pageName, violations));
         } catch (AccessibilityViolationException ave) {
             throw ave;
@@ -1288,6 +1326,7 @@ public class AccessibilityChecker {
                     engine,
                     i.helpUrl,
                     ts});
+                FINDINGS.add(AccessibilityFinding.fromInteractionIssue(i, engine, null, null));
             }
             writeExcelReport();
         } catch (Exception e) {

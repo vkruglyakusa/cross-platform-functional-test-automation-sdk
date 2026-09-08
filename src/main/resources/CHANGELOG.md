@@ -19,9 +19,27 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Added
+- `AccessibilityFinding` — normalized, engine-agnostic accessibility finding model
+  (ruleId, WCAG criterion/level, severity, confidence, affected element
+  selector/HTML, remediation guidance, page URL, test name, timestamp, screenshot
+  path, engine/version). Maps both axe-core `Rule` results (Layer 1, including a
+  new `manual_review` confidence bucket for axe's `incomplete` rules) and custom
+  `AccessibilityChecker.InteractionIssue` results (Interaction/WCAG 2.2/Structural/
+  Motion layers) into one shared shape. Purely additive -- existing
+  `A11yReporter`/JSON/Excel output is unchanged. Accumulated findings are
+  available via new `AccessibilityChecker.getFindings()` / `resetFindings()`.
+  First step of the accessibility architecture roadmap in
+  `docs/proposals/accessibility-strategy.md` (see REQUIRED item 1).
+- `docs/proposals/accessibility-strategy.md` — vendor research (Deque/axe,
+  Level Access, Siteimprove, Microsoft Accessibility Insights, WebAIM WAVE, IBM
+  Equal Access, Pa11y, TPGi ARC, AudioEye) and proposed architecture for
+  incrementally improving our accessibility implementation without adopting a
+  vendor replacement.
+
 > **STATUS as of 2026-09-08 (resume here tomorrow):**
 > - `[1.0.0]` below is prepared and committed (pom.xml bumped, README/CHANGELOG promoted,
->   387/387 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
+>   393/393 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
 >   Unauthorized because `~/.m2/settings.xml` had no `<server>` entry matching this repo's
 >   `distributionManagement` id (`cross-platform-functional-test-automation-sdk`), only
 >   entries for the old `functional-test-automation-sdk`/`azure-artifacts-sdk` ids. The
@@ -31,6 +49,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   staged `pom.xml` or the bundled `src/main/resources/README.md` mirror, so a version
 >   bump and the README mirror sync could silently stay uncommitted after a "successful"
 >   release run. Fixed in this repo's working tree; verify committed before next release.
+> - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
+>   REQUIRED item 1 (`AccessibilityFinding` normalized model) is done. REQUIRED items
+>   2-3 (extract an `AccessibilityEngine` interface; update `AccessibilityExcelReporter`/
+>   `AllureA11yReporter` to consume the normalized model) are still open.
 > - **Next step tomorrow:** re-run `mvn deploy` (credentials now fixed) to actually publish
 >   `cross-platform-functional-test-automation-sdk:1.0.0` to Azure Artifacts, then begin
 >   converting the Poletop project to depend on this new unified SDK (per explicit user
