@@ -20,6 +20,16 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- `execution.Platform` / `execution.RunMode` / `execution.ExecutionContext` /
+  `execution.SessionFactory` / `execution.SessionFactoryRegistry` — new,
+  platform-neutral execution model (Phase 1 of
+  `docs/proposals/unified-sdk-architect-review.md`). Generalizes the mobile-only
+  `ExecutionTarget`/`MobileExecutionStrategy`/`MobileExecutionStrategyFactory`/
+  `MobileSessionRequest` pattern so it can eventually cover web (BrowserStack
+  Automate, not just mobile App Automate) as well as mobile (Android/iOS, local
+  and BrowserStack). Purely additive: no existing class is wired to these new
+  types yet, and no existing behavior changes. 18 new unit tests
+  (`RunModeTest`, `ExecutionContextTest`, `SessionFactoryRegistryTest`).
 - `AccessibilityFinding` — normalized, engine-agnostic accessibility finding model
   (ruleId, WCAG criterion/level, severity, confidence, affected element
   selector/HTML, remediation guidance, page URL, test name, timestamp, screenshot
@@ -51,7 +61,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 > **STATUS as of 2026-09-08 (resume here tomorrow):**
 > - `[1.0.0]` below is prepared and committed (pom.xml bumped, README/CHANGELOG promoted,
->   396/396 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
+>   414/414 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
 >   Unauthorized because `~/.m2/settings.xml` had no `<server>` entry matching this repo's
 >   `distributionManagement` id (`cross-platform-functional-test-automation-sdk`), only
 >   entries for the old `functional-test-automation-sdk`/`azure-artifacts-sdk` ids. The
@@ -61,6 +71,12 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   staged `pom.xml` or the bundled `src/main/resources/README.md` mirror, so a version
 >   bump and the README mirror sync could silently stay uncommitted after a "successful"
 >   release run. Fixed in this repo's working tree; verify committed before next release.
+> - Unified Web+Mobile SDK architecture roadmap
+>   (`docs/proposals/unified-sdk-architect-review.md`) — Phase 1 (new, unwired
+>   `execution.Platform`/`RunMode`/`ExecutionContext`/`SessionFactory`/
+>   `SessionFactoryRegistry` classes) is done. Phases 2-5 (driver/session
+>   unification, config unification, TestBase lifecycle unification, uiActions
+>   migration + compatibility cleanup) are still open.
 > - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
 >   REQUIRED items 1-3 are now done (`AccessibilityFinding` model, `AccessibilityEngine`
 >   interface + `AxeCoreEngine`/`NativeMobileEngine`, and Excel WCAG SC/Confidence
