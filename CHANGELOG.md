@@ -43,6 +43,15 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   `mobile-functional-automation-consumer-template`'s `WikipediaSearchTest`.
 
 ### Removed
+- Illustrative/demo test-tree artifacts that had no place shipping inside a reusable
+  SDK: `mobile.sample.SampleHomePage`/`SampleSmokeTest` (a disabled, illustrative-only
+  page object + smoke test demonstrating `MobileTestBase` usage) and 5 manual/diagnostic
+  harnesses under `mobile.crawler.manual` (`CrawlerEffectivenessCheck`,
+  `DiagnoseNewServiceRequestList`, `HybridWebViewCrawlerValidation`,
+  `LocalEmulatorCrawlerValidation`, `MobileAccessibilityValidation`) that required a
+  real device/emulator to do anything and were never wired into the automated `mvn test`
+  run. None of these had any external references; pure deletion, no code changes
+  elsewhere needed. 451/451 tests still passing, zero regressions.
 - `mobile.uiActions.*` (7 concrete 311-app page objects: `HomePage`,
   `NavigationUtility`, `NewServiceRequestPage`, `NotificationsPage`,
   `PermissionControllerPopUp`, `TermsOfUsePage`, `UserDataPolicyPage`) --

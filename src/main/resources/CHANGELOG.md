@@ -37,11 +37,21 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   overloads (now inherited unchanged from `TestBase`, which already waits generically on the
   `WebElement` itself and works identically for Appium-backed elements). Call sites needing
   Appium-specific APIs (`MobileActions.*`) now cast the shared field via a small
-  `requireAppiumDriver()` helper. Validated both by the SDK's own unit suite (451/451,
-  `BUILD SUCCESS`, zero regressions) and by compiling against a real local Appium 3.0.1
-  server + booted Android emulator (`Medium_Phone_API_36.0`) environment.
+  `requireAppiumDriver()` helper. Validated by the SDK's own unit suite (451/451,
+  `BUILD SUCCESS`, zero regressions); also exercised end-to-end against a real local
+  Appium 3.0.1 server + booted Android emulator (`Medium_Phone_API_36.0`) via
+  `mobile-functional-automation-consumer-template`'s `WikipediaSearchTest`.
 
 ### Removed
+- Illustrative/demo test-tree artifacts that had no place shipping inside a reusable
+  SDK: `mobile.sample.SampleHomePage`/`SampleSmokeTest` (a disabled, illustrative-only
+  page object + smoke test demonstrating `MobileTestBase` usage) and 5 manual/diagnostic
+  harnesses under `mobile.crawler.manual` (`CrawlerEffectivenessCheck`,
+  `DiagnoseNewServiceRequestList`, `HybridWebViewCrawlerValidation`,
+  `LocalEmulatorCrawlerValidation`, `MobileAccessibilityValidation`) that required a
+  real device/emulator to do anything and were never wired into the automated `mvn test`
+  run. None of these had any external references; pure deletion, no code changes
+  elsewhere needed. 451/451 tests still passing, zero regressions.
 - `mobile.uiActions.*` (7 concrete 311-app page objects: `HomePage`,
   `NavigationUtility`, `NewServiceRequestPage`, `NotificationsPage`,
   `PermissionControllerPopUp`, `TermsOfUsePage`, `UserDataPolicyPage`) --
