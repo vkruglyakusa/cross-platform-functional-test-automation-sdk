@@ -165,6 +165,8 @@ public final class AccessibilityExcelReporter {
                 vr.description     = v.path("description").asText("");
                 vr.help    = v.path("help").asText("");
                 vr.helpUrl = v.path("helpUrl").asText("");
+                vr.wcagCriterion = v.path("wcagCriterion").asText("");
+                vr.confidence    = v.path("confidence").asText("");
                 JsonNode elements  = v.path("affectedElements");
                 vr.affectedElementCount = elements.isArray() ? elements.size() : 0;
                 if (elements.isArray() && elements.size() > 0) {
@@ -206,6 +208,8 @@ public final class AccessibilityExcelReporter {
                 vr.description  = issue.path("description").asText("");
                 vr.help         = issue.path("wcagRef").asText("");
                 vr.helpUrl      = issue.path("helpUrl").asText("");
+                vr.wcagCriterion = issue.path("wcagCriterion").asText("");
+                vr.confidence    = issue.path("confidence").asText("");
                 vr.firstAffectedElement = issue.path("element").asText("(element)");
                 vr.affectedElementCount = 1;
                 boolean needsReview = issue.path("needsReview").asBoolean(false);
@@ -348,6 +352,8 @@ public final class AccessibilityExcelReporter {
         sheet.setColumnWidth(7, 60 * 256);
         sheet.setColumnWidth(8, 14 * 256);
         sheet.setColumnWidth(9, 80 * 256);
+        sheet.setColumnWidth(10, 14 * 256);
+        sheet.setColumnWidth(11, 16 * 256);
 
         int row = 0;
         row = writeTitle(sheet, sk, row, "Violations Detail", null);
@@ -356,7 +362,8 @@ public final class AccessibilityExcelReporter {
         row = writeTableHeader(sheet, sk, row,
                 "Timestamp", "Page Name", "Outcome",
                 "Rule ID", "Impact", "Description", "Help",
-                "Help URL", "Affected Elements", "First Element (HTML)");
+                "Help URL", "Affected Elements", "First Element (HTML)",
+                "WCAG SC", "Confidence");
 
         boolean alt = false;
         for (ScanRecord scan : scans) {
@@ -375,6 +382,8 @@ public final class AccessibilityExcelReporter {
                 applyDataStyle(r.createCell(8), sk, alt).setCellValue(vr.affectedElementCount);
                 applyDataStyle(r.createCell(9), sk, alt).setCellValue(
                         vr.firstAffectedElement != null ? vr.firstAffectedElement : "");
+                applyDataStyle(r.createCell(10), sk, alt).setCellValue(vr.wcagCriterion);
+                applyDataStyle(r.createCell(11), sk, alt).setCellValue(vr.confidence);
                 alt = !alt;
             }
         }
@@ -604,6 +613,10 @@ public final class AccessibilityExcelReporter {
         String helpUrl = "";
         int affectedElementCount = 0;
         String firstAffectedElement = null;
+        /** WCAG success criterion, e.g. "1.4.3", or "" when not derivable. Empty for artifacts written before this field existed. */
+        String wcagCriterion = "";
+        /** "violation" | "manual_review", or "" for artifacts written before this field existed. */
+        String confidence = "";
     }
 }
 

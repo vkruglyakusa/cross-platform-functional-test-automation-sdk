@@ -783,6 +783,10 @@ public class AccessibilityChecker {
                 v.put("impact", violation.getImpact() != null ? violation.getImpact().toUpperCase() : "UNKNOWN");
                 v.put("help", violation.getHelp());
                 v.put("helpUrl", violation.getHelpUrl());
+                String wcagCriterion = AccessibilityFinding.extractWcagCriterion(
+                        violation.getTags() != null ? violation.getTags() : Collections.emptyList());
+                v.put("wcagCriterion", wcagCriterion != null ? wcagCriterion : "");
+                v.put("confidence", AccessibilityFinding.CONFIDENCE_VIOLATION);
 
                 ArrayNode nodes = v.putArray("affectedElements");
                 violation.getNodes().stream()
@@ -1304,6 +1308,10 @@ public class AccessibilityChecker {
                 n.put("ruleId", i.ruleId); n.put("impact", i.impact); n.put("wcagRef", i.wcagRef);
                 n.put("description", i.description); n.put("element", i.element != null ? i.element : "");
                 n.put("helpUrl", i.helpUrl); n.put("needsReview", i.needsReview);
+                String wcagCriterion = AccessibilityFinding.extractWcagCriterionFromRef(i.wcagRef);
+                n.put("wcagCriterion", wcagCriterion != null ? wcagCriterion : "");
+                n.put("confidence", i.needsReview
+                        ? AccessibilityFinding.CONFIDENCE_MANUAL_REVIEW : AccessibilityFinding.CONFIDENCE_VIOLATION);
             }
             REPORT_MAPPER.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), root);
 

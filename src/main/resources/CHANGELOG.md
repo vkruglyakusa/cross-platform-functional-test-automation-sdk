@@ -36,10 +36,22 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   Equal Access, Pa11y, TPGi ARC, AudioEye) and proposed architecture for
   incrementally improving our accessibility implementation without adopting a
   vendor replacement.
+- `AccessibilityEngine` — pluggable engine interface (`scan()`, `getEngineName()`,
+  `getEngineVersion()`) so the public accessibility API is not coupled to axe-core.
+  `AxeCoreEngine` (wraps `AccessibilityChecker`) and
+  `com.test.automation.sdk.mobile.accessibility.NativeMobileEngine` (wraps
+  `NativeAccessibilityChecker`) are the two shipped implementations — both
+  additive facades, no change to either underlying checker's static API.
+  Implements REQUIRED item 2 of the accessibility architecture roadmap.
+- `AccessibilityExcelReporter`'s "Violations Detail" sheet now includes **WCAG SC**
+  and **Confidence** columns, sourced from new `wcagCriterion`/`confidence` fields
+  added to the `*_a11y.json` / `*_interaction_*.json` scan artifacts (additive JSON
+  keys; older artifacts without them render blank in the new columns).
+  Implements REQUIRED item 3 of the accessibility architecture roadmap.
 
 > **STATUS as of 2026-09-08 (resume here tomorrow):**
 > - `[1.0.0]` below is prepared and committed (pom.xml bumped, README/CHANGELOG promoted,
->   393/393 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
+>   396/396 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
 >   Unauthorized because `~/.m2/settings.xml` had no `<server>` entry matching this repo's
 >   `distributionManagement` id (`cross-platform-functional-test-automation-sdk`), only
 >   entries for the old `functional-test-automation-sdk`/`azure-artifacts-sdk` ids. The
@@ -50,9 +62,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   bump and the README mirror sync could silently stay uncommitted after a "successful"
 >   release run. Fixed in this repo's working tree; verify committed before next release.
 > - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
->   REQUIRED item 1 (`AccessibilityFinding` normalized model) is done. REQUIRED items
->   2-3 (extract an `AccessibilityEngine` interface; update `AccessibilityExcelReporter`/
->   `AllureA11yReporter` to consume the normalized model) are still open.
+>   REQUIRED items 1-3 are now done (`AccessibilityFinding` model, `AccessibilityEngine`
+>   interface + `AxeCoreEngine`/`NativeMobileEngine`, and Excel WCAG SC/Confidence
+>   columns). RECOMMENDED items (file-based baseline/regression comparison, evidence
+>   collector for screenshot correlation, richer confidence gradient) are still open.
 > - **Next step tomorrow:** re-run `mvn deploy` (credentials now fixed) to actually publish
 >   `cross-platform-functional-test-automation-sdk:1.0.0` to Azure Artifacts, then begin
 >   converting the Poletop project to depend on this new unified SDK (per explicit user
