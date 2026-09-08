@@ -57,7 +57,17 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 		printTestResults(result);
 		ExtentTestManager.getTest().log(Status.FAIL, "Test Failed");
 
-		WebDriver driver = TestBase.driver;
+		// Phase 4 fix: TestBase.driver is now an instance field (was static), so it
+		// can no longer be read via the class-qualified TestBase.driver. Listener is
+		// TestNG-instantiated separately from the actual running test class, so the
+		// only correct way to reach that specific test's driver is via the ITestResult's
+		// own instance -- this is also more correct for parallel execution than a
+		// single shared static ever was.
+		WebDriver driver = null;
+		Object testInstance = result.getInstance();
+		if (testInstance instanceof TestBase) {
+			driver = ((TestBase) testInstance).driver;
+		}
 		if (driver != null) {
 			try {
 				// Guard: check session is still alive before taking screenshot

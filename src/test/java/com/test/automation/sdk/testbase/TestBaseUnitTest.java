@@ -61,6 +61,24 @@ class TestBaseUnitTest extends TestBase {
     }
 
     // -------------------------------------------------------------------------
+    // driver field -- instance, not static (Phase 4 of
+    // docs/proposals/unified-sdk-architect-review.md, section C.5)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("driver is an instance field: two TestBase instances do not share it")
+    void driverField_isInstanceScoped_notSharedAcrossInstances() {
+        TestBase a = new TestBase();
+        TestBase b = new TestBase();
+        WebDriver mockDriver = Mockito.mock(WebDriver.class);
+
+        a.driver = mockDriver;
+
+        assertSame(mockDriver, a.driver, "Instance a should keep the driver assigned to it");
+        assertNull(b.driver, "Instance b must NOT see instance a's driver -- driver must not be static");
+    }
+
+    // -------------------------------------------------------------------------
     // listDifference
     // -------------------------------------------------------------------------
 

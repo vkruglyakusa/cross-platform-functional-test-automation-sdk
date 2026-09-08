@@ -71,7 +71,17 @@ public class TestBase {
     public static final Logger log = LogManager.getLogger(TestBase.class.getName());
     private static final int DEFAULT_WAIT_SECONDS = 60;
     private static final ThreadLocal<String> currentTestCaseName = new ThreadLocal<String>();
-	public static WebDriver driver;
+	/**
+	 * As of Phase 4 of the unified web+mobile SDK architecture
+	 * (docs/proposals/unified-sdk-architect-review.md), this is an instance
+	 * field, not static -- fixes a real thread-safety gap (section C.5):
+	 * TestNG already gives each test class its own {@code TestBase} instance,
+	 * so an instance field is both correct and sufficient for today's
+	 * single-threaded-per-class execution model, without requiring a
+	 * {@code ThreadLocal}. {@code AppiumDriver} IS-A {@code WebDriver}, so
+	 * this same field can eventually host a mobile session too.
+	 */
+	public WebDriver driver;
 	Object[][] excelData;
 	static Excel_Reader testData;
 	public File f;
@@ -775,7 +785,7 @@ public class TestBase {
 	 * @param element
 	 * @return
 	 */
-	public static WebElement waitForElementPresent(WebElement element) {
+	public WebElement waitForElementPresent(WebElement element) {
 		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
 		long startTime = System.currentTimeMillis();
 		wait.until(ExpectedConditions.visibilityOf(element));
@@ -803,7 +813,7 @@ public class TestBase {
 	 * @param element target element
 	 * @return the same element
 	 */
-	public static WebElement fluentWaitForElement(WebElement element) {
+	public WebElement fluentWaitForElement(WebElement element) {
 		log.info("fluent waiting for present of element present - " + element.toString());
 		long startTime = System.currentTimeMillis();
 		FluentWait<WebDriver> fWait = new FluentWait<WebDriver>(driver).withTimeout(Duration.ofSeconds(120))
@@ -848,7 +858,7 @@ public class TestBase {
 	 * Method will put test execution on hold until page is loaded
 	 *
 	 */
-	public static WebElement fluentWaitUntilElementToBeClickable(WebElement element) {
+	public WebElement fluentWaitUntilElementToBeClickable(WebElement element) {
 		log.info("waiting for state of element to be clickable :" + element.toString());
 		FluentWait<WebDriver> fWait = new FluentWait<WebDriver>(driver).withTimeout(Duration.ofSeconds(120))
 				.pollingEvery(Duration.ofSeconds(5)).ignoring(NoSuchElementException.class, TimeoutException.class)
@@ -872,7 +882,7 @@ public class TestBase {
 	 * Method will put test execution on hold until page is loaded
 	 *
 	 */
-	public static WebElement waitUntilElementToBeClickable(WebElement element) {
+	public WebElement waitUntilElementToBeClickable(WebElement element) {
 		log.info("waiting for state of element to be clickable :" + element.toString());
 		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
 		long startTime = System.currentTimeMillis();
@@ -941,7 +951,7 @@ public class TestBase {
 	/**
 	 * Method will put test execution on hold until page is loaded
 	 */
-	public static void waitUntillPageLoad() {
+	public void waitUntillPageLoad() {
 		log.info("Waiting for page [" + driver.getCurrentUrl() + "] to load....");
 		long startTime = System.currentTimeMillis();
 		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(120));
@@ -1215,7 +1225,7 @@ public class TestBase {
 	 *
 	 * @param element
 	 */
-	public static void reloadPageUntilWebElementVisible(WebElement element) {
+	public void reloadPageUntilWebElementVisible(WebElement element) {
 		int reloadCounter = 0;
 		do {
 			driver.navigate().refresh();

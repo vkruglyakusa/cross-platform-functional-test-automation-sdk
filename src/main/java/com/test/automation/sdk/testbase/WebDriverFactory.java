@@ -283,7 +283,7 @@ public class WebDriverFactory {
     }
 
     private static WebDriver wrapWithEventListener(WebDriver rawDriver) {
-        WebEventListener listener = new WebEventListener();
+        WebEventListener listener = new WebEventListener(rawDriver);
         return new EventFiringDecorator<WebDriver>(listener).decorate(rawDriver);
     }
 }

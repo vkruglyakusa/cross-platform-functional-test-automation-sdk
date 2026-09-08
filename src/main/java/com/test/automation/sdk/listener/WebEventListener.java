@@ -46,6 +46,23 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     public static final Logger log = LogManager.getLogger(WebEventListener.class.getName());
 
+    /**
+     * Phase 4 fix: {@code TestBase.driver} is now an instance field (was static).
+     * {@link WebDriverFactory} constructs this listener as a standalone object --
+     * not as the actual running test's {@code TestBase} instance -- and decorates
+     * it around that test's real driver via {@code EventFiringDecorator}. Under
+     * the old static-field design this "just worked" because every {@code TestBase}
+     * instance shared one process-wide static slot; now the raw driver must be
+     * passed in explicitly so {@code this.driver} (used by
+     * {@link #checkElementAccessibility}) is actually populated.
+     *
+     * @param driver the real WebDriver session being decorated/observed
+     */
+    public WebEventListener(WebDriver driver) {
+        this.driver = driver;
+    }
+
+
     // -------------------------------------------------------------------------
     // Click
     // -------------------------------------------------------------------------

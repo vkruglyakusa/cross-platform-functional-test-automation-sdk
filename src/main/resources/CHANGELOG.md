@@ -19,6 +19,42 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- `testbase.TestBase.driver` is now an **instance field** (was
+  `public static WebDriver driver`) -- Phase 4 of
+  `docs/proposals/unified-sdk-architect-review.md`, section C.5. Fixes a
+  real thread-safety gap: previously every `TestBase`-family object in the
+  JVM (test classes, `Listener`, `WebEventListener`) shared one process-wide
+  driver slot. TestNG already gives each test class its own instance, so an
+  instance field is correct without needing a `ThreadLocal`.
+  Two call sites relied on the old static-sharing behavior and required a
+  matching fix so failure-capture and accessibility scanning keep working
+  unchanged:
+  - `listener.Listener.onTestFailure(...)` no longer reads the removed
+    `TestBase.driver` static reference; it now resolves the actual test's
+    driver via `ITestResult.getInstance()` -- which is also more correct
+    for parallel execution than a single shared static ever was.
+  - `listener.WebEventListener` (constructed standalone by
+    `testbase.WebDriverFactory`, then wrapped around the real session via
+    `EventFiringDecorator`) now takes the driver as a constructor argument
+    instead of implicitly inheriting it from the old shared static slot, so
+    its element-level accessibility scan (`checkElementAccessibility`)
+    keeps working.
+  Six `TestBase` helper methods that reference the bare `driver` field lost
+  their now-inapplicable `static` modifier: `waitForElementPresent(WebElement)`,
+  `fluentWaitForElement(WebElement)`, `fluentWaitUntilElementToBeClickable(WebElement)`,
+  `waitUntilElementToBeClickable(WebElement)`, `waitUntillPageLoad()`,
+  `reloadPageUntilWebElementVisible(WebElement)`. No web or mobile consumer
+  call site was found to call these statically (all use inheritance), so
+  this is expected to be transparent to existing tests. 2 new unit tests.
+  `mobile.testbase.MobileTestBase`'s own merge into `TestBase` (making it
+  `extends TestBase` and sharing this same field) is deferred to a follow-up
+  pass -- `MobileTestBase` currently declares its own `@BeforeClass`/`@AfterClass`
+  configuration methods, and naively extending `TestBase` would make TestNG
+  run **both** the web and mobile setup/teardown methods for every mobile
+  test class, which cannot be safely verified without an actual
+  Appium/device-farm run (not available in this environment).
+
 ### Added
 - `config.SdkConfig` / `config.YamlConfigReader` -- Phase 3 of
   `docs/proposals/unified-sdk-architect-review.md`. Merges the previously
@@ -93,7 +129,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 > **STATUS as of 2026-09-08 (resume here tomorrow):**
 > - `[1.0.0]` below is prepared and committed (pom.xml bumped, README/CHANGELOG promoted,
->   449/449 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
+>   451/451 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
 >   Unauthorized because `~/.m2/settings.xml` had no `<server>` entry matching this repo's
 >   `distributionManagement` id (`cross-platform-functional-test-automation-sdk`), only
 >   entries for the old `functional-test-automation-sdk`/`azure-artifacts-sdk` ids. The
@@ -105,10 +141,13 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   release run. Fixed in this repo's working tree; verify committed before next release.
 > - Unified Web+Mobile SDK architecture roadmap
 >   (`docs/proposals/unified-sdk-architect-review.md`) — Phase 1 (execution
->   model), Phase 2 (DriverManager + 6 SessionFactory implementations), and
->   Phase 3 (config.SdkConfig + config.YamlConfigReader unification) are
->   done. Phases 4-5 (TestBase lifecycle unification, uiActions migration +
->   compatibility cleanup) are still open.
+>   model), Phase 2 (DriverManager + 6 SessionFactory implementations),
+>   Phase 3 (config.SdkConfig + config.YamlConfigReader unification), and
+>   Phase 4 (TestBase.driver static-to-instance thread-safety fix, with
+>   matching Listener/WebEventListener fixes) are done. `MobileTestBase`'s
+>   structural merge into `TestBase` (`extends TestBase`) remains open,
+>   deferred pending real Appium/device-farm validation. Phase 5
+>   (uiActions migration + compatibility cleanup) is still open.
 > - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
 >   REQUIRED items 1-3 are now done (`AccessibilityFinding` model, `AccessibilityEngine`
 >   interface + `AxeCoreEngine`/`NativeMobileEngine`, and Excel WCAG SC/Confidence
