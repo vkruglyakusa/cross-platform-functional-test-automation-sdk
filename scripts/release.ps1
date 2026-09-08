@@ -213,8 +213,8 @@ Write-Host ""
 Write-Host "[5/7] Committing SDK README.md and CHANGELOG.md..."
 
 Set-Location $root
-git add README.md SDK-USER-GUIDE.md CHANGELOG.md src\main\resources\CHANGELOG.md src\main\resources\SDK-USER-GUIDE.md
-$gitStatus = git status --porcelain README.md SDK-USER-GUIDE.md CHANGELOG.md src\main\resources\CHANGELOG.md src\main\resources\SDK-USER-GUIDE.md
+git add pom.xml README.md SDK-USER-GUIDE.md CHANGELOG.md src\main\resources\README.md src\main\resources\CHANGELOG.md src\main\resources\SDK-USER-GUIDE.md
+$gitStatus = git status --porcelain pom.xml README.md SDK-USER-GUIDE.md CHANGELOG.md src\main\resources\README.md src\main\resources\CHANGELOG.md src\main\resources\SDK-USER-GUIDE.md
 if ($gitStatus) {
     $commitMsg = "docs: release v$version -- update README, SDK-USER-GUIDE, and CHANGELOG"
     git commit -m $commitMsg

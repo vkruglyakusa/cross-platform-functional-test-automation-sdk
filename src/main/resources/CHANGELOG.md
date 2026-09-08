@@ -19,6 +19,25 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+> **STATUS as of 2026-09-08 (resume here tomorrow):**
+> - `[1.0.0]` below is prepared and committed (pom.xml bumped, README/CHANGELOG promoted,
+>   387/387 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
+>   Unauthorized because `~/.m2/settings.xml` had no `<server>` entry matching this repo's
+>   `distributionManagement` id (`cross-platform-functional-test-automation-sdk`), only
+>   entries for the old `functional-test-automation-sdk`/`azure-artifacts-sdk` ids. The
+>   missing `<server>` entry has been added locally to `~/.m2/settings.xml` (not a repo
+>   file, so nothing to commit there) -- deploy has not been re-attempted yet, by request.
+> - Also fixed a `scripts/release.ps1` bug while investigating: Step 5's git commit never
+>   staged `pom.xml` or the bundled `src/main/resources/README.md` mirror, so a version
+>   bump and the README mirror sync could silently stay uncommitted after a "successful"
+>   release run. Fixed in this repo's working tree; verify committed before next release.
+> - **Next step tomorrow:** re-run `mvn deploy` (credentials now fixed) to actually publish
+>   `cross-platform-functional-test-automation-sdk:1.0.0` to Azure Artifacts, then begin
+>   converting the Poletop project to depend on this new unified SDK (per explicit user
+>   request -- neither consumer template has been touched yet; both still point at the
+>   old, separate `functional-test-automation-sdk`/`mobile-functional-test-automation-sdk`
+>   artifacts).
+
 ---
 
 ## [1.0.0] — 2026-09-08
