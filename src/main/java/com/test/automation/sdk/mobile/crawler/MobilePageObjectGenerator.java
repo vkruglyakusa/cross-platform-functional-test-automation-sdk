@@ -31,7 +31,7 @@ public final class MobilePageObjectGenerator {
         if (v != null && !v.isEmpty()) {
             return v;
         }
-        return MobileConfigReader.get("crawler.pageObject.package", "com.test.automation.sdk.mobile.uiActions");
+        return MobileConfigReader.get("crawler.pageObject.package", "com.mycompany.automation.uiActions");
     }
 
     /** Resolution order: {@code -Dpog.mobile.outputDir} &gt; {@code mobile-config.yaml crawler.pageObject.outputDir} &gt; default. */

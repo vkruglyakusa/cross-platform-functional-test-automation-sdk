@@ -19,6 +19,31 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Removed
+- `mobile.uiActions.*` (7 concrete 311-app page objects: `HomePage`,
+  `NavigationUtility`, `NewServiceRequestPage`, `NotificationsPage`,
+  `PermissionControllerPopUp`, `TermsOfUsePage`, `UserDataPolicyPage`) --
+  Phase 5 of `docs/proposals/unified-sdk-architect-review.md`, section C.6.
+  App-specific page objects have no architectural justification inside a
+  reusable SDK (the mature web SDK correctly has zero page objects of its
+  own). `mobile-functional-automation-consumer-template`'s
+  `OnboardingAndHomeSmokeTest` directly imported `NavigationUtility` and
+  `NewServiceRequestPage`, and `NavigationUtility` itself instantiates the
+  other 5 classes internally -- all 7 were coordinated-migrated (not just
+  deprecated) into that consumer template's own `com.yourcompany.automation.uiActions`
+  package first, and its two imports updated, before deleting the SDK-side
+  originals. Verified the consumer template still compiles
+  (`mvn compile test-compile`) against the relocated classes. Also removed
+  the SDK's own disabled, unreferenced sample test
+  (`mobile.samples.onboarding.OnboardingAndHomeSmokeTest`) that depended on
+  these same classes purely for demonstration purposes -- the consumer
+  template's own enabled copy is the canonical version. `mobile.crawler.MobilePageObjectGenerator`'s
+  default `crawler.pageObject.package` fallback changed from the now-deleted
+  `com.test.automation.sdk.mobile.uiActions` to the generic
+  `com.mycompany.automation.uiActions` placeholder, matching the web
+  crawler's existing convention. No new unit tests (pure deletion +
+  cross-repo migration); 451/451 tests still passing, zero regressions.
+
 ### Fixed
 - `testbase.TestBase.driver` is now an **instance field** (was
   `public static WebDriver driver`) -- Phase 4 of
@@ -140,14 +165,18 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   bump and the README mirror sync could silently stay uncommitted after a "successful"
 >   release run. Fixed in this repo's working tree; verify committed before next release.
 > - Unified Web+Mobile SDK architecture roadmap
->   (`docs/proposals/unified-sdk-architect-review.md`) — Phase 1 (execution
->   model), Phase 2 (DriverManager + 6 SessionFactory implementations),
->   Phase 3 (config.SdkConfig + config.YamlConfigReader unification), and
->   Phase 4 (TestBase.driver static-to-instance thread-safety fix, with
->   matching Listener/WebEventListener fixes) are done. `MobileTestBase`'s
->   structural merge into `TestBase` (`extends TestBase`) remains open,
->   deferred pending real Appium/device-farm validation. Phase 5
->   (uiActions migration + compatibility cleanup) is still open.
+>   (`docs/proposals/unified-sdk-architect-review.md`) — all 5 phases are now
+>   done: Phase 1 (execution model), Phase 2 (DriverManager + 6
+>   SessionFactory implementations), Phase 3 (config.SdkConfig +
+>   config.YamlConfigReader unification), Phase 4 (TestBase.driver
+>   static-to-instance thread-safety fix, with matching Listener/WebEventListener
+>   fixes), and Phase 5 (removed `mobile.uiActions/*` app-specific page
+>   objects from the SDK, coordinated-migrated into
+>   `mobile-functional-automation-consumer-template`'s own `uiActions`
+>   package). `MobileTestBase`'s structural merge into `TestBase` (`extends
+>   TestBase`) remains open, deferred pending real Appium/device-farm
+>   validation -- not part of any phase's required scope, called out
+>   separately during Phase 4.
 > - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
 >   REQUIRED items 1-3 are now done (`AccessibilityFinding` model, `AccessibilityEngine`
 >   interface + `AxeCoreEngine`/`NativeMobileEngine`, and Excel WCAG SC/Confidence
