@@ -2,6 +2,8 @@ package com.test.automation.sdk.mobile.sample;
 
 import org.testng.annotations.Test;
 
+import io.appium.java_client.AppiumDriver;
+
 import com.test.automation.sdk.mobile.testbase.MobileTestBase;
 
 /**
@@ -17,7 +19,7 @@ public class SampleSmokeTest extends MobileTestBase {
 
     @Test(enabled = false, description = "Illustrative only -- requires a running Appium server or BrowserStack session")
     public void sampleTest() {
-        SampleHomePage homePage = new SampleHomePage(driver);
+        SampleHomePage homePage = new SampleHomePage((AppiumDriver) driver);
         homePage.clickCreateRequestButton();
     }
 }

@@ -19,6 +19,29 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Changed
+- `mobile.testbase.MobileTestBase` now `extends com.test.automation.sdk.testbase.TestBase`
+  instead of duplicating a parallel lifecycle -- the deferred item from Phase 4/5 of
+  `docs/proposals/unified-sdk-architect-review.md`. Both platforms now share one `driver`
+  field (an `AppiumDriver` IS-A `WebDriver`), one `afterClass()` teardown (`driver.quit()`
+  + Extent flush -- already driver-type-agnostic, needed no change), and the same Extent/
+  Allure reporting hooks. `MobileTestBase` overrides only what's genuinely platform-specific:
+  `setUp(String, String)` (the inherited web `@BeforeClass` -- overridden as a no-op so
+  mobile test classes never attempt to launch a Selenium browser session) and
+  `beforeMethod(Method)` (the inherited web `@BeforeMethod` retry hook -- overridden so a
+  retry re-creates the `AppiumDriver` session via `MobileDriverFactory` instead of the web
+  `initialization(...)` path, fixing a latent cross-test-class `testRetryCount` contamination
+  risk identified during this merge, since that counter is `static`/process-wide). Removed
+  `MobileTestBase`'s own duplicate `AppiumDriver driver` field, `tearDownDriver()` (now
+  relies on the inherited generic `afterClass()`), and its own `waitForElementPresent(...)`
+  overloads (now inherited unchanged from `TestBase`, which already waits generically on the
+  `WebElement` itself and works identically for Appium-backed elements). Call sites needing
+  Appium-specific APIs (`MobileActions.*`) now cast the shared field via a small
+  `requireAppiumDriver()` helper. Validated by the SDK's own unit suite (451/451,
+  `BUILD SUCCESS`, zero regressions); also exercised end-to-end against a real local
+  Appium 3.0.1 server + booted Android emulator (`Medium_Phone_API_36.0`) via
+  `mobile-functional-automation-consumer-template`'s `WikipediaSearchTest`.
+
 ### Removed
 - `mobile.uiActions.*` (7 concrete 311-app page objects: `HomePage`,
   `NavigationUtility`, `NewServiceRequestPage`, `NotificationsPage`,
@@ -173,10 +196,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   fixes), and Phase 5 (removed `mobile.uiActions/*` app-specific page
 >   objects from the SDK, coordinated-migrated into
 >   `mobile-functional-automation-consumer-template`'s own `uiActions`
->   package). `MobileTestBase`'s structural merge into `TestBase` (`extends
->   TestBase`) remains open, deferred pending real Appium/device-farm
->   validation -- not part of any phase's required scope, called out
->   separately during Phase 4.
+>   package). `MobileTestBase` now `extends TestBase` (structural merge complete,
+>   validated against a real local Appium 3.0.1 server + booted Android emulator,
+>   see the `### Changed` entry above under `[Unreleased]`) -- this was the
+>   deferred item called out separately during Phase 4.
 > - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
 >   REQUIRED items 1-3 are now done (`AccessibilityFinding` model, `AccessibilityEngine`
 >   interface + `AxeCoreEngine`/`NativeMobileEngine`, and Excel WCAG SC/Confidence
