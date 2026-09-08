@@ -18,6 +18,7 @@ For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, se
 | `MobileScreenSnapshot` | `com.test.automation.sdk.mobile.crawler` | Result of one crawl: native elements (`getNativeElements()`) + per-context WebView DOM elements (`getWebViewElements()`). |
 | `MobilePageObjectGenerator` | `com.test.automation.sdk.mobile.crawler` | Emits a starter `uiActions` Java file from a `MobileScreenSnapshot`, mirroring the desktop `PageObjectGenerator`. |
 | `MobileDataDrivenCrawler` | `com.test.automation.sdk.mobile.crawler` | Mobile analogue of the desktop `DataDrivenCrawler` -- re-crawls after each simulated step for dynamic native forms. |
+| `NativeAccessibilityChecker` | `com.test.automation.sdk.mobile.accessibility` | Free, page-source-based accessibility audit for native (non-WebView) Android/iOS screens (see Section 7, Accessibility Testing). |
 
 ---
 
@@ -189,7 +190,58 @@ See `GETTING-STARTED.md` Track B / Track C for the exact setup steps for each.
 
 ---
 
-## 6. Related Docs
+## 6. Accessibility Testing
+
+Mobile accessibility splits into two completely different mechanisms depending on
+whether the current screen is native or WebView-hosted -- there is no single tool
+that covers both.
+
+| Context | Mechanism | Class | Coverage |
+|---|---|---|---|
+| Hybrid-app **WebView** content | axe-core (same engine as web) | `com.test.automation.sdk.accessibility.AccessibilityChecker` | Full axe-core ruleset (contrast, ARIA, labels, etc.) -- works because an `AppiumDriver` switched into a `WEBVIEW_*` context *is* a `WebDriver`/`JavascriptExecutor`, so no separate implementation is needed (see Section 4). |
+| **Native** Android/iOS screens | Page-source attribute analysis (no axe-core -- no DOM to inject into) | `com.test.automation.sdk.mobile.accessibility.NativeAccessibilityChecker` | Missing accessible names, unlabeled text-entry fields, duplicate accessible names, undersized touch targets. **No color-contrast check** -- the page source carries no rendering/paint information. |
+
+`A11ySessionManager.shouldScan()` automatically **skips** any scan attempted
+against a native (non-`WEBVIEW_*`) Appium context, so enabling
+`accessibility.checking.enabled=true` for a mobile suite never throws against a
+native screen -- it simply does nothing there. Call `NativeAccessibilityChecker`
+explicitly to get native-screen coverage:
+
+```java
+List<NativeAccessibilityIssue> issues = NativeAccessibilityChecker.check(driver, "LoginScreen");
+for (NativeAccessibilityIssue issue : issues) {
+    log.warn(issue.toString());
+}
+```
+
+Or, for unit testing against a captured `getPageSource()` fixture with no live
+device (the same pattern `NativeAccessibilityCheckerTest` uses):
+
+```java
+String pageSource = ...; // captured getPageSource() XML
+List<NativeAccessibilityIssue> issues =
+        NativeAccessibilityChecker.check(pageSource, "android", "LoginScreen");
+```
+
+### 6.1 Known limitations
+
+- **Touch-target sizing uses raw device pixels**, not density-independent
+  units. Appium's `bounds`/`frame` attributes are raw pixels, so this check
+  under-reports violations on higher-density displays -- treat a "pass" here
+  as inconclusive on an unknown-density device, not a guarantee.
+- **No color-contrast check** -- would require rendering/paint data the page
+  source does not carry.
+- For deeper Android-only coverage, Google's open-source [Accessibility Test
+  Framework (ATF)](https://github.com/google/Accessibility-Test-Framework-for-Android)
+  has a much larger ruleset (including contrast), but consumes a live `View`/
+  `AccessibilityNodeInfo` tree from an Espresso/instrumentation test -- it is
+  not a drop-in for an Appium-based suite and has no iOS equivalent, so it
+  would only ever extend Android coverage, never replace
+  `NativeAccessibilityChecker` for iOS.
+
+---
+
+## 7. Related Docs
 
 - [`GETTING-STARTED.md`](GETTING-STARTED.md) -- setup steps for all three tracks (Web / Mobile-Local / Mobile-BrowserStack).
 - [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md) -- web/desktop equivalent of this guide.

@@ -30,6 +30,19 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   369 total passing (was 365).
 
 ### Added
+- **`NativeAccessibilityChecker`/`NativeAccessibilityIssue`**
+  (`com.test.automation.sdk.mobile.accessibility`) -- free, dependency-free accessibility
+  audit for native (non-WebView) Android/iOS screens, derived entirely from Appium's
+  `getPageSource()` XML (no axe-core, since native screens have no DOM to inject into).
+  Checks: `missing-accessible-name`, `unlabeled-editable-field`,
+  `duplicate-accessible-name`, `touch-target-too-small` (48x48dp Android / 44x44pt iOS,
+  raw-pixel limitation documented). Works identically on Android and iOS from one
+  implementation. Complements `AccessibilityChecker` (axe-core) for hybrid-app WebView
+  content -- see `MOBILE-USER-GUIDE.md` Section 6, Accessibility Testing, for the full
+  native-vs-WebView breakdown and why Google's Accessibility Test Framework (ATF) was
+  evaluated and not chosen (Android-only, requires a live View/instrumentation tree,
+  no iOS equivalent). 14 new tests (`NativeAccessibilityCheckerTest`); 383 total passing
+  (was 369).
 - `ElementCrawler.safeClick(WebDriver, WebElement)` -- scrolls into view, attempts a
   plain click, and retries once via a JS-executed click only on
   `ElementClickInterceptedException` (sticky footers, snackbars, CDK/Angular Material
