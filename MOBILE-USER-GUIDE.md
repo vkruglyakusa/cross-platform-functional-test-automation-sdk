@@ -10,12 +10,14 @@ For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, se
 
 | Class | Package | Purpose |
 |---|---|---|
-| `MobileTestBase` | `com.test.automation.sdk.mobile.testbase` | Base class for mobile test classes; owns the `AppiumDriver` lifecycle (`@BeforeClass`/`@AfterClass`). |
-| `MobileDriverFactory` | `com.test.automation.sdk.mobile.testbase` | Builds an `AndroidDriver`/`IOSDriver` from `mobile-config.yaml` (local Appium) or `browserstack.yml.example.mobile` (BrowserStack App Automate), selected via `ExecutionTarget`. |
-| `ExecutionTarget` | `com.test.automation.sdk.mobile.testbase` | Enum/strategy that picks local-Appium vs. BrowserStack execution based on config. |
+| `MobileTestBase` | `com.test.automation.sdk.mobile.testbase` | Base class for mobile test classes; owns the `AppiumDriver` lifecycle (`@BeforeClass`/`@AfterClass`) and common wait/click helpers. Full API: [`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md). |
+| `MobileDriverFactory` | `com.test.automation.sdk.mobile.driver` | Builds an `AndroidDriver`/`IOSDriver` from `mobile-config.yaml` (local Appium) or `browserstack.yml.example.mobile` (BrowserStack App Automate), selected via `ExecutionTarget`. |
+| `ExecutionTarget` | `com.test.automation.sdk.mobile.execution` | Enum + `resolve()` strategy that picks `LOCAL` vs. `BROWSERSTACK` execution based on `-Dmobile.execution.target` (or the legacy `-DtestInBrowserstack` flag). |
+| `MobileActions` | `com.test.automation.sdk.mobile.actions` | Static gesture/action helpers (tap, longPress, swipe, scrollToElement, hideKeyboard) that `MobileTestBase` and page objects call into. |
 | `MobileElementCrawler` | `com.test.automation.sdk.mobile.crawler` | Crawls the current screen (native XML tree) into locator candidates; also detects and delegates any active WebView content (see Section 4, Hybrid App Testing). |
 | `MobileScreenSnapshot` | `com.test.automation.sdk.mobile.crawler` | Result of one crawl: native elements (`getNativeElements()`) + per-context WebView DOM elements (`getWebViewElements()`). |
 | `MobilePageObjectGenerator` | `com.test.automation.sdk.mobile.crawler` | Emits a starter `uiActions` Java file from a `MobileScreenSnapshot`, mirroring the desktop `PageObjectGenerator`. |
+| `MobileDataDrivenCrawler` | `com.test.automation.sdk.mobile.crawler` | Mobile analogue of the desktop `DataDrivenCrawler` -- re-crawls after each simulated step for dynamic native forms. |
 
 ---
 
@@ -189,7 +191,9 @@ See `GETTING-STARTED.md` Track B / Track C for the exact setup steps for each.
 
 ## 6. Related Docs
 
-- `GETTING-STARTED.md` -- setup steps for all three tracks (Web / Mobile-Local / Mobile-BrowserStack).
-- `SDK-USER-GUIDE.md` -- web/desktop equivalent of this guide.
-- `TESTBASE-API.md` -- full API reference (web); mobile API reference is pending (see `CHANGELOG.md`).
+- [`GETTING-STARTED.md`](GETTING-STARTED.md) -- setup steps for all three tracks (Web / Mobile-Local / Mobile-BrowserStack).
+- [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md) -- web/desktop equivalent of this guide.
+- [`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md) -- full `MobileTestBase`/`MobileActions` API reference (mobile analogue of `TESTBASE-API.md`).
+- [`TESTBASE-API.md`](TESTBASE-API.md) -- full API reference (web).
+- [`README.md`](README.md) -- top-level navigation hub for both products.
 - `.github/instructions/locator-strategy.instructions.md` -- locator uniqueness rules shared by both web and mobile crawlers, including the map-widget and shadow-DOM sections.
