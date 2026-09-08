@@ -1,6 +1,7 @@
 package com.test.automation.sdk.accessibility;
 
 import com.test.automation.sdk.accessibility.config.A11yConfig;
+import io.appium.java_client.remote.SupportsContextSwitching;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.support.events.EventFiringDecorator;
@@ -351,6 +352,10 @@ public final class A11ySessionManager {
         }
         if (!A11yConfig.getBoolean("accessibility.checking.enabled", false)) {
             return new ScanDecision(false, "accessibility.checking.enabled=false");
+        }
+        if (isMobileNativeContext(driver)) {
+            return new ScanDecision(false, "mobile driver is in a native (non-WebView) context -- "
+                    + "axe-core requires a DOM to inject into, scan skipped (see MOBILE-USER-GUIDE.md Hybrid App Testing)");
         }
 
         String url = tryGetUrl(driver);
@@ -744,6 +749,29 @@ public final class A11ySessionManager {
     private static String tryGetUrl(WebDriver driver) {
         try { return driver.getCurrentUrl(); }
         catch (Exception e) { return null; }
+    }
+
+    /**
+     * True when {@code driver} is a mobile (Appium) driver currently in a native
+     * (non-WebView) context. Native Android/iOS screens have no DOM at all, so
+     * axe-core's {@code JavascriptExecutor}-based injection has nothing to scan --
+     * without this guard, {@link AccessibilityChecker} throws on every native-screen
+     * test once accessibility scanning is enabled for a mobile suite. Web/desktop
+     * drivers (not {@link SupportsContextSwitching}) always return {@code false} here
+     * and are unaffected.
+     */
+    private static boolean isMobileNativeContext(WebDriver driver) {
+        if (!(driver instanceof SupportsContextSwitching)) {
+            return false;
+        }
+        try {
+            String context = ((SupportsContextSwitching) driver).getContext();
+            return context == null || !context.startsWith("WEBVIEW");
+        } catch (Exception e) {
+            // Context could not be determined -- be conservative and skip rather than
+            // let axe-core throw against an unknown/native context.
+            return true;
+        }
     }
 
     static String abbreviate(String url) {

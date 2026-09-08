@@ -19,6 +19,16 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **`A11ySessionManager.shouldScan`:** added a mobile native-context guard. Native
+  Android/iOS Appium screens (`NATIVE_APP` context) have no DOM, so axe-core's
+  `JavascriptExecutor`-based injection previously threw once `accessibility.checking.enabled`
+  was turned on for a mobile suite (confirmed via a manual validation harness against a live
+  emulator). The scan is now skipped with a clear log reason for any driver in a native
+  (non-`WEBVIEW_*`) Appium context; scanning against hybrid-app WebView contexts and plain
+  desktop `WebDriver`s is unaffected. 4 new tests (`A11ySessionManagerMobileContextTest`);
+  369 total passing (was 365).
+
 ### Added
 - `ElementCrawler.safeClick(WebDriver, WebElement)` -- scrolls into view, attempts a
   plain click, and retries once via a JS-executed click only on
