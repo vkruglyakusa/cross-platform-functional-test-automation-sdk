@@ -20,6 +20,23 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- `config.SdkConfig` / `config.YamlConfigReader` -- Phase 3 of
+  `docs/proposals/unified-sdk-architect-review.md`. Merges the previously
+  duplicated `testbase.SdkConfig`/`mobile.testbase.MobileSdkConfig`
+  directory-resolution algorithm into one class (now recognizes the legacy
+  `-Dmobile.sdk.config.dir`/`MOBILE_SDK_CONFIG_DIR` overrides as a fallback
+  too), and adds a platform-neutral facade in front of the existing,
+  untouched `utility.YamlConfigReader` parser/singleton. `sdk-config.yaml`
+  gains built-in defaults for `appium.localUrl`, `android.automationName`,
+  and `ios.automationName`, so `android:`/`ios:` sections can now be
+  configured directly in the single unified file. `testbase.SdkConfig` and
+  `mobile.testbase.MobileSdkConfig` are unchanged from a consumer's
+  perspective (same public static fields, same values) but now delegate to
+  `config.SdkConfig` internally -- zero behavior change for existing web or
+  mobile consumers. `mobile.config.MobileConfigReader` still honors a
+  standalone `mobile-config.yaml` unchanged when present (one-release
+  fallback), and now falls back to reading the same dotted keys from the
+  unified `sdk-config.yaml` when that file is absent. 18 new unit tests.
 - `driver.DriverManager` / `driver.web.{WebLocalSessionFactory,WebBrowserStackSessionFactory}` /
   `driver.mobile.{Android,Ios}{Local,BrowserStack}SessionFactory` / `driver.BrowserStackSupport`
   — Phase 2 of `docs/proposals/unified-sdk-architect-review.md`. One public
@@ -76,7 +93,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 > **STATUS as of 2026-09-08 (resume here tomorrow):**
 > - `[1.0.0]` below is prepared and committed (pom.xml bumped, README/CHANGELOG promoted,
->   431/431 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
+>   449/449 tests passing) but **NOT YET DEPLOYED** -- `mvn deploy` failed with 401
 >   Unauthorized because `~/.m2/settings.xml` had no `<server>` entry matching this repo's
 >   `distributionManagement` id (`cross-platform-functional-test-automation-sdk`), only
 >   entries for the old `functional-test-automation-sdk`/`azure-artifacts-sdk` ids. The
@@ -88,9 +105,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   release run. Fixed in this repo's working tree; verify committed before next release.
 > - Unified Web+Mobile SDK architecture roadmap
 >   (`docs/proposals/unified-sdk-architect-review.md`) — Phase 1 (execution
->   model) and Phase 2 (DriverManager + 6 SessionFactory implementations) are
->   done. Phases 3-5 (config unification, TestBase lifecycle unification,
->   uiActions migration + compatibility cleanup) are still open.
+>   model), Phase 2 (DriverManager + 6 SessionFactory implementations), and
+>   Phase 3 (config.SdkConfig + config.YamlConfigReader unification) are
+>   done. Phases 4-5 (TestBase lifecycle unification, uiActions migration +
+>   compatibility cleanup) are still open.
 > - Accessibility architecture roadmap (`docs/proposals/accessibility-strategy.md`)
 >   REQUIRED items 1-3 are now done (`AccessibilityFinding` model, `AccessibilityEngine`
 >   interface + `AxeCoreEngine`/`NativeMobileEngine`, and Excel WCAG SC/Confidence

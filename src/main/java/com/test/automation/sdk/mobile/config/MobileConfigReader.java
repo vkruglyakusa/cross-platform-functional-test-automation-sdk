@@ -26,21 +26,33 @@ import com.test.automation.sdk.mobile.testbase.MobileSdkConfig;
  *     deviceName: Pixel_6_API_34
  *
  * is read back via get("android.appPath") / get("android.deviceName").
+ *
+ * As of Phase 3 of the unified web+mobile SDK architecture
+ * (docs/proposals/unified-sdk-architect-review.md), a standalone
+ * mobile-config.yaml is no longer required: when the file is absent, {@link #get}
+ * falls back to reading the same dotted keys (e.g. {@code android.appPath})
+ * directly from the unified {@code sdk-config.yaml} via
+ * {@link com.test.automation.sdk.config.YamlConfigReader}. Projects that
+ * still ship a standalone mobile-config.yaml keep working unchanged for one
+ * release.
  */
 public final class MobileConfigReader {
 
     private static final Logger log = LogManager.getLogger(MobileConfigReader.class.getName());
     private static MobileConfigReader instance;
     private final Map<String, String> flatMap = new HashMap<>();
+    private final boolean usingStandaloneFile;
 
     private MobileConfigReader() {
         File yamlFile = new File(MobileSdkConfig.MOBILE_CONFIG_YAML);
         if (!yamlFile.exists()) {
-            log.warn("[MobileConfigReader] mobile-config.yaml not found at: {} -- using defaults",
+            usingStandaloneFile = false;
+            log.info("[MobileConfigReader] No standalone mobile-config.yaml found at: {} -- "
+                            + "reading android.*/ios.* sections from the unified sdk-config.yaml instead.",
                     MobileSdkConfig.MOBILE_CONFIG_YAML);
-            loadDefaults();
             return;
         }
+        usingStandaloneFile = true;
         try (InputStream in = new FileInputStream(yamlFile)) {
             parse(in);
         } catch (IOException e) {
@@ -58,8 +70,14 @@ public final class MobileConfigReader {
 
     /** Returns the configured value for a dotted key, or {@code defaultValue} if absent. */
     public static String get(String dottedKey, String defaultValue) {
-        String value = getInstance().flatMap.get(dottedKey);
-        return (value == null || value.isEmpty()) ? defaultValue : value;
+        MobileConfigReader inst = getInstance();
+        if (inst.usingStandaloneFile) {
+            String value = inst.flatMap.get(dottedKey);
+            return (value == null || value.isEmpty()) ? defaultValue : value;
+        }
+        // No standalone file: the unified sdk-config.yaml (extended in Phase 3
+        // with the same android.*/ios.*/appium.* default keys) is the source of truth.
+        return com.test.automation.sdk.config.YamlConfigReader.get(dottedKey, defaultValue);
     }
 
     private void loadDefaults() {

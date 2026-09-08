@@ -18,6 +18,17 @@ import java.util.Map;
  * when not needed. Supports simple key: value pairs and nested sections.
  *
  * Access via static singleton: YamlConfigReader.get("logging.level")
+ *
+ * As of Phase 3 of the unified web+mobile SDK architecture
+ * (docs/proposals/unified-sdk-architect-review.md), this file also carries
+ * built-in defaults for {@code appium.localUrl}, {@code android.automationName},
+ * and {@code ios.automationName}, so a project's {@code android:}/{@code ios:}
+ * sections can be configured directly here instead of in a separate
+ * {@code mobile-config.yaml} (see
+ * {@link com.test.automation.sdk.mobile.config.MobileConfigReader}). New
+ * code should prefer the platform-neutral
+ * {@link com.test.automation.sdk.config.YamlConfigReader} facade, which
+ * forwards to this class.
  */
 public final class YamlConfigReader {
 
@@ -178,6 +189,10 @@ public final class YamlConfigReader {
         flatMap.put("accessibility.engine.motion.enabled",     "true");
         flatMap.put("accessibility.scan.on.dialog",            "false");
         flatMap.put("accessibility.scan.dialog.poll.interval.ms", "1000");
+        // Mobile defaults (Phase 3: android.*/ios.* sections merged into this file)
+        flatMap.put("appium.localUrl", "http://127.0.0.1:4723/");
+        flatMap.put("android.automationName", "UiAutomator2");
+        flatMap.put("ios.automationName", "XCUITest");
     }
 
     /**
