@@ -8,3 +8,5 @@
 mcp-config.json
 
 *.class
+
+/log/

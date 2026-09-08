@@ -27,6 +27,14 @@ import io.github.bonigarcia.wdm.WebDriverManager;
  * All settings (proxy, headless, window size, timeouts) are driven by
  * {@code configuration/sdk-config.yaml} via {@link YamlConfigReader}.
  *
+ * <p>This is the underlying local-browser creation logic used by
+ * {@code com.test.automation.sdk.driver.web.WebLocalSessionFactory}/
+ * {@code WebBrowserStackSessionFactory}. New code targeting either platform
+ * uniformly should prefer {@code com.test.automation.sdk.driver.DriverManager#acquire}
+ * (see {@code docs/proposals/unified-sdk-architect-review.md}); this class is
+ * not deprecated and remains fully supported, since it is the real
+ * implementation those factories delegate to, not a compatibility shim.
+ *
  * NOTE: The static {@code driver} field means tests run sequentially.
  * For parallel execution, migrate to {@code ThreadLocal<WebDriver>}.
  *

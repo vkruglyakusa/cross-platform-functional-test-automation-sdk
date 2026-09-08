@@ -16,6 +16,12 @@ import com.test.automation.sdk.mobile.execution.MobileSessionRequest;
  * {@link com.test.automation.sdk.mobile.execution.ExecutionTarget}. This class's public
  * method signature is intentionally unchanged so existing callers (e.g. {@code MobileTestBase})
  * do not need to change.
+ *
+ * <p>New code targeting web and mobile uniformly should prefer
+ * {@code com.test.automation.sdk.driver.DriverManager#acquire}, which delegates
+ * to this same {@link MobileExecutionStrategy} machinery under the hood for
+ * Android/iOS (see {@code docs/proposals/unified-sdk-architect-review.md}
+ * Phase 2). This class is not deprecated and remains fully supported.
  */
 public final class MobileDriverFactory {
 
