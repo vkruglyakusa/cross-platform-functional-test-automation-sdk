@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.0.0] — 2026-09-08
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Fixed
 - **`InstructionExtractor`:** fixed two documentation-delivery gaps discovered during a
   full audit of root-vs-bundled documentation consistency for this cross-platform SDK:

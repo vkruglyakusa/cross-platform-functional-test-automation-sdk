@@ -1,7 +1,7 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 2.0.0  
-**Artifact:** `com.test.automation:functional-test-automation-sdk:2.0.0`
+**Version:** 1.0.0  
+**Artifact:** `com.test.automation:functional-test-automation-sdk:1.0.0`
 **Repository:** `OTI QA Automation / functional-test-automation-sdk`
 
 This guide is the **single document** a QA engineer needs to start a new Selenium
@@ -299,7 +299,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:functional-test-automation-sdk:2.0.0
+mvn dependency:resolve -Dartifact=com.test.automation:functional-test-automation-sdk:1.0.0
 ```
 
 Expected output: `BUILD SUCCESS` with `functional-test-automation-sdk-1.5.0.jar` downloaded.
@@ -2292,6 +2292,6 @@ BUILD SUCCESS
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:functional-test-automation-sdk:2.0.0`*  
+*Framework Automation SDK -- `com.test.automation:functional-test-automation-sdk:1.0.0`*  
 *Maintained by OTI QA Automation Team*
 
