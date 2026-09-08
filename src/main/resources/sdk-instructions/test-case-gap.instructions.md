@@ -32,11 +32,14 @@ Create a gap report **instead of (or alongside) partial implementation** when:
 
 | Source | File Name Format | Example |
 |---|---|---|
-| Azure DevOps test case -- gap (incomplete spec) | `ADO-<ID>-gap-report.md` | `ADO-12345-gap-report.md` |
+| Azure DevOps test case -- gap (incomplete spec) | `<ID>-gap-report.md` | `12345-gap-report.md` |
 | Local file test case -- gap (incomplete spec) | `<ClassName>-gap-report.md` | `Test_EnrollDevice-gap-report.md` |
-| Multiple related cases | `ADO-<ID1>-<ID2>-gap-report.md` | `ADO-100-101-gap-report.md` |
+| Multiple related cases | `<ID1>-<ID2>-gap-report.md` | `100-101-gap-report.md` |
 | Cannot automate (technical blocker, full or partial) | `<ClassName>-blocker-report.md` | `Test_ExportPdf-blocker-report.md` |
-| ADO test case -- technical blocker | `ADO-<ID>-blocker-report.md` | `ADO-12345-blocker-report.md` |
+| ADO test case -- technical blocker | `<ID>-blocker-report.md` | `12345-blocker-report.md` |
+
+> File names **must start with the ADO test case number** so that reports sort
+> naturally by ID in the file system and are easy to locate at a glance.
 
 ---
 

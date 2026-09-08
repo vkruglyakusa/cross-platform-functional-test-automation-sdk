@@ -1,61 +1,75 @@
-# Poletop Automation - GitHub Copilot Workspace Instructions
+﻿# Automation Project -- GitHub Copilot Workspace Instructions
 
 ## Project Identity
+<!-- UPDATE THESE VALUES FOR YOUR PROJECT -->
 - **Framework**: Selenium WebDriver + TestNG + Page Object Model (POM)
-- **Language**: Java (source compatibility: Java 8 - no `var`, no lambdas in `driver.findElements`)
-- **Base class for all Page Objects and Tests**: `com.automation.poletop.testBase.TestBase`
-- **Page Objects location**: `src/main/java/com/automation/poletop/uiActions/`
-- **Test classes location**: `src/test/java/com/poletop/automation/testCases/`
-- **Utilities location**: `src/main/java/com/automation/poletop/utility/`
-- **Test data**: Excel files in `src/main/java/com/automation/poletop/testData/`
-- **Config**: `configuration/config.properties`
+- **Language**: Java 8 -- no `var`, no lambdas in `driver.findElements`
+- **Base class**: `com.test.automation.sdk.testbase.TestBase`
+- **Page Objects**: `src/main/java/{your.package}/uiActions/`
+- **Test classes**: `src/test/java/{your.package}/testCases/`
+- **Test data**: Excel files in `src/test/resources/testData/`
+- **Config**: `configuration/config.properties` + `configuration/sdk-config.yaml`
+
+---
+
+## SDK Prompts -- How to Load
+
+All Copilot prompts and skill instructions are provided by the SDK JAR.
+Run this once from the project root to extract them into `.github/`:
+
+```bash
+mvn exec:java -Dexec.mainClass="com.test.automation.sdk.utility.InstructionExtractor"
+```
+
+After extraction, prompts are available in `.github/prompts/` and instructions in `.github/instructions/`.
+These files are SDK-managed -- do not edit them directly. Re-run after any SDK version upgrade.
+
+---
+
+## Getting Started -- Type `#start`
+
+Not sure where to begin? Type **`#start`** in Copilot Chat.
+It will ask what you want to do and collect everything needed before starting work.
+
+---
+
+## Available Prompts
+
+| Invoke | Purpose |
+|---|---|
+| `#start` | **Start here** -- menu-driven launcher that collects all required params |
+| `#create-test` | Create a new test class from an Azure DevOps test case |
+| `#modify-test` | Add a scenario to an existing test class |
+| `#fix-failed-test` | Diagnose and fix a failing test -- includes ADO pre-check |
+| `#fix-broken-locator` | Heal page object locators after a UI change |
+| `#ado-sync-test` | Align test script with an updated ADO test case |
+| `#report-test-gap` | Document a test case that cannot be automated |
 
 ---
 
 ## Core Rules -- Always Follow
 
-### 1. Never Create a Page Object Without Running the Crawler First
-Before writing any `uiActions` class for a new page:
-1. Run `LocatorInvestigator` (or `PageObjectGenerator.main()`) against the target URL.
-2. Use **only locators marked `UNIQUE [x]`** from the generated report.
-3. Never use locators marked `NOT UNIQUE`, `DYNAMIC`, or `STRUCTURAL`.
-4. The generated `.java` file in `uiActions/` is the **starting point** -- review before use.
-
-#### ElementCrawler Run Instruction (Required)
-`LocatorInvestigator` and `PageObjectGenerator` both use `ElementCrawler` internally.  
-Use one of these commands before creating or editing any new page object:
-
+### 1. Never Write Locators by Hand -- Run the Crawler First
 ```bash
-# Option A (preferred for team workflow)
-mvn test -Dtest=LocatorInvestigator -Denvironment=stg -DbrowserName=chrome -Dinv.email=<email> -Dinv.password=<password>
-
-# Option B (standalone generator)
-mvn exec:java -Dexec.mainClass="com.automation.poletop.utility.PageObjectGenerator" -Dexec.args="Poletop<PageName>Page <URL> <email> <password>"
+mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
+         -Denvironment=stg -DbrowserName=chrome \
+         -Dinv.email=<email> -Dinv.password=<password>
 ```
-
-Expected outputs:
-- `src/main/java/com/automation/poletop/uiActions/Poletop<PageName>Page.java`
-- `test-output/crawler/Poletop<PageName>Page_<timestamp>.txt`
-
-If the report does not contain stable `UNIQUE [x]` locators for key fields/actions, stop and request a better attribute strategy instead of guessing.
+Use **only locators marked `UNIQUE [x]`** in the generated report.
+Never use `NOT UNIQUE`, `DYNAMIC`, or `STRUCTURAL`.
 
 ### 2. Locator Rules -- Non-Negotiable
-- **Only unique, stable XPaths** -- each locator must match exactly 1 element on the page.
-- **Never use dynamic locators**: auto-incremented IDs (`mat-input-0`, `cdk-overlay-1`), 
-  index-based position (`//div[3]/input[1]`), or Angular-generated attributes.
-- **XPath priority order** (use the first that is unique):
-  `@id` -> `@data-testid` -> `@formcontrolname` -> `@name+@type` -> `@name` -> 
-  `@aria-label` -> `@placeholder` -> `normalize-space(.)` -> `@routerlink` -> `@href`
-- For pages with multiple UI layouts, use a single union XPath with `|` only when each branch is stable and the final locator is `UNIQUE [x]` (example in `.github/instructions/locator-strategy.instructions.md`).
-- If no stable locator exists, **ask** -- do not guess.
+- XPath only in `@FindBy` -- no CSS selectors
+- Never use auto-generated IDs (`mat-input-0`, `cdk-overlay-1`) or positional XPath (`//div[3]/input[1]`)
+- Priority: `@id` -> `@data-testid` -> `@formcontrolname` -> `@name` -> `@aria-label` -> `@placeholder` -> `normalize-space(.)`
+- Full rules: `.github/instructions/locator-strategy.instructions.md`
 
-### 3. Page Object Conventions
+### 3. Page Object Pattern
 ```java
 public class MyPage extends TestBase {
-
     public static final Logger log = LogManager.getLogger(MyPage.class.getName());
 
-    @FindBy(xpath = "//input[@id='email']")   // unique, stable
+    @FindBy(xpath = "//input[@formcontrolname='email']")
     public WebElement emailField;
 
     public MyPage(WebDriver driver) {
@@ -70,203 +84,87 @@ public class MyPage extends TestBase {
     }
 }
 ```
-- Always `extends TestBase` -- never import WebDriver waits directly in page objects.
-- Use `clearAndType()` for text fields (never raw `sendKeys` alone).
-- Use `fluentWaitUntilElementToBeClickable()` before any click.
-- Use `waitForElementPresent(driver, element)` before reading text.
-- Use `@CacheLookup` only on stable, never-reloaded elements.
+- Always `extends TestBase`
+- Use `clearAndType()` for text fields -- never raw `sendKeys`
+- Use `fluentWaitUntilElementToBeClickable()` before any click
+- Use `waitForElementPresent(driver, element)` before reading text
 
-### 4. Test Class Conventions
+### 4. Test Class Pattern
 ```java
 public class Test_MyFeature extends TestBase {
-
     @DataProvider(name = "myData")
-    public Object[][] myData() throws IOException {
-        return getData("SheetName");
-    }
+    public Object[][] myData() throws IOException { return getData("SheetName"); }
 
     @Test(dataProvider = "myData", priority = 1)
     public void testMyScenario(String testCaseName, ..., String runMode) throws Exception {
         if ("N".equalsIgnoreCase(runMode)) throw new SkipException("Skipping: " + testCaseName);
-        setCurrentTestCaseName(testCaseName);  // required for distinct report entries and paired failure artifacts per DataProvider row
         step("Step description");
-        // test logic
+        Assert.assertTrue(condition, "Expected result message");
     }
 }
 ```
-- Always `extends TestBase`.
-- Always use `@DataProvider` backed by Excel sheet.
-- Always check `runMode` first -- skip if `"N"`.
-- Always call `setCurrentTestCaseName(testCaseName)` after the `runMode` check in every data-driven `@Test`.
-- Use `step("...")` from Allure for every logical step.
-- Use `Assert.assertTrue/assertFalse/assertEquals` -- never `if` without assertion.
-- Clean up: always `driver.get(baseURL)` or `logout()` at end.
+- Always `extends TestBase` * always check `runMode` first * always use `Assert.*` * always use `step()`
+- No raw `Thread.sleep()` -- use `waitForElementPresent()`, `fluentWaitUntilElementToBeClickable()`
+- When implementing from ADO test cases: preserve step order, map every expected result to an assertion
 
-### 4.1 Formal Test Case Processing (Files or Azure DevOps MCP)
-- When implementing from formal test cases, preserve original step order.
-- Map each expected result to an explicit assertion in code.
-- Keep traceability to source test case ID/title in class or method comments.
-- For Azure DevOps sources, use MCP-retrieved steps as the source of truth.
-- If required steps/expected results are missing, stop and request clarification.
+### 5. Mandatory Validation After Every Change
+1. `mvn compile test-compile` -- must pass with zero errors
+2. `mvn test -Dtest=<ClassName> -Denvironment=stg -DbrowserName=chrome` -- must pass or skip intentionally
+3. If locators changed -- re-run crawler and confirm `UNIQUE [x]`
 
-### 5. Code Style
-- Java 8 compatible -- no `var`, no `instanceof` pattern matching, no text blocks.
-- No CSS selectors in `@FindBy` -- XPath only.
-- No raw `Thread.sleep()` -- use `waitUntillPageLoad()`, `waitForElementPresent()`, or `fluentWait`.
-- Log every action: `log.info("Clicking submit button")`.
-- Comment only when logic is non-obvious.
+### 6. NEVER Debug or Fix a Test Without Reading Artifacts First -- NON-NEGOTIABLE
 
-### 6. Mandatory Validation After Every Modification
-After **any** change to a `uiActions` class or a test class:
-1. **Compile**: `mvn compile test-compile` -- fix all errors before anything else
-2. **Execute**: `mvn test -Dtest=<ClassName> -Denvironment=stg -DbrowserName=chrome`
-3. **Verify**: confirm tests pass (or are intentionally skipped via `runMode=N`)
-4. **Locators**: if `@FindBy` changed, re-run crawler and confirm `UNIQUE [x]`
-5. **Do not mark work complete** if compile fails, tests error, or tests were never run after changes
+> ⛔ **Never touch a single line of code to fix a test failure until ALL THREE artifacts have been read.**
+> This rule applies to EVERY failure, EVERY time, with NO exceptions.
 
-### 7. README.md Is the Live Project Status Page -- Always Update It
+When any test fails, the SDK automatically captures 3 artifacts at the exact moment of failure:
 
-`README.md` in the project root is the **single source of truth** for the current
-state of test automation coverage. It must be updated **every time** a test is
-created, modified, fixed, or blocked.
+| # | Artifact | Location |
+|---|---|---|
+| 1 | **Screenshot** | `test-output/screenshots/<testCaseName>_<timestamp>.png` |
+| 2 | **DOM dump** | `test-output/screenshots/<testCaseName>_<timestamp>_DOM.html` |
+| 3 | **Log file** | `test-output/logs/<testCaseName>_<timestamp>.log` |
 
-**Required section in README.md:**
+**Mandatory sequence -- in this exact order -- before ANY code change:**
 
-```markdown
-## Test Coverage
+```
+STEP 1: Re-run the test to produce FRESH artifacts
+        mvn test -Dtest=<ClassName>#<method> -Denvironment=stg -DbrowserName=chrome
+
+STEP 2: Open the SCREENSHOT -- what did the browser show at the moment of failure?
+
+STEP 3: Open the DOM DUMP -- is the expected element in the DOM? With correct attributes?
+
+STEP 4: Open the LOG FILE -- what was the last action before the exception?
+        target/surefire-reports/<TestClassName>-output.txt  OR  console output
+
+STEP 5: Only AFTER reading all 3 -- state your finding:
+        Screenshot finding : <e.g. "Login page displayed instead of dashboard">
+        DOM dump finding   : <e.g. "@formcontrolname='email' present but @id changed">
+        Log finding        : <e.g. "Last action: Clicking Submit, then TimeoutException">
+
+STEP 6: Only AFTER stating all 3 findings -- write the fix
+```
+
+**Why this is mandatory:**
+- The screenshot shows WHAT the browser displayed (end state)
+- The DOM dump shows WHAT HTML was present (element state)
+- The log shows WHAT sequence of actions led there (execution path)
+- All three together eliminate guessing entirely
+- A fix without all three is a guess — it may pass once and fail again, or hide a real product bug
+
+**If Copilot proposes a code change without first showing artifact findings — stop it and ask:**
+> "Show me the screenshot finding, DOM dump finding, and log finding before making any changes."
+
+Full RCA rules: `.github/instructions/test-fix.instructions.md` and
+`.github/instructions/failure-investigation.instructions.md`
+Fix workflow: use `#fix-failed-test` prompt
+
+### 7. README.md Is the Live Test Coverage Status
+Update `## Test Coverage` table on every create / fix / block action:
 
 | Test Class | ADO ID | Scenario | Status | Last Updated |
 |---|---|---|---|---|
-| `Test_Login` | ADO-12345 | Valid login / invalid credentials | ? Automated | 2026-08-13 |
-| `Test_Enrollment` | ADO-12346 | Device enrollment flow | [!]? Partial -- Step 7 blocked | 2026-08-13 |
-| `Test_ExportPdf` | ADO-12347 | Export to PDF | ? Blocked -- see blocker report | 2026-08-12 |
-```
+| `Test_Login` | ADO-123 | Valid login | [x] Automated | 2026-08-14 |
 
-**Status values:**
-
-| Status | Meaning |
-|---|---|
-| `? Automated` | All steps automated and passing |
-| `[!]? Partial -- <reason>` | Some steps automated; blockers documented in `docs/test-case-gaps/` |
-| `? Blocked -- see blocker report` | Cannot be automated; blocker report in `docs/test-case-gaps/` |
-| `?? Fixing -- <issue>` | Test exists but currently failing; fix in progress |
-
-**Rules:**
-- Create the `## Test Coverage` section if it does not exist
-- One row per test class -- update the existing row if it already exists
-- Always show the **diff** of what changed in README.md as part of the completion report
-- The table must reflect the **current actual state** -- never leave a stale row
-
----
-
-## Development Process for a New Feature
-
-```
-1. GET the URL of the page to automate
-       |
-       ?
-2. RUN LocatorInvestigator -> generates uiActions/<PageName>.java
-                           -> generates test-output/crawler/<PageName>_report.txt
-       |
-       ?
-3. REVIEW generated file
-   * Keep only UNIQUE [x] locators
-   * Delete DYNAMIC / NOT UNIQUE / STRUCTURAL entries
-   * Rename fields to match business domain
-       |
-       ?
-4. CREATE test class in testCases/
-   * Extend TestBase
-   * Add @DataProvider backed by Excel sheet
-   * One @Test method per scenario
-       |
-       ?
-5. ADD Excel test data sheet with correct columns
-       |
-       ?
-6. RUN mvn compile test-compile to verify
-       |
-       ?
-7. EXECUTE tests and verify assertions pass
-```
-
----
-
-## Main Prompt Template for Test Script Creation
-
-Use this as the primary prompt for **single** or **group** test automation:
-
-```text
-Create automation script(s) for Poletop using Selenium + TestNG + POM.
-
-Scope:
-- Mode: <single | group>
-- Source type: <local file | Azure DevOps MCP>
-- Source reference(s): <file path(s) or ADO test case IDs>
-- Target test class name(s): <Test_ClassName>
-- Excel sheet name(s): <SheetName>
-
-Mandatory implementation rules:
-1. Follow .github/instructions/formal-testcase-to-script.instructions.md
-2. Follow .github/instructions/test-creation.instructions.md
-3. Follow .github/instructions/page-object-creation.instructions.md
-4. Follow .github/instructions/locator-strategy.instructions.md
-5. Use only XPath in @FindBy
-6. For new/updated page objects, run LocatorInvestigator via `crawler_suite.xml` (package: `com.poletop.automation.tools`) and keep only UNIQUE [x] locators
-7. Use TestBase helpers (no raw Thread.sleep)
-8. Add runMode skip logic, DataProvider, Allure step("..."), and assertions for every expected result
-9. Keep traceability to formal test case ID/title in comments and testCaseName data
-
-Validation before completion (MANDATORY -- task is incomplete without these):
-- Run: mvn compile test-compile  (must succeed with zero errors)
-- Run: mvn test -Dtest=<ClassName> -Denvironment=stg -DbrowserName=chrome  (must pass or skip intentionally)
-- If locators changed: run crawler_suite.xml and confirm UNIQUE [x] in report
-
-Deliverables:
-- Updated/created uiActions classes (if needed)
-- Updated/created test class(es)
-- Required Excel data mapping notes
-- Brief summary of what was automated and validated
-```
-
----
-
-## Prompt Catalog -- Reusable Copilot Prompts
-
-These prompts are available in `.github/prompts/` and can be invoked directly in GitHub Copilot
-using the `#` reference syntax (e.g. type `#create-test` in the chat).
-
-To extract all prompts to your project, run:
-```bash
-mvn exec:java -Dexec.mainClass="com.test.automation.sdk.utility.InstructionExtractor"
-```
-
-| Prompt File | Invoke With | When to Use |
-|---|---|---|
-| `create-test.prompt.md` | `#create-test` | Creating a brand-new test class from scratch |
-| `modify-test.prompt.md` | `#modify-test` | Adding or changing a test method or page object |
-| `fix-failed-test.prompt.md` | `#fix-failed-test` | A test is failing -- systematic triage and fix |
-| `ado-sync-test.prompt.md` | `#ado-sync-test` | Check if test script has drifted from ADO test case |
-| `fix-broken-locator.prompt.md` | `#fix-broken-locator` | Product UI changed, locators stopped working |
-
----
-
-### When to Use Which Prompt
-
-```
-Test is FAILING?
-  +-- Locator error (NoSuchElement / Timeout)  -> #fix-broken-locator
-  +-- Assertion failure (expected X, got Y)    -> #fix-failed-test  (Type B)
-  +-- Test data issue (NPE in getData)         -> #fix-failed-test  (Type C)
-  +-- General failure / unknown cause          -> #fix-failed-test
-
-Test is PASSING but may be out of date?
-  +-- ADO test case was recently updated       -> #ado-sync-test
-
-Need to ADD new coverage?
-  +-- New page / new feature                   -> #create-test
-  +-- New scenario on existing page            -> #modify-test
-
-UI CHANGED (not a test failure yet)?
-  +-- Proactively update locators              -> #fix-broken-locator
-```
+Status values: `[x] Automated` * `[!] Partial -- <reason>` * `[!] Blocked` * ` Fixing -- <issue>`

@@ -121,6 +121,25 @@ opt-in and write JSON, Excel, and HTML artifacts under `reporting.accessibilityD
 
 ---
 
+## What the Crawler Can Do
+
+| Capability | Summary |
+|---|---|
+| Full-page element scan + uniqueness testing | Every candidate locator is tested live and labeled `UNIQUE [x]` / `NOT UNIQUE` / `DYNAMIC` / `STALE` / `STRUCTURAL` |
+| Page Object generation | Ready-to-edit `.java` file with `@FindBy` fields using only stable locators |
+| iframe / frame support | Descends into same-origin frames automatically |
+| Label-following resolution | Resolves `<label for>`, `aria-labelledby`, Angular Material `mat-form-field` proximity |
+| Modal detection | Separate `_Modal.java` file for open Angular CDK modals |
+| Map / canvas widgets | Detects Google Maps, Leaflet, Mapbox GL, MapLibre GL, OpenLayers, Bing Maps and routes to `MapWidgetHelper` |
+| Shadow DOM traversal | Recurses into open shadow roots; emits a lookup method instead of an impossible `@FindBy` |
+| Dynamic / multi-step forms | `DataDrivenCrawler` re-crawls after each simulated step -- see below |
+| Self-healing during a crawl | Stale-element retry with backoff, actionability pre-check + JS-click fallback (`safeClick`), network-idle detection, opt-in page-state dedup -- see [`SDK-USER-GUIDE.md` Section 7.3](SDK-USER-GUIDE.md#73-crawler-reliability--self-healing-features) |
+| Safe overwrite protection | Never clobbers a hand-written page object -- writes to `ClassName_Crawled.java` |
+
+Full details, code samples, and the complete capability reference: [`SDK-USER-GUIDE.md` Section 7](SDK-USER-GUIDE.md#7-the-element-crawler--generating-page-objects).
+
+---
+
 ## Data-Driven Crawler -- Dynamic Forms Support
 
 Standard `ElementCrawler` does a single-pass snapshot. For enterprise apps

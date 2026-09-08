@@ -19,7 +19,57 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **`InstructionExtractor`:** fixed two documentation-delivery gaps discovered during a
+  full audit of root-vs-bundled documentation consistency for this cross-platform SDK:
+  1. `TESTBASE-API.md` had no bundled `src/main/resources/TESTBASE-API.md` resource at
+     all -- `extractResource("TESTBASE-API.md", "docs/sdk/TESTBASE-API.md")` was silently
+     failing (stderr `WARNING: resource not found`, no exception, no file written) for
+     every consumer project that ran the extractor since the merge that created this
+     repo. Added the missing bundled copy.
+  2. `mobile-locator-strategy.instructions.md` existed as a bundled resource but was
+     never in `INSTRUCTION_FILES`, so mobile consumer projects never received it via
+     `mvn exec:java ... InstructionExtractor` -- added it to the extraction list.
+  Also added `docs/sdk/MOBILE-USER-GUIDE.md` and `docs/sdk/MOBILE-TESTBASE-API.md`
+  extraction (new bundled resources, mirroring the existing `SDK-USER-GUIDE.md`/
+  `TESTBASE-API.md` treatment) so mobile consumers get the same locally-available
+  reference docs web consumers already had. 4 new tests
+  (`InstructionExtractorTest`); 387 total passing (was 383).
+- **Root vs. bundled documentation drift (full audit + resync):** `.github/copilot-instructions.md`
+  had been left as stale, Poletop-project-specific content since the web+mobile merge
+  commit while the correct, generic, SDK-authored template already existed at
+  `src/main/resources/sdk-instructions/copilot-instructions.md` -- root now matches the
+  bundle. Also resynced (now byte-identical again): `CHANGELOG.md`, `README.md`
+  (bundle was missing the "What the Crawler Can Do" section),
+  `test-case-gap.instructions.md` (bundle had the pre-`ADO-`-prefix naming convention),
+  and added the two bundled instruction/prompt files that existed on only one side of
+  the repo since the merge: `mobile-locator-strategy.instructions.md` and
+  `sdk-test-suite.instructions.md` into `src/main/resources/sdk-instructions/`, and
+  `update-sdk-docs.prompt.md` into `src/main/resources/sdk-prompts/`, plus
+  `start.prompt.md` into `.github/prompts/`.
+- **`A11ySessionManager.shouldScan`:** added a mobile native-context guard. Native
+  Android/iOS Appium screens (`NATIVE_APP` context) have no DOM, so axe-core's
+  `JavascriptExecutor`-based injection previously threw once `accessibility.checking.enabled`
+  was turned on for a mobile suite (confirmed via a manual validation harness against a live
+  emulator). The scan is now skipped with a clear log reason for any driver in a native
+  (non-`WEBVIEW_*`) Appium context; scanning against hybrid-app WebView contexts and plain
+  desktop `WebDriver`s is unaffected. 4 new tests (`A11ySessionManagerMobileContextTest`);
+  369 total passing (was 365).
+
 ### Added
+- **`NativeAccessibilityChecker`/`NativeAccessibilityIssue`**
+  (`com.test.automation.sdk.mobile.accessibility`) -- free, dependency-free accessibility
+  audit for native (non-WebView) Android/iOS screens, derived entirely from Appium's
+  `getPageSource()` XML (no axe-core, since native screens have no DOM to inject into).
+  Checks: `missing-accessible-name`, `unlabeled-editable-field`,
+  `duplicate-accessible-name`, `touch-target-too-small` (48x48dp Android / 44x44pt iOS,
+  raw-pixel limitation documented). Works identically on Android and iOS from one
+  implementation. Complements `AccessibilityChecker` (axe-core) for hybrid-app WebView
+  content -- see `MOBILE-USER-GUIDE.md` Section 6, Accessibility Testing, for the full
+  native-vs-WebView breakdown and why Google's Accessibility Test Framework (ATF) was
+  evaluated and not chosen (Android-only, requires a live View/instrumentation tree,
+  no iOS equivalent). 14 new tests (`NativeAccessibilityCheckerTest`); 383 total passing
+  (was 369).
 - `ElementCrawler.safeClick(WebDriver, WebElement)` -- scrolls into view, attempts a
   plain click, and retries once via a JS-executed click only on
   `ElementClickInterceptedException` (sticky footers, snackbars, CDK/Angular Material
@@ -39,6 +89,23 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   back-off, up to 3 attempts) if a transient `StaleElementReferenceException` is hit
   mid-scan (e.g. a live modal/overlay re-rendering), instead of silently dropping that
   tag's elements from the report.
+
+---
+
+## [2.0.0] — 2026-09-02
+
+### Changed
+- **BREAKING: Java target bumped from 1.8 to 20.**
+  `maven.compiler.source`/`target` and the `maven-compiler-plugin` `<source>`/`<target>`
+  raised from `1.8` to `20`. Done to align this SDK with the new
+  `mobile-functional-test-automation-sdk` companion repo (which requires Java 11+ for
+  the official `io.appium:java-client`), so both SDKs share a single target JDK across
+  the ecosystem. Consumers still building/running on a Java 8 JVM will need to upgrade
+  their JDK to consume this release. No language-level Java 8 syntax
+  constraints (no `var`, no lambdas in `findElements`, etc. per this repo's own coding
+  conventions) were relaxed as part of this change -- existing code style rules still
+  apply; only the compiler target changed.
+- All 342 existing unit tests re-run and passing under the Java 20 target before release.
 
 ---
 

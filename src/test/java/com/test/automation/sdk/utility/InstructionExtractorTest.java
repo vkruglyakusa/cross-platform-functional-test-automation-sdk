@@ -45,9 +45,10 @@ class InstructionExtractorTest {
         "test-case-gap.instructions.md",
         "failure-investigation.instructions.md",
         "test-data-dependency.instructions.md",
+        "mobile-locator-strategy.instructions.md",
         "copilot-instructions.md"
     })
-    @DisplayName("All 10 instruction resources exist on classpath")
+    @DisplayName("All 11 instruction resources exist on classpath")
     void allInstructionResourcesExistOnClasspath(String fileName) {
         InputStream is = getClass().getClassLoader()
             .getResourceAsStream(RESOURCE_PREFIX + fileName);
@@ -68,6 +69,7 @@ class InstructionExtractorTest {
         "test-case-gap.instructions.md",
         "failure-investigation.instructions.md",
         "test-data-dependency.instructions.md",
+        "mobile-locator-strategy.instructions.md",
         "copilot-instructions.md"
     })
     @DisplayName("All instruction resources have non-empty content")
@@ -126,6 +128,36 @@ class InstructionExtractorTest {
             "PROMPT_FILES should include start.prompt.md");
         assertEquals(7, promptFiles.size(),
             "PROMPT_FILES should contain exactly 7 prompts");
+    }
+
+    @Test
+    @DisplayName("INSTRUCTION_FILES includes mobile-locator-strategy.instructions.md and extracts 10 files")
+    void instructionFiles_includeMobileLocatorStrategy() throws Exception {
+        Field field = InstructionExtractor.class.getDeclaredField("INSTRUCTION_FILES");
+        field.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<String> instructionFiles = (List<String>) field.get(null);
+
+        assertTrue(instructionFiles.contains("mobile-locator-strategy.instructions.md"),
+            "INSTRUCTION_FILES should include mobile-locator-strategy.instructions.md so mobile "
+                + "consumer projects receive it -- this SDK is cross-platform (web + mobile)");
+        assertEquals(10, instructionFiles.size(),
+            "INSTRUCTION_FILES should contain exactly 10 files (sdk-development.instructions.md "
+                + "and sdk-test-suite.instructions.md are SDK-internal and deliberately excluded)");
+    }
+
+    @Test
+    @DisplayName("TESTBASE-API.md, MOBILE-USER-GUIDE.md, and MOBILE-TESTBASE-API.md resources exist on classpath")
+    void docsResourcesExistOnClasspath() {
+        for (String fileName : Arrays.asList(
+                "TESTBASE-API.md", "MOBILE-USER-GUIDE.md", "MOBILE-TESTBASE-API.md")) {
+            InputStream is = getClass().getClassLoader().getResourceAsStream(fileName);
+            assertNotNull(is, "Resource not found on classpath: " + fileName
+                + " -- InstructionExtractor.main() extracts this to docs/sdk/ but silently "
+                + "skips it (with only a stderr WARNING) if the resource is missing from the JAR");
+            try { is.close(); } catch (IOException ignored) {}
+        }
     }
 
     // -- File extraction -------------------------------------------------------

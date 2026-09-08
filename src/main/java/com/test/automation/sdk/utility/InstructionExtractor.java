@@ -71,8 +71,10 @@ public class InstructionExtractor {
         "test-case-gap.instructions.md",
         "sdk-migration.instructions.md",
         "failure-investigation.instructions.md",
-        "test-data-dependency.instructions.md"
+        "test-data-dependency.instructions.md",
+        "mobile-locator-strategy.instructions.md"
         // sdk-development.instructions.md is SDK-internal only (applyTo: src/main/**) -- not extracted
+        // sdk-test-suite.instructions.md governs this SDK's own src/test/java -- not extracted
     );
 
     private static final List<String> ROOT_GITHUB_FILES = Arrays.asList(
@@ -151,6 +153,8 @@ public class InstructionExtractor {
         extractResource("CHANGELOG.md", "docs/sdk/CHANGELOG.md");
         extractResource("SDK-USER-GUIDE.md", "docs/sdk/SDK-USER-GUIDE.md");
         extractResource("TESTBASE-API.md", "docs/sdk/TESTBASE-API.md");
+        extractResource("MOBILE-USER-GUIDE.md", "docs/sdk/MOBILE-USER-GUIDE.md");
+        extractResource("MOBILE-TESTBASE-API.md", "docs/sdk/MOBILE-TESTBASE-API.md");
 
         System.out.println("[InstructionExtractor] Done. Files written to .github/, docs/sdk/, configuration/, and project root.");
         System.out.println("[InstructionExtractor] IMPORTANT: Add .github/instructions/ and .github/prompts/ to .gitignore");
