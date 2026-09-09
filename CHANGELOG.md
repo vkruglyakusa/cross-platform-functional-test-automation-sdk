@@ -19,6 +19,17 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **`scripts/release.ps1` could be accidentally re-run for a version that was
+  already released**, producing a duplicate `docs: release` commit and a
+  failed re-deploy (Azure Artifacts rejects re-uploading an existing version).
+  Added a Step 0 guard that aborts immediately -- before any tests, doc edits,
+  or deploy attempt -- if a `v<version>` git tag already exists (local or
+  origin) or `CHANGELOG.md` already has a heading for that version. Also fixed
+  the `[Unreleased]` doc-gate check to ignore the standing HTML-comment
+  placeholder so an already-promoted (genuinely empty) section is no longer
+  miscounted as "has content".
+
 ---
 
 ## [1.1.1] — 2026-09-09
