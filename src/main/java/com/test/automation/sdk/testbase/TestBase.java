@@ -47,6 +47,10 @@ import com.test.automation.sdk.listener.WebEventListener;
 import com.test.automation.sdk.utility.Excel_Reader;
 import com.test.automation.sdk.utility.QueryExcelFile;
 import com.test.automation.sdk.config.YamlConfigReader;
+import com.test.automation.sdk.execution.ExecutionContext;
+import com.test.automation.sdk.execution.RunMode;
+import com.test.automation.sdk.session.AutomationSession;
+import com.test.automation.sdk.session.AutomationSessionFactory;
 import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.Status;
 import com.test.automation.sdk.utility.reports.ExtentManager;
@@ -80,6 +84,16 @@ public class TestBase {
 	 * this same field can eventually host a mobile session too.
 	 */
 	public WebDriver driver;
+	/**
+	 * As of Priority 1 of the Unified SDK Implementation Review
+	 * (docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md,
+	 * section 7), {@link #initialization(String, String)} acquires {@link #driver}
+	 * through this technology-neutral session (itself created via
+	 * {@code ExecutionContext -> AutomationSessionFactory -> DriverManager ->
+	 * SessionFactoryRegistry}) rather than calling {@code WebDriverFactory}
+	 * directly. Instance field, not static -- same rationale as {@link #driver}.
+	 */
+	public AutomationSession automationSession;
 	Object[][] excelData;
 	static Excel_Reader testData;
 	public File f;
@@ -192,11 +206,13 @@ public class TestBase {
 		configureLogging();
 		String resolvedBrowser = browser.isEmpty() ? Prop.getProperty("browser") : browser;
 		String resolvedUrl = baseUrl.isEmpty() ? Prop.getProperty("tst_base_url") : baseUrl;
-		driver = WebDriverFactory.getWebDriver(resolvedBrowser);
+		ExecutionContext context = ExecutionContext.forWeb(resolvedBrowser, RunMode.resolve());
+		automationSession = AutomationSessionFactory.create(context);
+		driver = automationSession.unwrap(WebDriver.class);
 		this.baseURL = resolvedUrl;
 		this.browser = resolvedBrowser;
 		getUrl(resolvedUrl);
-		log.info("[TestBase] Session initialized -- browser={} url={}", resolvedBrowser, resolvedUrl);
+		log.info("[TestBase] Session initialized -- browser={} url={} runMode={}", resolvedBrowser, resolvedUrl, context.getRunMode());
 	}
 
 
@@ -559,7 +575,9 @@ public class TestBase {
 		try {
 			ExtentTestManager.endTest();
 			ExtentManager.getInstance().flush();
-			if (driver != null) {
+			if (automationSession != null) {
+				automationSession.quit();
+			} else if (driver != null) {
 				driver.quit();
 			}
 

@@ -16,9 +16,12 @@ import org.testng.annotations.Test;
 import io.appium.java_client.AppiumDriver;
 
 import com.browserstack.BrowserStackSdk;
+import com.test.automation.sdk.execution.ExecutionContext;
+import com.test.automation.sdk.execution.Platform;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.mobile.actions.MobileActions;
 import com.test.automation.sdk.mobile.driver.MobileDriverFactory;
+import com.test.automation.sdk.session.AutomationSessionFactory;
 import com.test.automation.sdk.testbase.TestBase;
 
 /**
@@ -38,12 +41,24 @@ import com.test.automation.sdk.testbase.TestBase;
  *   <li>{@link TestBase#setUp(String, String)} -- overridden as a no-op;
  *       mobile session creation happens in {@link #setUpDriver} instead.</li>
  *   <li>{@link TestBase#beforeMethod(Method)} -- overridden so a retry
- *       re-initializes the {@link AppiumDriver} session (via
- *       {@link MobileDriverFactory}) instead of the inherited web
+ *       re-acquires the {@link AppiumDriver} session (via the same
+ *       {@code ExecutionContext -> AutomationSessionFactory} path as
+ *       {@link #setUpDriver}) instead of the inherited web
  *       {@code initialization(...)} path.</li>
  * </ul>
- * {@link TestBase#afterClass()} (quits {@code driver}, flushes Extent) is
- * inherited unchanged -- it is already driver-type-agnostic.
+ * {@link TestBase#afterClass()} (quits {@code driver}/{@code automationSession},
+ * flushes Extent) is inherited unchanged -- it is already driver-type-agnostic.
+ *
+ * As of Priority 1 of the Unified SDK Implementation Review
+ * (docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md,
+ * section 7), {@link #setUpDriver}/the retry path in {@link #beforeMethod}
+ * acquire the Appium session through {@code ExecutionContext ->
+ * AutomationSessionFactory -> DriverManager -> SessionFactoryRegistry} --
+ * the same technology-neutral lifecycle {@link TestBase#initialization}
+ * uses for Web -- rather than calling {@link MobileDriverFactory} directly.
+ * {@link MobileDriverFactory} is unaffected and remains the real
+ * capability-building implementation the Android/iOS
+ * {@code SessionFactory}s delegate to.
  *
  * Generalized from {@code mobile.automation.testBase.TestBase} in the proven
  * {@code 311_Mobile_Automation} project (see docs/proposals/mobile-automation-strategy.md,
@@ -113,7 +128,17 @@ public class MobileTestBase extends TestBase {
     public void setUpDriver(@Optional("android") String mobileOS, @Optional("") String device) {
         mobileOsName = mobileOS;
         deviceName = device;
-        driver = MobileDriverFactory.getDriver(mobileOS, device);
+        ExecutionContext context = ExecutionContext.forMobile(resolvePlatform(mobileOS), device, RunMode.resolve());
+        automationSession = AutomationSessionFactory.create(context);
+        driver = automationSession.unwrap(AppiumDriver.class);
+    }
+
+    /** Maps the TestNG {@code mobileOS} parameter ("android"/"ios") to {@link Platform}. */
+    private static Platform resolvePlatform(String mobileOS) {
+        if ("ios".equalsIgnoreCase(mobileOS) || "iphone".equalsIgnoreCase(mobileOS)) {
+            return Platform.IOS;
+        }
+        return Platform.ANDROID;
     }
 
     /**
@@ -128,14 +153,16 @@ public class MobileTestBase extends TestBase {
         testRetryCount++;
         if (testRetryCount > 1 && result.isAnnotationPresent(Test.class)) {
             log.info("Retry count: " + (testRetryCount - 1));
-            if (driver != null) {
+            if (automationSession != null) {
                 try {
-                    driver.quit();
+                    automationSession.quit();
                 } catch (Exception e) {
                     log.warn("Error quitting mobile driver before retry", e);
                 }
             }
-            driver = MobileDriverFactory.getDriver(mobileOsName, deviceName);
+            ExecutionContext context = ExecutionContext.forMobile(resolvePlatform(mobileOsName), deviceName, RunMode.resolve());
+            automationSession = AutomationSessionFactory.create(context);
+            driver = automationSession.unwrap(AppiumDriver.class);
         }
     }
 

@@ -20,6 +20,29 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Unified SDK Review Priority 1 — Complete TestBase Session Integration**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 16): `TestBase.initialization(String, String)` now builds an
+  `ExecutionContext.forWeb(...)` and acquires its `WebDriver` via
+  `AutomationSessionFactory.create(context)` (which delegates to
+  `DriverManager` -> `SessionFactoryRegistry`) instead of calling
+  `WebDriverFactory` directly; the resulting `AutomationSession` is stored on
+  the new `TestBase.automationSession` field. `TestBase.closeBrowser()` now
+  quits through `automationSession` when set, falling back to `driver.quit()`
+  for subclasses that assign `driver` directly. `MobileTestBase.setUpDriver`
+  and its retry path in `beforeMethod(Method)` were updated the same way,
+  building `ExecutionContext.forMobile(...)` and acquiring/re-acquiring
+  through `AutomationSessionFactory` instead of calling `MobileDriverFactory`
+  directly (a new private `resolvePlatform(String)` helper maps the existing
+  `mobileOS`/`device` strings to `Platform`). `AutomationSessionFactory`,
+  `DriverManager`, and `SessionFactoryRegistry` themselves were already
+  correct and unchanged -- this closes the gap where they existed but were
+  never called from the primary test lifecycle. New test:
+  `testbase.TestBaseSessionIntegrationTest` (registers a fake `SessionFactory`
+  for `(WEB, LOCAL)`, same pattern as `session.AutomationSessionFactoryTest`).
+  Validated: targeted tests and full `mvn test` suite pass with no
+  regressions. Not validated in this environment: real
+  browser/Appium/BrowserStack execution.
 - **Structure Cleanup Phase 8 — Package Cleanup (first gradual step)**
   (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): moved
   `utility.WebElementDiscoveryAdapter` to `discovery.WebElementDiscoveryAdapter`
