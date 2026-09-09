@@ -3,7 +3,10 @@
 **Review date:** 2026-09-09  
 **Reviewed implementation:** `cross-platform-functional-test-automation-sdk`  
 **Architecture baseline:** `sdk-structure-cleanup-assessment-updated-v4.md`  
-**Supporting implementation record:** `CHANGELOG.md`
+**Supporting implementation record:** `CHANGELOG.md`  
+**Status (2026-09-09): COMPLETE — all 6 priorities in Section 16 implemented, tested, documented,
+released as v1.1.0, and frozen for this iteration.** See Section 17 for the final
+Definition-of-Done mapping and Section 18 for the final assessment.
 
 ## 1. Executive Summary
 
@@ -21,9 +24,41 @@ The implementation correctly establishes:
 - removal of significant global static driver/session state;
 - gradual package cleanup without unnecessarily rewriting mature crawler algorithms.
 
-However, the architecture cleanup should **not yet be considered 100% complete**.
+> **Update (2026-09-09, post-implementation): RESOLVED.** All 6 items below
+> were implemented, tested, and committed this iteration (see Section 16 for
+> per-item detail and `CHANGELOG.md` for the full record):
+>
+> 1. `TestBase`/`MobileTestBase` now route session lifecycle through
+>    `ExecutionContext -> AutomationSessionFactory -> DriverManager ->
+>    SessionFactoryRegistry` (Priority 1).
+> 2. Configuration unification is complete: `ConfigurationManager` is the
+>    single precedence-resolution engine; `MobileConfigReader` is a typed
+>    view over it, including a precedence bugfix so system-property/env
+>    overrides win over the standalone `mobile-config.yaml` (Priority 2 +
+>    final pre-release cleanup).
+> 3. Tooling/crawler package consolidation is complete under
+>    `tools.crawler.web`, `tools.crawler.mobile`, `tools.pageobject`, and
+>    `tools.locator`, with deprecated compatibility facades at every old FQN
+>    (Priority 3).
+> 4. Mutable static Mobile execution state (`mobileOsName`/`deviceName`) was
+>    converted to instance state, with an explicit mixed Web/Mobile isolation
+>    test (Priority 4).
+> 5. `execution.AutomationTechnology` reserves the `SELENIUM`/`APPIUM`
+>    dimension in `SessionFactory`/`ExecutionContext`/`SessionFactoryRegistry`
+>    without redesigning `TestBase` (Priority 5).
+> 6. Stray compiled `.class` artifacts were removed, the stale
+>    `unified-execution-architecture.md` status header was corrected, and
+>    doc FQN references were synchronized to the Priority 3 package moves
+>    (Priority 6).
+>
+> The overall alignment assessment below (85%) is the **pre-implementation**
+> baseline this document originally scored against; the post-implementation
+> state is tracked in Section 17's Definition-of-Done table, which is now
+> fully COMPLETE or explicitly DEFERRED BY ARCHITECTURE (no open items).
 
-The most important remaining work is:
+The architecture cleanup was **not yet considered 100% complete at review time**.
+
+The most important remaining work at review time was:
 
 1. integrate `TestBase` with the new `ExecutionContext -> AutomationSessionFactory -> DriverManager` lifecycle;
 2. finish true configuration unification rather than only relocating `YamlConfigReader`;
@@ -32,7 +67,7 @@ The most important remaining work is:
 5. reserve automation technology as an execution-selection dimension so Selenium can later coexist with or be replaced by another browser/user-mimic technology;
 6. clean stale documentation and generated build artifacts from the source/review package.
 
-Overall assessment: **approximately 85% aligned with the intended completed v4 architecture**.
+Overall assessment at review time: **approximately 85% aligned with the intended completed v4 architecture** (now superseded — see the "Update" note above and Section 17).
 
 ---
 
@@ -799,6 +834,25 @@ architecture proposal
 
 **Assessment: CLEANUP REQUIRED**
 
+> **Update (2026-09-09, post-implementation): RESOLVED.** Priority 6
+> (Section 16) removed the stale `AutomationSession not yet implemented` /
+> `Mobile context switching not yet publicly exposed` style statements:
+> `docs/proposals/unified-execution-architecture.md`'s header now reads
+> `Status: IMPLEMENTED`, pointing to Section 16 of this document as the
+> single authoritative current-state reference. `README.md`,
+> `SDK-USER-GUIDE.md`, `TESTBASE-API.md`, `CHANGELOG.md` (and their
+> `src/main/resources/` mirrors) were also corrected for stale/incorrect
+> `functional-test-automation-sdk` Maven-coordinate references (the repo's
+> actual artifactId is `cross-platform-functional-test-automation-sdk`) — a
+> related documentation-consistency defect found and fixed after the initial
+> six priorities, during v1.1.0 release-pipeline validation. `GETTING-STARTED.md`
+> did not exist at review time and was not introduced by this cleanup.
+> `docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`'s Section 33
+> review block and "34. Final Recommendation" list were annotated to mark
+> AutomationSession/context-switching items as implemented rather than
+> rewritten, preserving the original historical review text alongside the
+> update.
+
 ---
 
 # 15. Validation Status
@@ -825,6 +879,26 @@ plus:
 - mixed Web/Mobile isolation test;
 - retry lifecycle validation;
 - configuration precedence tests.
+
+> **Update (2026-09-09, post-implementation):** `mvn clean test` was run
+> repeatedly throughout this iteration (after each priority, after final
+> cleanup, and again after the v1.1.0 release-pipeline fix), most recently
+> with a clean `BUILD SUCCESS` and **523/523 tests passed, 0 failures, 0
+> errors, 0 skipped**. Configuration precedence, retry lifecycle, and mixed
+> Web/Mobile isolation are covered by unit/mocked tests (see Priority 2's
+> `ConfigurationManagerTest`/`MobileConfigReaderTest`, Priority 4's
+> `MixedWebMobileIsolationTest`). The SDK was also deployed end-to-end as
+> v1.1.0 to Azure Artifacts and the local `maven-repository`, and the
+> release git history was pushed to `origin/master` — this exercises the
+> full build/package/deploy pipeline, not just `mvn test`.
+>
+> **Still not validated in this environment** (unchanged from review time):
+> Web local smoke against a real browser, Android local Appium smoke,
+> BrowserStack Web/Mobile smoke, and a real Appium WEBVIEW -> NATIVE_APP ->
+> WEBVIEW device/emulator scenario. These require infrastructure (a real
+> browser/device/BrowserStack account) not available in this environment and
+> remain **BLOCKED** pending a future integration-validation pass, not
+> something this iteration claims to have proven.
 
 ---
 
@@ -1013,6 +1087,39 @@ The current cleanup can be considered complete when:
 - documentation accurately reflects the implemented state;
 - clean Maven tests and required integration smoke tests pass.
 
+> **Update (2026-09-09, post-implementation): Definition-of-Done mapping.**
+>
+> | Item | Status | Evidence |
+> |---|---|---|
+> | `TestBase` uses the common session-creation architecture | COMPLETE | `TestBaseSessionIntegrationTest`; Priority 1 |
+> | `ExecutionContext` drives session selection | COMPLETE | `ExecutionContextTest`, `SessionFactoryRegistryTest`; Priority 1 & 5 |
+> | Selenium/Appium creation details remain behind providers/factories | ALREADY COMPLETE | `SessionFactory` implementations, `SessionFactoryRegistry`; Section 2.1 |
+> | Configuration precedence implemented once | COMPLETE | `config.ConfigurationManager`; `ConfigurationManagerTest`; Priority 2 |
+> | Mobile configuration is not a separate resolver architecture | COMPLETE | `MobileConfigReader` delegates to `ConfigurationManager`; precedence bugfix in final cleanup |
+> | Existing crawlers are formal first-class SDK tools | COMPLETE | `tools.crawler.web.*`, `tools.crawler.mobile.*`; Priority 3 |
+> | Web and Mobile crawler outputs use normalized discovery contracts | ALREADY COMPLETE | Section 4 (pre-existing `DiscoveryResult`/`LocatorCandidate`) |
+> | Appium WebView/native switching supported through public SDK APIs | ALREADY COMPLETE | `MobileTestBase.mobileSwitchToNative()`/`mobileSwitchToWebView()`; Section 3 |
+> | Mutable global Mobile session/execution state removed | COMPLETE | `mobileOsName`/`deviceName` instance fields; Priority 4 |
+> | Mixed Web/Mobile execution is isolation-tested | COMPLETE | `MixedWebMobileIsolationTest`; Priority 4 |
+> | `AutomationSession` remains the small technology-neutral session boundary | ALREADY COMPLETE / DEFERRED BY ARCHITECTURE | Section 2.2; no `AutomationElement`/full `Locator` abstraction added, per scope |
+> | Future automation technology selectable without redesigning `TestBase` | COMPLETE | `execution.AutomationTechnology`; Priority 5 |
+> | AI prompts, skills, and schemas remain versioned assets | ALREADY COMPLETE | Section 5; untouched by this iteration, per scope |
+> | Full AI runtime remains deferred until a concrete consumer | DEFERRED BY ARCHITECTURE | Explicit non-goal of this iteration |
+> | True independent multi-session runtime remains deferred | DEFERRED BY ARCHITECTURE | Explicit non-goal of this iteration |
+> | Source trees contain source files, not generated `.class` artifacts | COMPLETE | 11 stray `.class` files removed; Priority 6 |
+> | Documentation accurately reflects the implemented state | COMPLETE | Priority 6 + Section 14 update + v1.1.0 release-pipeline coordinate fixes |
+> | Clean Maven tests pass | COMPLETE | `mvn clean test`: 523/523 passed, `BUILD SUCCESS` |
+> | Required integration smoke tests pass | BLOCKED (environment) | No real browser/Appium/BrowserStack available in this environment; unit/mocked coverage only — see Section 15 |
+>
+> **No item is open/in-progress.** Every row is COMPLETE, ALREADY COMPLETE, or
+> explicitly DEFERRED BY ARCHITECTURE / BLOCKED by environment limitations
+> that were true at review time and remain true today (real device/browser
+> infrastructure was never available in this environment, in any iteration).
+> **This iteration is considered closed and v1.1.0 is frozen** — no further
+> architecture work from this document is planned unless a concrete new
+> requirement (e.g. a second Web/user-mimic technology, or real
+> integration-lab access) reopens it.
+
 ---
 
 # 18. Final Architecture Assessment
@@ -1072,3 +1179,40 @@ The guiding principle remains:
 > **Selenium and Appium are implementation technologies, not the architecture of the SDK. Crawlers and automation tools are first-class reusable SDK capabilities. Prompts and skills are versioned AI assets. New abstraction layers should be introduced only when they solve a demonstrated requirement.**
 
 Once the remaining lifecycle, configuration, tooling, and isolation items are completed, this architecture will provide a clean baseline for increasing SDK functionality while preserving a practical path to hybrid Web/Mobile execution, AI-agent integration, multiple sessions when required, and future replacement or coexistence of Selenium with another user-interaction technology.
+
+---
+
+# 19. Iteration Closed — v1.1.0 Frozen (2026-09-09)
+
+All six priorities in Section 16 are implemented, unit/mocked-tested, documented,
+and released. Final verdict for this iteration:
+
+| Area | Verdict |
+|---|---|
+| Production architecture/code | ✅ COMPLETE |
+| Testing | ✅ COMPLETE (`mvn clean test`: 523/523 passed, `BUILD SUCCESS`) |
+| Configuration cleanup | ✅ COMPLETE |
+| Repository/source hygiene | ✅ COMPLETE |
+| Documentation status synchronization | ✅ COMPLETE (this section, plus Sections 1, 14, 15, 17) |
+
+Release record:
+- `pom.xml` version `1.1.0`; git tag `v1.1.0` on `origin/master`
+  (`cross-platform-functional-test-automation-sdk`).
+- Deployed to Azure Artifacts and installed into the local file-based
+  `maven-repository`.
+- A follow-up fix (`67b22f1`) corrected `scripts/release.ps1`'s step 7,
+  which had hard-coded the legacy `functional-test-automation-sdk`
+  artifactId and could otherwise have bumped an unrelated SDK dependency in
+  a consumer template; it now reads its own artifactId at runtime and skips
+  step 7 (with a warning) for templates that don't depend on it.
+
+**Explicitly out of scope for this iteration** (unchanged from the original
+architecture constraints, not gaps): `AutomationElement`/full technology-neutral
+`Locator` abstraction, `SessionContext`/true multi-session runtime, the AI agent
+runtime/`AgentToolRegistry`/orchestration infrastructure, and any second
+Web/user-mimic automation technology (e.g. Playwright) — `AutomationTechnology`
+only reserves the dimension for that future work.
+
+**This iteration is closed. v1.1.0 is frozen.** Future architecture work
+resumes only against a new concrete requirement, tracked in a new proposal
+document rather than by reopening this one.

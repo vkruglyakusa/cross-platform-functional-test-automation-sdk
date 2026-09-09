@@ -40,6 +40,20 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   and server/repository `<id>` references were left unchanged since that feed
   is intentionally shared infrastructure, not an artifactId).
 
+### Documentation
+- **Synchronized `docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`**
+  to the final post-implementation state: Section 1 (Executive Summary),
+  Section 14 (Documentation Consistency), and Section 15 (Validation Status)
+  now carry "Update (2026-09-09, post-implementation)" notes pointing at the
+  completed work instead of the original pre-implementation findings; Section
+  17 (Definition of Done) now has a full item-by-item COMPLETE / ALREADY
+  COMPLETE / DEFERRED BY ARCHITECTURE / BLOCKED mapping table with evidence;
+  a new Section 19 ("Iteration Closed — v1.1.0 Frozen") records the final
+  verdict and release record. This closes the review's own "documentation
+  status synchronization" follow-up item -- the historical review text is
+  preserved (not deleted), each stale section is annotated rather than
+  rewritten.
+
 ---
 
 ## [1.1.0] — 2026-09-09
