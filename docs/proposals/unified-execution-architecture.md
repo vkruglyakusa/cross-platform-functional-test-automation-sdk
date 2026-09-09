@@ -1,6 +1,12 @@
 # Unified Cross-Platform Execution Architecture
 
-Status: PROPOSED (not yet implemented)
+Status: IMPLEMENTED. This document is the original design proposal and is kept
+for historical/rationale context; it is superseded as the current-state
+reference by `docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`
+section 16 (Priorities 1-6), which tracks final implementation status and is
+the single authoritative current-state section. Statements below describing
+work as not-yet-done reflect the state at proposal time, not the current
+implementation.
 Author: Copilot CLI (architecture pass), for @vkruglyak_NYC
 Scope: `com.test.automation.sdk` — driver lifecycle, config, test base, execution strategy
 

@@ -970,6 +970,20 @@ Do not implement another technology until needed.
 
 ## Priority 6 — Documentation and Repository Hygiene
 
+> **Status: COMPLETE** (see `CHANGELOG.md`).
+> Removed 11 stray compiled `.class` artifacts from the `src/main/java`
+> source tree (already gitignored, but still physically present -- matches
+> this document's section 13 finding exactly). Updated
+> `docs/proposals/unified-execution-architecture.md`'s header from `Status:
+> PROPOSED (not yet implemented)` to `Status: IMPLEMENTED`, pointing to this
+> document's section 16 as the single authoritative current-state
+> reference. Synchronized `README.md`, `SDK-USER-GUIDE.md`, and their
+> `src/main/resources/` bundled copies so documented tooling FQNs match the
+> Priority 3 package moves (`utility.*` -> `tools.crawler.web.*` /
+> `tools.pageobject.*` / `tools.locator.*`). `GETTING-STARTED.md` does not
+> exist in this repository. Validated: full `mvn test` suite passes with no
+> regressions (doc-only/source-tree-cleanup changes).
+
 Remove stale architecture statements and generated source-tree artifacts.
 
 Ensure configuration examples and user guides describe the same architecture that the SDK actually implements.

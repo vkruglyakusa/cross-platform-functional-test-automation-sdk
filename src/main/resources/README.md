@@ -19,12 +19,12 @@ page objects, test classes, and test data.
 | **TestBase** | `sdk.testbase.TestBase` | Base class with 60+ Selenium helpers (waits, clicks, scrolls, assertions) |
 | **WebDriverFactory** | `sdk.testbase.WebDriverFactory` | Browser initialization -- Chrome, Firefox, Edge, headless, Grid |
 | **SdkConfig** | `sdk.config.SdkConfig` | Config path resolution via system property or env variable |
-| **ElementCrawler** | `sdk.utility.ElementCrawler` | Scans a live page and generates a `@FindBy`-annotated Page Object |
-| **PageObjectGenerator** | `sdk.utility.PageObjectGenerator` | Standalone runner for ElementCrawler; `generateFromElements()` for data-driven results |
-| **DataDrivenCrawler** | `sdk.utility.DataDrivenCrawler` | Multi-pass DOM-diff crawler for dynamic forms; follows test case flow step-by-step |
-| **CrawlerStep** | `sdk.utility.CrawlerStep` | Single interaction step with raw XPath or semantic locators (byLabel, byText, etc.) |
-| **CrawlerScenario** | `sdk.utility.CrawlerScenario` | Named step sequence; `fromTestCase()` builder for ADO-driven crawling |
-| **ElementSearchEngine** | `sdk.utility.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label, placeholder, aria-label, text |
+| **ElementCrawler** | `sdk.tools.crawler.web.ElementCrawler` | Scans a live page and generates a `@FindBy`-annotated Page Object |
+| **PageObjectGenerator** | `sdk.tools.pageobject.PageObjectGenerator` | Standalone runner for ElementCrawler; `generateFromElements()` for data-driven results |
+| **DataDrivenCrawler** | `sdk.tools.crawler.web.DataDrivenCrawler` | Multi-pass DOM-diff crawler for dynamic forms; follows test case flow step-by-step |
+| **CrawlerStep** | `sdk.tools.crawler.web.CrawlerStep` | Single interaction step with raw XPath or semantic locators (byLabel, byText, etc.) |
+| **CrawlerScenario** | `sdk.tools.crawler.web.CrawlerScenario` | Named step sequence; `fromTestCase()` builder for ADO-driven crawling |
+| **ElementSearchEngine** | `sdk.tools.crawler.web.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label, placeholder, aria-label, text |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap/blocker `.md` reports when automation is not possible |
 | **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` -- browser, proxy, crawler, reporting settings |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |

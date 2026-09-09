@@ -20,6 +20,32 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Unified SDK Review Priority 6 -- Documentation and Repository Hygiene**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  sections 13, 14, and 16): removed 11 stray compiled `.class` artifacts
+  from the `src/main/java` source tree (`SdkConfig`, `CrawlerStep` +
+  inner-class variants, `InstructionExtractor`, `PageContext`, `Email` +
+  related mailinator classes) -- they were already gitignored but were
+  still physically present in the working tree, exactly matching the
+  review's section 13 finding. Updated the stale
+  `docs/proposals/unified-execution-architecture.md` header (previously
+  `Status: PROPOSED (not yet implemented)`, now `Status: IMPLEMENTED`) to
+  point to `Unified_SDK_Implementation_Review_Findings_2026-09-09.md`
+  section 16 as the single authoritative current-state reference, per the
+  review's "one authoritative current-state section" requirement (section
+  14). Synchronized `README.md`, `SDK-USER-GUIDE.md`, and their
+  `src/main/resources/` bundled copies so the documented tooling FQNs match
+  the Priority 3 package moves (`sdk.utility.ElementCrawler` ->
+  `sdk.tools.crawler.web.ElementCrawler`, `sdk.utility.PageObjectGenerator`
+  -> `sdk.tools.pageobject.PageObjectGenerator`,
+  `sdk.utility.DataDrivenCrawler`/`CrawlerStep`/`CrawlerScenario`/
+  `ElementSearchEngine` -> `sdk.tools.crawler.web.*`,
+  `sdk.tools.AbstractLocatorInvestigator` ->
+  `sdk.tools.locator.AbstractLocatorInvestigator`), including the
+  `mvn exec:java` `PageObjectGenerator` example command. `GETTING-STARTED.md`
+  does not exist in this repository, so there was nothing to sync there.
+  Validated: full `mvn test` suite passes with no regressions (doc-only and
+  source-tree-cleanup changes; no production code changed).
 - **Unified SDK Review Priority 3 — Complete Tooling Consolidation**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   sections 9 and 16): completed the package-only tooling consolidation under
