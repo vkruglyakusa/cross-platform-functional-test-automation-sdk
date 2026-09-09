@@ -132,7 +132,7 @@ public class TestBase {
 	 * Configures Log4j from the SDK logging properties file.
 	 */
 	private void configureLogging() {
-		File file = new File(SdkConfig.LOG4J_PROPERTIES);
+		File file = new File(com.test.automation.sdk.config.SdkConfig.LOG4J_PROPERTIES);
 		org.apache.logging.log4j.core.LoggerContext context =
 				(org.apache.logging.log4j.core.LoggerContext) LogManager.getContext(false);
 		context.setConfigLocation(file.toURI());
@@ -145,7 +145,7 @@ public class TestBase {
 	 * @throws IOException if the configuration file cannot be read
 	 */
 	protected void loadData() throws IOException {
-		f = new File(SdkConfig.CONFIG_PROPERTIES);
+		f = new File(com.test.automation.sdk.config.SdkConfig.CONFIG_PROPERTIES);
 		FI = new FileInputStream(f);
 		Prop.load(FI);
 

@@ -1,5 +1,5 @@
 package com.test.automation.sdk.utility;
-import com.test.automation.sdk.testbase.SdkConfig;
+import com.test.automation.sdk.config.SdkConfig;
 
 import java.io.BufferedWriter;
 import java.io.File;

@@ -18,7 +18,7 @@ page objects, test classes, and test data.
 |---|---|---|
 | **TestBase** | `sdk.testbase.TestBase` | Base class with 60+ Selenium helpers (waits, clicks, scrolls, assertions) |
 | **WebDriverFactory** | `sdk.testbase.WebDriverFactory` | Browser initialization -- Chrome, Firefox, Edge, headless, Grid |
-| **SdkConfig** | `sdk.testbase.SdkConfig` | Config path resolution via system property or env variable |
+| **SdkConfig** | `sdk.config.SdkConfig` | Config path resolution via system property or env variable |
 | **ElementCrawler** | `sdk.utility.ElementCrawler` | Scans a live page and generates a `@FindBy`-annotated Page Object |
 | **PageObjectGenerator** | `sdk.utility.PageObjectGenerator` | Standalone runner for ElementCrawler; `generateFromElements()` for data-driven results |
 | **DataDrivenCrawler** | `sdk.utility.DataDrivenCrawler` | Multi-pass DOM-diff crawler for dynamic forms; follows test case flow step-by-step |

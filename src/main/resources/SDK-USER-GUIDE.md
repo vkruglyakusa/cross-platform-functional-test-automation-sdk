@@ -47,7 +47,7 @@ automation project only needs **one** Maven dependency.
 |-----------|-------|-------------------|
 | **TestBase** | `sdk.testbase.TestBase` | Base class with 60+ ready-to-use Selenium helpers |
 | **WebDriverFactory** | `sdk.testbase.WebDriverFactory` | Browser initialization (Chrome, Firefox, Edge, headless, Grid) |
-| **SdkConfig** | `sdk.testbase.SdkConfig` | Auto-resolves config file paths via system property or env variable |
+| **SdkConfig** | `sdk.config.SdkConfig` | Auto-resolves config file paths via system property or env variable |
 | **ElementCrawler** | `sdk.utility.ElementCrawler` | Scans a live page and generates a `@FindBy`-annotated Page Object. `waitForPageReady()` is public (1.2.4+) for use in consumer crawler tools. Supports iframe crawling, label associations, image buttons, table columns, and 28 XPath strategies. |
 | **PageObjectGenerator** | `sdk.utility.PageObjectGenerator` | Standalone runner for ElementCrawler. `generateFromElements()` accepts a pre-crawled list. `generateFromCurrentPageWithModalCheck()` detects open Angular modals and generates a separate `_Modal` page object. |
 | **DataDrivenCrawler** | `sdk.utility.DataDrivenCrawler` | Multi-pass DOM-diff crawler for dynamic forms (Angular, Dynamics, Salesforce). `crawlTestCase(url, name, steps)` follows a test case flow step-by-step; full-scan mode (default) inventories every element on every page state visited. |

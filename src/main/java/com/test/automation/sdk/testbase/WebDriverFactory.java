@@ -50,7 +50,7 @@ public class WebDriverFactory {
     // -- One-time JVM-level setup ----------------------------------------------
     static {
         // Reconfigure log4j from project config file if present
-        File logConfig = new File(SdkConfig.LOG4J_PROPERTIES);
+        File logConfig = new File(com.test.automation.sdk.config.SdkConfig.LOG4J_PROPERTIES);
         if (logConfig.exists()) {
             LoggerContext context =
                     (org.apache.logging.log4j.core.LoggerContext) LogManager.getContext(false);

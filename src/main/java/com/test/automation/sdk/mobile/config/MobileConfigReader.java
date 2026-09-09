@@ -10,11 +10,11 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.test.automation.sdk.mobile.testbase.MobileSdkConfig;
+import com.test.automation.sdk.config.SdkConfig;
 
 /**
  * Reads mobile-config.yaml (Android/iOS app paths, local Appium URL, device
- * defaults, etc.) from the configuration directory resolved by {@link MobileSdkConfig}.
+ * defaults, etc.) from the configuration directory resolved by {@link SdkConfig}.
  *
  * Deliberately uses the same minimal flat-key YAML parsing strategy as
  * com.test.automation.sdk.utility.YamlConfigReader in the desktop SDK, to avoid
@@ -44,12 +44,12 @@ public final class MobileConfigReader {
     private final boolean usingStandaloneFile;
 
     private MobileConfigReader() {
-        File yamlFile = new File(MobileSdkConfig.MOBILE_CONFIG_YAML);
+        File yamlFile = new File(SdkConfig.MOBILE_CONFIG_YAML);
         if (!yamlFile.exists()) {
             usingStandaloneFile = false;
             log.info("[MobileConfigReader] No standalone mobile-config.yaml found at: {} -- "
                             + "reading android.*/ios.* sections from the unified sdk-config.yaml instead.",
-                    MobileSdkConfig.MOBILE_CONFIG_YAML);
+                    SdkConfig.MOBILE_CONFIG_YAML);
             return;
         }
         usingStandaloneFile = true;

@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SdkSmokeTest {
 
     @Test @DisplayName("SdkConfig loads")
-    void sdkConfig() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.testbase.SdkConfig")); }
+    void sdkConfig() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.config.SdkConfig")); }
 
     @Test @DisplayName("TestBase loads")
     void testBase() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.testbase.TestBase")); }

@@ -43,6 +43,25 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   `mobile-functional-automation-consumer-template`'s `WikipediaSearchTest`.
 
 ### Removed
+- **[Breaking]** `testbase.SdkConfig` and `mobile.testbase.MobileSdkConfig` --
+  the two backward-compat shims kept since Phase 3 (delegating to
+  `config.SdkConfig`) have been deleted entirely; `config.SdkConfig` is now the
+  **only** `SdkConfig` class in the SDK. All 6 internal call sites that still
+  imported the legacy classes (`TestBase`, `WebDriverFactory`, `CSVReporter`,
+  `CSVUtils`, `PropertiesReader`, `QueryExcelFile`, `MailinatorEmailReader`,
+  `MobileConfigReader`) were updated to reference `config.SdkConfig` directly.
+  Searched all known consumer projects
+  (`mobile-functional-automation-consumer-template`, `311-Automation-SDK`) --
+  neither referenced the legacy classes directly, so this is not expected to
+  break any current consumer, but IS a breaking change for anyone who does
+  (`com.test.automation.sdk.testbase.SdkConfig` /
+  `com.test.automation.sdk.mobile.testbase.MobileSdkConfig` no longer exist).
+  Test coverage consolidated: the resolution-priority-algorithm tests from
+  the deleted `testbase.SdkConfigTest` were ported into `config.SdkConfigTest`
+  (which is now the single test class for `SdkConfig`); the two
+  legacy-delegation tests were removed since there is nothing left to delegate
+  to. `README.md`/`SDK-USER-GUIDE.md` updated to reference `sdk.config.SdkConfig`.
+  441/441 tests passing, `BUILD SUCCESS`.
 - Illustrative/demo test-tree artifacts that had no place shipping inside a reusable
   SDK: `mobile.sample.SampleHomePage`/`SampleSmokeTest` (a disabled, illustrative-only
   page object + smoke test demonstrating `MobileTestBase` usage) and 5 manual/diagnostic
