@@ -19,7 +19,67 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.1.0] — 2026-09-09
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Added
+- **Final cleanup for the v1.1.0 iteration (pre-release)**: fixed
+  `MobileConfigReader.get(...)` precedence so a system property/environment
+  variable override (via `ConfigurationManager.resolveOverride(...)`) is now
+  checked *before* an optional standalone `mobile-config.yaml`, matching the
+  documented "system property > env var > project YAML > default" chain --
+  previously a value present in `mobile-config.yaml` incorrectly took
+  precedence over `-Dandroid.appPath=...`/the equivalent env var. No second
+  Mobile-specific resolver was introduced; the fix only reorders the existing
+  calls to `ConfigurationManager.resolveOverride(...)`/`resolve(...)`. Added
+  a package-private `MobileConfigReader.resetForTests()` test hook and a new
+  regression test (`systemProperty_overridesStandaloneMobileConfigYamlValue`
+  in `MobileConfigReaderTest`) that writes a real standalone
+  `mobile-config.yaml`, and proves both that its value wins over the
+  project-YAML default and that a system property still wins over it. Added
+  an "Mobile (Appium / Android / iOS) Settings" section (`appium.localUrl`,
+  `android.appPath`/`automationName`, `ios.appPath`/`automationName`) to
+  `sdk-defaults/sdk-config.yaml.template` as the new recommended location for
+  Mobile configuration. Marked `configuration/mobile-config.yaml.example`
+  with an explicit DEPRECATED/legacy-compatibility banner pointing at the
+  unified `sdk-config.yaml` template instead (not removed, since no
+  confirmation exists that all consumer projects have migrated). Fixed
+  stale "not yet implemented"/"NOT yet buildable" wording in
+  `docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`'s Section
+  33 review block and its "34. Final Recommendation" priority list, which
+  predated this session's `AutomationSession`/`AutomationSessionFactory` and
+  public `mobileSwitchToNative()`/`mobileSwitchToWebView()` work -- both are
+  now annotated as implemented rather than left reading as still-pending.
+  Validated: full `mvn clean test` suite passes with no regressions; clean
+  `git status`.
+- **Unified SDK Review Priority 6 -- Documentation and Repository Hygiene**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  sections 13, 14, and 16): removed 11 stray compiled `.class` artifacts
+  from the `src/main/java` source tree (`SdkConfig`, `CrawlerStep` +
+  inner-class variants, `InstructionExtractor`, `PageContext`, `Email` +
+  related mailinator classes) -- they were already gitignored but were
+  still physically present in the working tree, exactly matching the
+  review's section 13 finding. Updated the stale
+  `docs/proposals/unified-execution-architecture.md` header (previously
+  `Status: PROPOSED (not yet implemented)`, now `Status: IMPLEMENTED`) to
+  point to `Unified_SDK_Implementation_Review_Findings_2026-09-09.md`
+  section 16 as the single authoritative current-state reference, per the
+  review's "one authoritative current-state section" requirement (section
+  14). Synchronized `README.md`, `SDK-USER-GUIDE.md`, and their
+  `src/main/resources/` bundled copies so the documented tooling FQNs match
+  the Priority 3 package moves (`sdk.utility.ElementCrawler` ->
+  `sdk.tools.crawler.web.ElementCrawler`, `sdk.utility.PageObjectGenerator`
+  -> `sdk.tools.pageobject.PageObjectGenerator`,
+  `sdk.utility.DataDrivenCrawler`/`CrawlerStep`/`CrawlerScenario`/
+  `ElementSearchEngine` -> `sdk.tools.crawler.web.*`,
+  `sdk.tools.AbstractLocatorInvestigator` ->
+  `sdk.tools.locator.AbstractLocatorInvestigator`), including the
+  `mvn exec:java` `PageObjectGenerator` example command. `GETTING-STARTED.md`
+  does not exist in this repository, so there was nothing to sync there.
+  Validated: full `mvn test` suite passes with no regressions (doc-only and
+  source-tree-cleanup changes; no production code changed).
 - **Unified SDK Review Priority 3 — Complete Tooling Consolidation**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   sections 9 and 16): completed the package-only tooling consolidation under
@@ -58,6 +118,98 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   class tests (124 tests), and full `mvn test` all pass with no regressions.
   Not validated in this environment: live browser/Appium crawler execution;
   validation here remained unit/mocked/package-structure focused.
+- **Unified SDK Review Priority 5 -- Reserve `AutomationTechnology` in Execution Selection**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 11): execution selection was strictly `Platform + RunMode`, with no
+  way to express that a platform could one day be served by more than one
+  automation engine (e.g. Web via Selenium today, Playwright later). Added a
+  new `execution.AutomationTechnology` enum (`SELENIUM`, `APPIUM` only --
+  `PLAYWRIGHT`/`USER_MIMIC` are explicitly *not* implemented, only the seam is
+  reserved). `SessionFactory` gained a `default getAutomationTechnology()`
+  method that infers the platform-implied value (`SELENIUM` for `WEB`,
+  `APPIUM` for `ANDROID`/`IOS`), so all 6 existing built-in factories compile
+  and resolve unchanged without overriding it. `ExecutionContext` gained a
+  matching `getAutomationTechnology()` plus new 3-arg
+  `forWeb(browserName, runMode, technology)` /
+  `forMobile(platform, deviceName, runMode, technology)` overloads (the
+  existing 2-arg overloads are unchanged and now delegate with `technology =
+  null`, defaulting the same way). `SessionFactoryRegistry` now keys
+  registrations on `(platform, runMode, technology)`; the existing 2-arg
+  `resolve(Platform, RunMode)` overload is preserved and defaults the
+  technology identically, so no existing caller (`DriverManager`, tests)
+  needed to change. New/updated tests: `execution.ExecutionContextTest`
+  (technology defaulting/override), `execution.SessionFactoryRegistryTest`
+  (technology-aware resolution, explicit-technology mismatch does not
+  silently fall back). No new technology implementation (e.g. Playwright) was
+  added, per the review's explicit scope boundary.
+- **Unified SDK Review Priority 4 — Finish Session Isolation (Mobile static state removal)**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 10): `MobileTestBase.mobileOsName`/`deviceName` were `protected
+  static` fields shared across all Mobile test instances -- two concurrently
+  executing Mobile test classes (or the same class run in parallel) could
+  leak each other's device/platform selection, especially around retries.
+  Converted both to instance fields; `getCurrentPlatformOS()` (which reads
+  `mobileOsName`) is now an instance method instead of `static` (no other
+  behavior change -- `isRunningInCloud()` remains `static`, it never read
+  either field). New test: `mobile.testbase.MixedWebMobileIsolationTest`,
+  which runs a Web `TestBase` test and a Mobile `MobileTestBase` test
+  concurrently (fake `SessionFactory`s, no real browser/Appium session) and
+  asserts neither driver/session leaks into the other, plus runs two
+  concurrent Mobile test instances with different `deviceName`s and asserts
+  each retains its own value -- proving the fields are genuine per-instance
+  state. A mocked concurrency test is sufficient for this architecture-level
+  validation per the review's own guidance; real mixed Web/Mobile
+  BrowserStack/Appium concurrency was not validated in this environment.
+  Validated: targeted tests and full `mvn test` suite pass with no
+  regressions.
+- **Unified SDK Review Priority 2 — Finish Configuration Unification**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 8): added `config.ConfigurationManager`, the SDK's single
+  configuration-resolution engine implementing the full precedence chain
+  (system property > environment variable > project YAML via
+  `YamlConfigReader` > caller-supplied default) in exactly one place, plus
+  small typed `CommonConfig`/`WebConfig` views (`getCommonConfig()`,
+  `getWebConfig()`) over the handful of keys already in use. Refactored
+  `mobile.config.MobileConfigReader.get(String, String)` to delegate to
+  `ConfigurationManager.resolve(...)` for any key not present in an optional
+  standalone `mobile-config.yaml` (still the only Mobile-specific behavior it
+  owns, retained as a temporary migration path per the review), so Mobile
+  configuration is now subject to the exact same precedence rules as
+  Web/common configuration instead of reading `YamlConfigReader` directly
+  with no system-property/env override at all -- previously a real gap
+  (e.g. `-Dandroid.appPath=...` had no effect). Added
+  `MobileConfigReader.getMobileConfig()` returning a typed `MobileConfig`
+  view (`androidAppPath()`, `androidAutomationName()`, `iosAppPath()`,
+  `iosAutomationName()`, `appiumLocalUrl()`) so call sites can move off raw
+  dotted-key strings incrementally; existing `MobileConfigReader.get(...)`
+  call sites in `MobileDriverFactory`/crawler classes are unchanged and keep
+  working. New tests: `config.ConfigurationManagerTest`,
+  extended `mobile.config.MobileConfigReaderTest` (system-property override
+  precedence, typed view). Validated: targeted tests and full `mvn test`
+  suite pass with no regressions.
+- **Unified SDK Review Priority 1 — Complete TestBase Session Integration**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 16): `TestBase.initialization(String, String)` now builds an
+  `ExecutionContext.forWeb(...)` and acquires its `WebDriver` via
+  `AutomationSessionFactory.create(context)` (which delegates to
+  `DriverManager` -> `SessionFactoryRegistry`) instead of calling
+  `WebDriverFactory` directly; the resulting `AutomationSession` is stored on
+  the new `TestBase.automationSession` field. `TestBase.closeBrowser()` now
+  quits through `automationSession` when set, falling back to `driver.quit()`
+  for subclasses that assign `driver` directly. `MobileTestBase.setUpDriver`
+  and its retry path in `beforeMethod(Method)` were updated the same way,
+  building `ExecutionContext.forMobile(...)` and acquiring/re-acquiring
+  through `AutomationSessionFactory` instead of calling `MobileDriverFactory`
+  directly (a new private `resolvePlatform(String)` helper maps the existing
+  `mobileOS`/`device` strings to `Platform`). `AutomationSessionFactory`,
+  `DriverManager`, and `SessionFactoryRegistry` themselves were already
+  correct and unchanged -- this closes the gap where they existed but were
+  never called from the primary test lifecycle. New test:
+  `testbase.TestBaseSessionIntegrationTest` (registers a fake `SessionFactory`
+  for `(WEB, LOCAL)`, same pattern as `session.AutomationSessionFactoryTest`).
+  Validated: targeted tests and full `mvn test` suite pass with no
+  regressions. Not validated in this environment: real
+  browser/Appium/BrowserStack execution.
 - **Structure Cleanup Phase 8 — Package Cleanup (first gradual step)**
   (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): moved
   `utility.WebElementDiscoveryAdapter` to `discovery.WebElementDiscoveryAdapter`

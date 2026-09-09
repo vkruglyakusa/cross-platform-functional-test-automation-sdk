@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.1.0] — 2026-09-09
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Added
 - **Final cleanup for the v1.1.0 iteration (pre-release)**: fixed
   `MobileConfigReader.get(...)` precedence so a system property/environment
