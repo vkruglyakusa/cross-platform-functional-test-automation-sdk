@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.1.1] — 2026-09-09
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Fixed
 - **`scripts/release.ps1` step 7 (consumer template update) was hard-coded to
   the legacy `functional-test-automation-sdk` artifactId.** When releasing
