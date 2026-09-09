@@ -312,8 +312,14 @@ public final class MapWidgetHelper {
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    /** True when {@code possibleAncestor} contains {@code el} in the live DOM. */
-    static boolean isAncestor(WebDriver driver, WebElement possibleAncestor, WebElement el) {
+    /**
+     * True when {@code possibleAncestor} contains {@code el} in the live DOM.
+     *
+     * <p>Made public during Unified SDK Review Priority 3 so the moved web crawler
+     * implementation under {@code tools.crawler.web} can keep using the same helper
+     * without duplicating the DOM-containment logic.
+     */
+    public static boolean isAncestor(WebDriver driver, WebElement possibleAncestor, WebElement el) {
         try {
             Object result = ((JavascriptExecutor) driver).executeScript(
                 "return arguments[0].contains(arguments[1]);", possibleAncestor, el);

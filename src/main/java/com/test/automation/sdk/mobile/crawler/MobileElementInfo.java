@@ -4,99 +4,95 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One discovered screen element (native or WebView-hosted) plus every locator
- * candidate considered for it. Mirrors the desktop SDK's {@code ElementCrawler.ElementInfo}.
+ * @deprecated Unified SDK Review Priority 3
+ * ({@code docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md},
+ * section 9) moved the real implementation to
+ * {@link com.test.automation.sdk.tools.crawler.mobile.MobileElementInfo}. This wrapper preserves
+ * the legacy source-level API while delegating to the new package.
  */
+@Deprecated
 public class MobileElementInfo {
 
-    private final String platform;
-    private final String tagOrClassName;
-    private final String text;
-    private final List<MobileLocatorCandidate> candidates = new ArrayList<>();
-    private boolean fromWebView;
-    private String webViewContext;
-    private String suggestedFieldName;
-    private final List<String> visibleAfterSteps = new ArrayList<>();
+    private final com.test.automation.sdk.tools.crawler.mobile.MobileElementInfo delegate;
 
     public MobileElementInfo(String platform, String tagOrClassName, String text) {
-        this.platform = platform;
-        this.tagOrClassName = tagOrClassName;
-        this.text = text;
+        this(new com.test.automation.sdk.tools.crawler.mobile.MobileElementInfo(platform, tagOrClassName, text));
+    }
+
+    MobileElementInfo(com.test.automation.sdk.tools.crawler.mobile.MobileElementInfo delegate) {
+        this.delegate = delegate;
     }
 
     public String getPlatform() {
-        return platform;
+        return delegate.getPlatform();
     }
 
     public String getTagOrClassName() {
-        return tagOrClassName;
+        return delegate.getTagOrClassName();
     }
 
     public String getText() {
-        return text;
+        return delegate.getText();
     }
 
     public List<MobileLocatorCandidate> getCandidates() {
-        return candidates;
+        List<MobileLocatorCandidate> converted = new ArrayList<MobileLocatorCandidate>();
+        for (com.test.automation.sdk.tools.crawler.mobile.MobileLocatorCandidate candidate : delegate.getCandidates()) {
+            converted.add(new MobileLocatorCandidate(candidate));
+        }
+        return converted;
     }
 
     public void addCandidate(MobileLocatorCandidate candidate) {
-        candidates.add(candidate);
+        delegate.addCandidate(candidate.unwrap());
     }
 
     public boolean isFromWebView() {
-        return fromWebView;
+        return delegate.isFromWebView();
     }
 
     public void setFromWebView(boolean fromWebView) {
-        this.fromWebView = fromWebView;
+        delegate.setFromWebView(fromWebView);
     }
 
     public String getWebViewContext() {
-        return webViewContext;
+        return delegate.getWebViewContext();
     }
 
     public void setWebViewContext(String webViewContext) {
-        this.webViewContext = webViewContext;
+        delegate.setWebViewContext(webViewContext);
     }
 
     public String getSuggestedFieldName() {
-        return suggestedFieldName;
+        return delegate.getSuggestedFieldName();
     }
 
     public void setSuggestedFieldName(String suggestedFieldName) {
-        this.suggestedFieldName = suggestedFieldName;
+        delegate.setSuggestedFieldName(suggestedFieldName);
     }
 
-    /** First candidate in ladder order marked {@code UNIQUE}, or {@code null} if none resolved. */
     public MobileLocatorCandidate getBestUniqueCandidate() {
-        for (MobileLocatorCandidate candidate : candidates) {
-            if (candidate.isUnique()) {
-                return candidate;
-            }
-        }
-        return null;
+        com.test.automation.sdk.tools.crawler.mobile.MobileLocatorCandidate candidate = delegate.getBestUniqueCandidate();
+        return candidate == null ? null : new MobileLocatorCandidate(candidate);
     }
 
     public boolean isResolved() {
-        return getBestUniqueCandidate() != null;
+        return delegate.isResolved();
     }
 
-    /** Records that this element was also observed after a given crawl step (see {@link com.test.automation.sdk.mobile.crawler.MobileDataDrivenCrawler}). */
     public void addVisibleAfterStep(String stepDescription) {
-        if (stepDescription != null && !visibleAfterSteps.contains(stepDescription)) {
-            visibleAfterSteps.add(stepDescription);
-        }
+        delegate.addVisibleAfterStep(stepDescription);
     }
 
     public List<String> getVisibleAfterSteps() {
-        return visibleAfterSteps;
+        return delegate.getVisibleAfterSteps();
     }
 
-    /** Stable dedup/merge key for this element across screens -- tag + best identity value available. */
     public String mergeKey() {
-        MobileLocatorCandidate best = getBestUniqueCandidate();
-        String identity = best != null ? best.getStrategy() + "=" + best.getValue() : text;
-        return tagOrClassName + "::" + identity;
+        return delegate.mergeKey();
+    }
+
+    com.test.automation.sdk.tools.crawler.mobile.MobileElementInfo unwrap() {
+        return delegate;
     }
 }

@@ -1,4 +1,4 @@
-package com.test.automation.sdk.mobile.crawler;
+package com.test.automation.sdk.tools.crawler.mobile;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,7 +12,7 @@ import com.test.automation.sdk.discovery.DiscoveredElement;
 import com.test.automation.sdk.discovery.DiscoveryResult;
 import com.test.automation.sdk.discovery.LocatorCandidate;
 import com.test.automation.sdk.discovery.LocatorCandidate.Marker;
-import com.test.automation.sdk.utility.ElementCrawler;
+import com.test.automation.sdk.tools.crawler.web.ElementCrawler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

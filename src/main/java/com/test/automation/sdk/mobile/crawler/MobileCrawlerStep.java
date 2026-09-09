@@ -1,78 +1,75 @@
 package com.test.automation.sdk.mobile.crawler;
 
 /**
- * One user-interaction step in a multi-screen crawl, mirroring the desktop SDK's
- * {@code CrawlerStep} semantic factories so the two crawlers feel familiar to the
- * same engineers. Used by {@link MobileDataDrivenCrawler} to drive the app from
- * screen to screen while crawling each screen along the way.
+ * @deprecated Unified SDK Review Priority 3
+ * ({@code docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md},
+ * section 9) moved the real implementation to
+ * {@link com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep}. This wrapper preserves
+ * the legacy static-factory API for existing consumers.
  */
+@Deprecated
 public final class MobileCrawlerStep {
 
-    /** What kind of interaction this step performs. */
     public enum Action { TAP, TYPE }
 
-    /** Which attribute to locate the target element by. */
     public enum By { RESOURCE_ID, ACCESSIBILITY_ID, TEXT, XPATH }
 
-    private final Action action;
-    private final By by;
-    private final String selector;
-    private final String inputValue;
-    private String description = "";
+    private final com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep delegate;
 
-    private MobileCrawlerStep(Action action, By by, String selector, String inputValue) {
-        this.action = action;
-        this.by = by;
-        this.selector = selector;
-        this.inputValue = inputValue;
+    private MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep delegate) {
+        this.delegate = delegate;
     }
 
     public static MobileCrawlerStep tapByResourceId(String resourceId) {
-        return new MobileCrawlerStep(Action.TAP, By.RESOURCE_ID, resourceId, null);
+        return new MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep.tapByResourceId(resourceId));
     }
 
     public static MobileCrawlerStep tapByAccessibilityId(String accessibilityId) {
-        return new MobileCrawlerStep(Action.TAP, By.ACCESSIBILITY_ID, accessibilityId, null);
+        return new MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep.tapByAccessibilityId(accessibilityId));
     }
 
     public static MobileCrawlerStep tapByText(String text) {
-        return new MobileCrawlerStep(Action.TAP, By.TEXT, text, null);
+        return new MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep.tapByText(text));
     }
 
     public static MobileCrawlerStep tapByXpath(String xpath) {
-        return new MobileCrawlerStep(Action.TAP, By.XPATH, xpath, null);
+        return new MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep.tapByXpath(xpath));
     }
 
     public static MobileCrawlerStep typeByResourceId(String resourceId, String value) {
-        return new MobileCrawlerStep(Action.TYPE, By.RESOURCE_ID, resourceId, value);
+        return new MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep.typeByResourceId(resourceId, value));
     }
 
     public static MobileCrawlerStep typeByAccessibilityId(String accessibilityId, String value) {
-        return new MobileCrawlerStep(Action.TYPE, By.ACCESSIBILITY_ID, accessibilityId, value);
+        return new MobileCrawlerStep(com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep.typeByAccessibilityId(accessibilityId, value));
     }
 
     public MobileCrawlerStep describe(String description) {
-        this.description = description;
+        delegate.describe(description);
         return this;
     }
 
     public Action getAction() {
-        return action;
+        return Action.valueOf(delegate.getAction().name());
     }
 
     public By getBy() {
-        return by;
+        return By.valueOf(delegate.getBy().name());
     }
 
     public String getSelector() {
-        return selector;
+        return delegate.getSelector();
     }
 
     public String getInputValue() {
-        return inputValue;
+        return delegate.getInputValue();
     }
 
     public String getDescription() {
-        return description;
+        return delegate.getDescription();
+    }
+
+    com.test.automation.sdk.tools.crawler.mobile.MobileCrawlerStep unwrap() {
+        return delegate;
     }
 }

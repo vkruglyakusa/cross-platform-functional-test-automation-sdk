@@ -6,7 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.test.automation.sdk.discovery.LocatorCandidate.Marker;
-import com.test.automation.sdk.utility.ElementCrawler;
+import com.test.automation.sdk.tools.crawler.web.ElementCrawler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

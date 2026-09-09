@@ -223,7 +223,7 @@ mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Dinv.email=your@email.com -Dinv.password=yourpassword
 
 # Standalone
-mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.utility.PageObjectGenerator" \
+mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.tools.pageobject.PageObjectGenerator" \
   -Dexec.args="LoginPage https://your-app.example.com/#/login user@example.com pass"
 ```
 

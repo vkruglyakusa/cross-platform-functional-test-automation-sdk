@@ -1,4 +1,4 @@
-package com.test.automation.sdk.utility;
+package com.test.automation.sdk.tools.crawler.web;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

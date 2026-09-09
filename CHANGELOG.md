@@ -20,6 +20,44 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Unified SDK Review Priority 3 — Complete Tooling Consolidation**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  sections 9 and 16): completed the package-only tooling consolidation under
+  `tools/` without rewriting crawler/generator logic. Web tooling moved from
+  `utility.*` to `tools.crawler.web.*`
+  (`ElementCrawler`, `DataDrivenCrawler`, `CrawlerStep`, `CrawlerScenario`,
+  `ElementSearchEngine`); mobile tooling moved from `mobile.crawler.*` to
+  `tools.crawler.mobile.*` (`MobileElementCrawler`,
+  `MobileDataDrivenCrawler`, `MobileCrawlerReportWriter`,
+  `MobileCrawlerStep`, `MobileElementInfo`, `MobileLocatorCandidate`,
+  `MobileScreenSnapshot`, `MobileElementDiscoveryAdapter`);
+  page-object generators moved to `tools.pageobject.*`
+  (`PageObjectGenerator`, `MobilePageObjectGenerator`); and
+  `tools.AbstractLocatorInvestigator` moved to
+  `tools.locator.AbstractLocatorInvestigator`. Per the repo's existing
+  backward-compatibility pattern (`utility.YamlConfigReader`,
+  `utility.WebElementDiscoveryAdapter`), every old FQN now remains as a
+  deprecated compatibility facade: inheritance-based facades where safe
+  (`ElementCrawler`, `ElementSearchEngine`, `PageObjectGenerator`,
+  `AbstractLocatorInvestigator`) and delegation/wrapper facades where
+  constructors/finality/generic signatures made direct subclassing unsafe
+  (`CrawlerStep`, `CrawlerScenario`, `DataDrivenCrawler`,
+  `MobileElementCrawler`, `MobileDataDrivenCrawler`,
+  `MobileCrawlerReportWriter`, `MobileCrawlerStep`, `MobileElementInfo`,
+  `MobileLocatorCandidate`, `MobileScreenSnapshot`,
+  `MobileElementDiscoveryAdapter`, `MobilePageObjectGenerator`). Internal
+  callers, tests, and bundled docs/resources were updated to reference the
+  new packages directly. Added compatibility tests
+  `utility.ToolingCompatibilityFacadeTest`,
+  `mobile.crawler.MobileToolingCompatibilityFacadeTest`, and
+  `tools.locator.AbstractLocatorInvestigatorCompatibilityTest`; relocated
+  moved-class tests under `tools/crawler/web`, `tools/crawler/mobile`, and
+  `tools/pageobject`. Also made `utility.MapWidgetHelper.isAncestor(...)`
+  public so the moved web crawler can keep using the same helper without
+  duplicating logic. Validated: `mvn compile test-compile`, targeted moved
+  class tests (124 tests), and full `mvn test` all pass with no regressions.
+  Not validated in this environment: live browser/Appium crawler execution;
+  validation here remained unit/mocked/package-structure focused.
 - **Unified SDK Review Priority 5 -- Reserve `AutomationTechnology` in Execution Selection**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   section 11): execution selection was strictly `Platform + RunMode`, with no
@@ -1059,7 +1097,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ### Added -- `AbstractLocatorInvestigator` -- zero-duplication crawler base class
 
-New class `com.test.automation.sdk.tools.AbstractLocatorInvestigator` eliminates
+New class `com.test.automation.sdk.tools.locator.AbstractLocatorInvestigator` eliminates
 all infrastructure duplication across consumer projects. Previously every project
 copied the full crawler scaffolding (fail-fast login, role blacklist, nav helpers,
 driver rebind, crawl summary). Now the SDK owns all of it.
@@ -1386,5 +1424,4 @@ Three resolution mechanisms implemented in `collectLabelAssociations()`:
 - Initial release: TestBase, WebDriverFactory, SdkConfig, ElementCrawler,
   PageObjectGenerator, Excel_Reader, Listener, RetryListener, WebEventListener,
   YamlConfigReader
-
 

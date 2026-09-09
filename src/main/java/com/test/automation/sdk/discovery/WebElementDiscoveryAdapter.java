@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 import org.openqa.selenium.WebDriver;
 
 import com.test.automation.sdk.discovery.LocatorCandidate.Marker;
-import com.test.automation.sdk.utility.ElementCrawler;
+import com.test.automation.sdk.tools.crawler.web.ElementCrawler;
 
 /**
  * Adapts the desktop {@link ElementCrawler}'s output into the common

@@ -796,7 +796,7 @@ You can also override per-run without editing the YAML:
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.test.automation.sdk.utility.PageObjectGenerator" \
+  -Dexec.mainClass="com.test.automation.sdk.tools.pageobject.PageObjectGenerator" \
   -Dexec.args="LoginPage https://your-app.example.com/#/login user@example.com pass" \
   -Dpog.package=com.yourcompany.automation.uiActions \
   -Dpog.outputDir=src/main/java/com/yourcompany/automation/uiActions/
@@ -822,7 +822,7 @@ mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
 
 # Option B -- standalone generator (no suite XML required)
 mvn exec:java \
-  -Dexec.mainClass="com.test.automation.sdk.utility.PageObjectGenerator" \
+  -Dexec.mainClass="com.test.automation.sdk.tools.pageobject.PageObjectGenerator" \
   -Dexec.args="LoginPage https://your-app.example.com/#/login your@email.com yourpassword"
 ```
 

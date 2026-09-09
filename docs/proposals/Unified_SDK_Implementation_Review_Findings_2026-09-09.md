@@ -887,6 +887,32 @@ Retain compatibility fallbacks only as temporary migration mechanisms.
 
 ## Priority 3 — Complete Tooling Consolidation
 
+> **Status: COMPLETE** (see `CHANGELOG.md`).
+> Web tooling was consolidated under `tools.crawler.web`
+> (`ElementCrawler`, `DataDrivenCrawler`, `CrawlerStep`, `CrawlerScenario`,
+> `ElementSearchEngine`); mobile tooling was consolidated under
+> `tools.crawler.mobile` (`MobileElementCrawler`,
+> `MobileDataDrivenCrawler`, `MobileCrawlerReportWriter`,
+> `MobileCrawlerStep`, `MobileElementInfo`, `MobileLocatorCandidate`,
+> `MobileScreenSnapshot`, `MobileElementDiscoveryAdapter`);
+> page-object generators moved to `tools.pageobject`
+> (`PageObjectGenerator`, `MobilePageObjectGenerator`); and
+> `tools.AbstractLocatorInvestigator` moved to
+> `tools.locator.AbstractLocatorInvestigator`. The old FQNs remain in place
+> as deprecated compatibility facades (inheritance where safe, delegation
+> wrappers where constructors/finality/generic signatures made direct
+> subclassing unsafe), matching the compatibility pattern already used by
+> `utility.YamlConfigReader` and the earlier
+> `utility.WebElementDiscoveryAdapter` move. Proven by relocated moved-class
+> tests plus dedicated facade-compatibility tests
+> (`utility.ToolingCompatibilityFacadeTest`,
+> `mobile.crawler.MobileToolingCompatibilityFacadeTest`,
+> `tools.locator.AbstractLocatorInvestigatorCompatibilityTest`).
+> Validated: `mvn compile test-compile`, targeted moved-class tests, and the
+> full `mvn test` suite all pass with no regressions. Not validated in this
+> environment: live browser/Appium crawler execution (unit/mocked/package
+> structure validation only).
+
 Promote existing crawlers, Page Object generators, locator investigation, accessibility tools, and evidence tools into the formal tooling architecture.
 
 Do not rewrite mature algorithms.

@@ -1,4 +1,4 @@
-package com.test.automation.sdk.mobile.crawler;
+package com.test.automation.sdk.tools.crawler.mobile;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.test.automation.sdk.tools.pageobject.MobilePageObjectGenerator;
 
 /**
  * Unit tests for the mobile element crawler package.
@@ -154,7 +156,7 @@ class MobileElementCrawlerTest {
     void reportRenderIncludesMarkersAndScreenName() {
         List<MobileElementInfo> elements = MobileElementCrawler.analyzePageSource(ANDROID_SOURCE_UNIQUE_IDS, "android");
         MobileScreenSnapshot snapshot = new MobileScreenSnapshot("android", ANDROID_SOURCE_UNIQUE_IDS,
-                new byte[0], elements, Map.of());
+                new byte[0], elements, java.util.Collections.<String, List<com.test.automation.sdk.tools.crawler.web.ElementCrawler.ElementInfo>>emptyMap());
         String report = MobileCrawlerReportWriter.render("LoginScreen", snapshot);
         assertTrue(report.contains("LoginScreen"), "report must reference the screen name");
         assertTrue(report.contains("UNIQUE"), "report must surface UNIQUE markers");
@@ -165,7 +167,7 @@ class MobileElementCrawlerTest {
     void generatorEmitsOnlyUniqueCandidates() {
         List<MobileElementInfo> elements = MobileElementCrawler.analyzePageSource(ANDROID_SOURCE_UNIQUE_IDS, "android");
         MobileScreenSnapshot snapshot = new MobileScreenSnapshot("android", ANDROID_SOURCE_UNIQUE_IDS,
-                new byte[0], elements, Map.of());
+                new byte[0], elements, java.util.Collections.<String, List<com.test.automation.sdk.tools.crawler.web.ElementCrawler.ElementInfo>>emptyMap());
         String generated = MobilePageObjectGenerator.generate("PoletopLoginPage", snapshot);
         assertTrue(generated.contains("public class PoletopLoginPage"));
         assertTrue(generated.contains("@AndroidFindBy"), "resolved android candidates must emit @AndroidFindBy");

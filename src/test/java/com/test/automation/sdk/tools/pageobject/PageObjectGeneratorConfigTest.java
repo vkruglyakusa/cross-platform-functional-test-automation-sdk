@@ -1,4 +1,4 @@
-package com.test.automation.sdk.utility;
+package com.test.automation.sdk.tools.pageobject;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
