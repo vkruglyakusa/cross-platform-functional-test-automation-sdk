@@ -3,12 +3,14 @@ package com.test.automation.sdk.mobile.actions;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import io.appium.java_client.AppiumDriver;
+import io.appium.java_client.remote.SupportsContextSwitching;
 
 /**
  * Common mobile gesture/action helpers, layered on top of the official
@@ -75,5 +77,89 @@ public final class MobileActions {
 
     public static void hideKeyboard(AppiumDriver driver) {
         driver.executeScript("mobile: hideKeyboard");
+    }
+
+    // ------------------------------------------------------------------
+    // Context switching (NATIVE_APP <-> WEBVIEW_*)
+    //
+    // Promoted from the proven pattern in
+    // MobileElementCrawler.crawlWebViewsIfPresent() (WebView detection during
+    // crawling) into general-purpose, public helpers so page objects/tests can
+    // switch context directly -- see docs/proposals/sdk-structure-cleanup-
+    // assessment-updated-v4.md, "Priority & Sequencing Adjustments" item 4.
+    // ------------------------------------------------------------------
+
+    private static final String NATIVE_APP_CONTEXT = "NATIVE_APP";
+    private static final String WEBVIEW_CONTEXT_PREFIX = "WEBVIEW";
+
+    private static SupportsContextSwitching requireContextSwitchingDriver(AppiumDriver driver) {
+        if (!(driver instanceof SupportsContextSwitching)) {
+            throw new IllegalStateException(
+                    "Driver does not support context switching (not a SupportsContextSwitching instance): "
+                            + driver.getClass().getName());
+        }
+        return (SupportsContextSwitching) driver;
+    }
+
+    /** All context handles currently reported by the driver, e.g. {@code ["NATIVE_APP", "WEBVIEW_com.example.app"]}. */
+    public static Set<String> getAvailableContexts(AppiumDriver driver) {
+        return requireContextSwitchingDriver(driver).getContextHandles();
+    }
+
+    /** The context the driver is currently switched to. */
+    public static String getCurrentContext(AppiumDriver driver) {
+        return requireContextSwitchingDriver(driver).getContext();
+    }
+
+    /** True when the driver's current context is a WebView (name starts with {@code "WEBVIEW"}). */
+    public static boolean isInWebViewContext(AppiumDriver driver) {
+        String current = getCurrentContext(driver);
+        return current != null && current.startsWith(WEBVIEW_CONTEXT_PREFIX);
+    }
+
+    /** Switches the driver back to the native context. Safe to call even if already native. */
+    public static void switchToNativeContext(AppiumDriver driver) {
+        requireContextSwitchingDriver(driver).context(NATIVE_APP_CONTEXT);
+    }
+
+    /** Switches the driver to the exact context name given (as returned by {@link #getAvailableContexts(AppiumDriver)}). */
+    public static void switchToContext(AppiumDriver driver, String contextName) {
+        requireContextSwitchingDriver(driver).context(contextName);
+    }
+
+    /**
+     * Switches to the first available WebView context.
+     *
+     * @throws IllegalStateException if no WebView context is currently present
+     *         (e.g. the hybrid screen hasn't finished loading its embedded web content yet)
+     */
+    public static void switchToWebViewContext(AppiumDriver driver) {
+        SupportsContextSwitching contextDriver = requireContextSwitchingDriver(driver);
+        for (String context : contextDriver.getContextHandles()) {
+            if (context != null && context.startsWith(WEBVIEW_CONTEXT_PREFIX)) {
+                contextDriver.context(context);
+                return;
+            }
+        }
+        throw new IllegalStateException("No WEBVIEW context is currently available. Available contexts: "
+                + contextDriver.getContextHandles());
+    }
+
+    /**
+     * Switches to the WebView context whose name contains {@code nameContains}
+     * (e.g. a specific package name), for apps with more than one active WebView.
+     *
+     * @throws IllegalStateException if no matching WebView context is currently present
+     */
+    public static void switchToWebViewContext(AppiumDriver driver, String nameContains) {
+        SupportsContextSwitching contextDriver = requireContextSwitchingDriver(driver);
+        for (String context : contextDriver.getContextHandles()) {
+            if (context != null && context.startsWith(WEBVIEW_CONTEXT_PREFIX) && context.contains(nameContains)) {
+                contextDriver.context(context);
+                return;
+            }
+        }
+        throw new IllegalStateException("No WEBVIEW context containing [" + nameContains
+                + "] is currently available. Available contexts: " + contextDriver.getContextHandles());
     }
 }

@@ -200,4 +200,45 @@ public class MobileTestBase extends TestBase {
             Thread.currentThread().interrupt();
         }
     }
+
+    /**
+     * Switches the driver's context back to native (from a WebView) so subsequent
+     * {@code @FindBy}/native-locator interactions resolve against the native view
+     * hierarchy again. Delegates to {@link MobileActions#switchToNativeContext(AppiumDriver)}.
+     */
+    protected void mobileSwitchToNative() {
+        MobileActions.switchToNativeContext(requireAppiumDriver());
+    }
+
+    /**
+     * Switches the driver's context to the first available WebView, for hybrid
+     * screens that embed web content inside the native app. Delegates to
+     * {@link MobileActions#switchToWebViewContext(AppiumDriver)}.
+     *
+     * @throws IllegalStateException if no WebView context is currently present
+     */
+    protected void mobileSwitchToWebView() {
+        MobileActions.switchToWebViewContext(requireAppiumDriver());
+    }
+
+    /**
+     * Switches the driver's context to the WebView whose name contains
+     * {@code nameContains}, for apps with more than one active WebView.
+     * Delegates to {@link MobileActions#switchToWebViewContext(AppiumDriver, String)}.
+     *
+     * @throws IllegalStateException if no matching WebView context is currently present
+     */
+    protected void mobileSwitchToWebView(String nameContains) {
+        MobileActions.switchToWebViewContext(requireAppiumDriver(), nameContains);
+    }
+
+    /** True when the driver's current context is a WebView (not native). */
+    protected boolean isInWebViewContext() {
+        return MobileActions.isInWebViewContext(requireAppiumDriver());
+    }
+
+    /** All context handles currently reported by the driver, e.g. {@code ["NATIVE_APP", "WEBVIEW_com.example.app"]}. */
+    protected java.util.Set<String> getAvailableContexts() {
+        return MobileActions.getAvailableContexts(requireAppiumDriver());
+    }
 }

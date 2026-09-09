@@ -41,6 +41,28 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   unit tests (`AutomationSessionFactoryTest`, `SeleniumSessionTest`,
   `AppiumSessionTest`) use mocked `WebDriver`/`AppiumDriver` -- no real
   browser/Appium session is launched. 459/459 tests passing, `BUILD SUCCESS`.
+- **Mobile context switching helpers** (`mobileSwitchToNative()` /
+  `mobileSwitchToWebView()`), per the same v4 roadmap's "Priority &
+  Sequencing Adjustments" item 4: promoted the proven NATIVE_APP/WEBVIEW
+  switching pattern out of `MobileElementCrawler.crawlWebViewsIfPresent()`
+  (previously private/internal to the crawler) into public, reusable helpers.
+  New static methods on `mobile.actions.MobileActions`:
+  `getAvailableContexts`, `getCurrentContext`, `isInWebViewContext`,
+  `switchToNativeContext`, `switchToContext(driver, name)`,
+  `switchToWebViewContext(driver)` (first available WebView), and
+  `switchToWebViewContext(driver, nameContains)` (for apps with more than one
+  active WebView). New protected wrappers on
+  `mobile.testbase.MobileTestBase`: `mobileSwitchToNative()`,
+  `mobileSwitchToWebView()`, `mobileSwitchToWebView(String)`,
+  `isInWebViewContext()`, `getAvailableContexts()` -- for direct use from
+  test classes/page objects. `MobileElementCrawler` itself was refactored to
+  delegate to these same `MobileActions` helpers instead of calling
+  `SupportsContextSwitching` directly, so the crawler and general
+  page-object/test code now share one context-switching mechanism (Guardrail
+  #4: one session/context-selection mechanism). Additive, non-breaking
+  change. New unit tests (`MobileActionsTest`, 10 cases) mock
+  `AppiumDriver`/`SupportsContextSwitching` -- no real Appium session is
+  launched. Full suite green after this change.
 
 ### Changed
 - **Structure Cleanup Phase 2 — Configuration Unification**

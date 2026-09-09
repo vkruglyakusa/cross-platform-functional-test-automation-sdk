@@ -25,6 +25,7 @@ import org.w3c.dom.NodeList;
 import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.remote.SupportsContextSwitching;
 
+import com.test.automation.sdk.mobile.actions.MobileActions;
 import com.test.automation.sdk.mobile.crawler.MobileLocatorCandidate.Marker;
 import com.test.automation.sdk.mobile.crawler.MobileLocatorCandidate.Strategy;
 import com.test.automation.sdk.mobile.crawler.MobileLocatorCandidate.Verification;
@@ -428,6 +429,12 @@ public class MobileElementCrawler {
      * screen to the desktop SDK's {@link ElementCrawler} (which already does CDP-free
      * DOM crawling) instead of reinventing DOM crawling here. Always restores the
      * NATIVE_APP context before returning so the native XML-tree pass isn't disrupted.
+     *
+     * Context switching itself is delegated to {@link MobileActions} (the single,
+     * public NATIVE_APP/WEBVIEW switching mechanism -- see
+     * docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md) rather than
+     * calling {@link SupportsContextSwitching} directly, so this crawler and
+     * page-object/test code share the exact same switching behavior.
      */
     private Map<String, List<ElementCrawler.ElementInfo>> crawlWebViewsIfPresent() {
         Map<String, List<ElementCrawler.ElementInfo>> result = new HashMap<>();
@@ -435,10 +442,9 @@ public class MobileElementCrawler {
             log.debug("Driver does not support context switching -- skipping WebView detection");
             return result;
         }
-        SupportsContextSwitching contextDriver = (SupportsContextSwitching) driver;
         Set<String> contexts;
         try {
-            contexts = contextDriver.getContextHandles();
+            contexts = MobileActions.getAvailableContexts(driver);
         } catch (Exception e) {
             log.debug("Unable to query context handles (context switching may be unsupported here)", e);
             return result;
@@ -448,7 +454,7 @@ public class MobileElementCrawler {
                 continue;
             }
             try {
-                contextDriver.context(context);
+                MobileActions.switchToContext(driver, context);
                 List<ElementCrawler.ElementInfo> elements = new ElementCrawler((WebDriver) driver).crawlCurrentPage();
                 result.put(context, elements);
                 log.info("Delegated WebView context [{}] to desktop ElementCrawler -- {} elements found",
@@ -457,7 +463,7 @@ public class MobileElementCrawler {
                 log.warn("Failed to crawl WebView context [{}]", context, e);
             } finally {
                 try {
-                    contextDriver.context("NATIVE_APP");
+                    MobileActions.switchToNativeContext(driver);
                 } catch (Exception e) {
                     log.warn("Failed to restore NATIVE_APP context after WebView crawl", e);
                 }
