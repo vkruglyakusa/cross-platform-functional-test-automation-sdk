@@ -1,4 +1,4 @@
-package com.test.automation.sdk.utility;
+package com.test.automation.sdk.discovery;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,17 +8,20 @@ import java.util.regex.Pattern;
 
 import org.openqa.selenium.WebDriver;
 
-import com.test.automation.sdk.discovery.DiscoveredElement;
-import com.test.automation.sdk.discovery.DiscoveryResult;
-import com.test.automation.sdk.discovery.ElementDiscoveryService;
-import com.test.automation.sdk.discovery.LocatorCandidate;
 import com.test.automation.sdk.discovery.LocatorCandidate.Marker;
+import com.test.automation.sdk.utility.ElementCrawler;
 
 /**
  * Adapts the desktop {@link ElementCrawler}'s output into the common
  * {@link ElementDiscoveryService}/{@link DiscoveryResult} contract, without
  * changing {@link ElementCrawler}'s own crawling/uniqueness-detection algorithm
  * -- see Structure Cleanup Phase 6 (docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md).
+ *
+ * <p>Moved from {@code utility.WebElementDiscoveryAdapter} to this package in
+ * Phase 8 (Package Cleanup) so that all {@code discovery} contract
+ * implementations live next to the contract they implement -- mirrors
+ * {@code mobile.crawler.MobileElementDiscoveryAdapter}'s location alongside
+ * its own crawler package.
  */
 public class WebElementDiscoveryAdapter implements ElementDiscoveryService {
 

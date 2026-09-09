@@ -11,7 +11,7 @@ import com.test.automation.sdk.discovery.DiscoveryResult;
 import com.test.automation.sdk.discovery.ElementDiscoveryService;
 import com.test.automation.sdk.discovery.LocatorCandidate;
 import com.test.automation.sdk.utility.ElementCrawler;
-import com.test.automation.sdk.utility.WebElementDiscoveryAdapter;
+import com.test.automation.sdk.discovery.WebElementDiscoveryAdapter;
 
 /**
  * Adapts {@link MobileElementCrawler}'s output (native + delegated WebView

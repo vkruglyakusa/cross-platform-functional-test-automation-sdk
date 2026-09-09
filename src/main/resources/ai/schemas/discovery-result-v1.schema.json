@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "discovery-result-v1",
   "title": "DiscoveryResult",
-  "description": "Normalized output of one discovery pass over a page/screen, matching com.test.automation.sdk.discovery.DiscoveryResult (Structure Cleanup Phase 6). Produced by utility.WebElementDiscoveryAdapter or mobile.crawler.MobileElementDiscoveryAdapter.",
+  "description": "Normalized output of one discovery pass over a page/screen, matching com.test.automation.sdk.discovery.DiscoveryResult (Structure Cleanup Phase 6). Produced by discovery.WebElementDiscoveryAdapter or mobile.crawler.MobileElementDiscoveryAdapter.",
   "type": "object",
   "required": ["platform", "sourceLabel", "elements"],
   "properties": {

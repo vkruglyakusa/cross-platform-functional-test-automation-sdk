@@ -95,6 +95,23 @@
   `driver`, `session`, or `execution` packages (only static factory
   *methods*). Validated: full suite green.
 
+### Phase 8 — Package Cleanup (first gradual step): ✅ COMPLETE (2026-09-09)
+
+- Moved `utility.WebElementDiscoveryAdapter` -> `discovery.WebElementDiscoveryAdapter`
+  (+ its test to `discovery.WebElementDiscoveryAdapterTest`) so the `discovery`
+  package's `ElementDiscoveryService` contract and its web implementation live
+  together, mirroring where `MobileElementDiscoveryAdapter` already lives
+  relative to its own crawler package. Updated the one internal caller and
+  doc cross-references. Confirmed Class Migration Map item 1
+  (`utility.YamlConfigReader` -> `config.YamlConfigReader`) was already done
+  in Phase 2; the deprecated `utility.YamlConfigReader` facade is
+  intentionally left in place (roadmap rule: remove compatibility wrappers
+  only after consumer repos are migrated, not yet confirmed). This is a
+  first, low-risk step of the "gradual cleanup" called for in Phase 8 --
+  the broader `utility` package still holds legitimately-utility classes
+  (`ElementCrawler`, `Excel_Reader`, `PageObjectGenerator`, etc.) that are
+  not being moved speculatively. Validated: full suite green.
+
 ### Section 33 (Multi-Session and Hybrid Web + Mobile Driver Architecture) — Reviewed Against Current Code (2026-09-09)
 
 Section 33 was appended after section 34 ("Final Recommendation") without a

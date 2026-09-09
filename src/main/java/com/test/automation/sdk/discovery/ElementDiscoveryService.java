@@ -2,7 +2,7 @@ package com.test.automation.sdk.discovery;
 
 /**
  * Common discovery contract implemented by both the desktop web crawler
- * ({@code utility.WebElementDiscoveryAdapter}) and the mobile crawler
+ * ({@link WebElementDiscoveryAdapter}) and the mobile crawler
  * ({@code mobile.crawler.MobileElementDiscoveryAdapter}) -- see Structure
  * Cleanup Phase 6 (docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md).
  * Adapts each crawler's existing, mature, platform-specific algorithm into one

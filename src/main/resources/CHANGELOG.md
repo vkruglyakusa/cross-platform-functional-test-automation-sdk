@@ -20,6 +20,22 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Structure Cleanup Phase 8 — Package Cleanup (first gradual step)**
+  (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): moved
+  `utility.WebElementDiscoveryAdapter` to `discovery.WebElementDiscoveryAdapter`
+  (and its test to `discovery.WebElementDiscoveryAdapterTest`) so the web
+  implementation of the `discovery` package's `ElementDiscoveryService`
+  contract lives next to the contract it implements, mirroring
+  `mobile.crawler.MobileElementDiscoveryAdapter`'s location alongside its own
+  crawler package. Updated the one caller (`MobileElementDiscoveryAdapter`'s
+  import) and doc cross-references (`ElementDiscoveryService` javadoc,
+  `ai/schemas/discovery-result-v1.schema.json` description). Confirmed
+  Class Migration Map item 1 (`utility.YamlConfigReader` -> real
+  `config.YamlConfigReader`) was already completed in Phase 2 -- the
+  `utility.YamlConfigReader` compatibility facade remains in place per the
+  roadmap's explicit rule to remove deprecated wrappers only after consumer
+  repositories are migrated (not yet confirmed), so it is intentionally left
+  untouched. Validated: full suite green.
 - **Structure Cleanup Phase 7 — Session Isolation / Parallel Safety**
   (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): removed
   remaining global static session state from `TestBase` -- `baseURL`,

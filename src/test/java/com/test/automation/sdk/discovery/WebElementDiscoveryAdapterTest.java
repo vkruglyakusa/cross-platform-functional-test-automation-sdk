@@ -1,14 +1,12 @@
-package com.test.automation.sdk.utility;
+package com.test.automation.sdk.discovery;
 
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.test.automation.sdk.discovery.DiscoveredElement;
-import com.test.automation.sdk.discovery.DiscoveryResult;
-import com.test.automation.sdk.discovery.LocatorCandidate;
 import com.test.automation.sdk.discovery.LocatorCandidate.Marker;
+import com.test.automation.sdk.utility.ElementCrawler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code toDiscoveredElement} conversions are covered here -- {@code discoverCurrent()}
  * requires a live {@code WebDriver} session and is out of scope for unit tests
  * (mirrors {@code MobileElementCrawlerTest}'s driver-free scope note).
+ *
+ * <p>Moved from {@code utility.WebElementDiscoveryAdapterTest} in Phase 8
+ * (Package Cleanup) to track the production class's new location.
  */
 @DisplayName("WebElementDiscoveryAdapter - driver-free normalization")
 class WebElementDiscoveryAdapterTest {
