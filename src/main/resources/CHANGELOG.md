@@ -19,6 +19,29 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Added
+- **Structure Cleanup Phase 3 — Lightweight Unified Session Boundary**
+  (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): new
+  `session.AutomationSession` interface (`navigate(url)`, `quit()`,
+  `unwrap(Class<T>)`) with two implementations,
+  `session.internal.SeleniumSession` (wraps `WebDriver`) and
+  `session.internal.AppiumSession` (wraps `AppiumDriver`), plus
+  `session.AutomationSessionFactory` as the public entry point --
+  `create(ExecutionContext)` and `wrap(WebDriver, Platform)`. Per this
+  phase's deliberately narrow scope, `AutomationElement`/`Locator` are NOT
+  introduced yet (deferred until crawler/Page Object portability creates a
+  concrete need). `AutomationSessionFactory` does not add a second
+  session-resolution mechanism -- it delegates entirely to the existing
+  `driver.DriverManager.acquire(ExecutionContext)` (itself backed by
+  `execution.SessionFactoryRegistry`, established in Phase 1) and only wraps
+  the resulting driver in the technology-appropriate `AutomationSession`.
+  `testbase.WebDriverFactory`/`mobile.driver.MobileDriverFactory` are
+  unaffected and remain valid entry points; `TestBase` consolidation onto
+  this factory is deferred to Phase 4. Additive, non-breaking change. New
+  unit tests (`AutomationSessionFactoryTest`, `SeleniumSessionTest`,
+  `AppiumSessionTest`) use mocked `WebDriver`/`AppiumDriver` -- no real
+  browser/Appium session is launched. 459/459 tests passing, `BUILD SUCCESS`.
+
 ### Changed
 - **Structure Cleanup Phase 2 — Configuration Unification**
   (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): the real,
