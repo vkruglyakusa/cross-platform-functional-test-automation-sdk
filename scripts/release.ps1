@@ -10,6 +10,9 @@
 #   -SkipTemplate: skip step 7 entirely (no template files are read/modified).
 #
 # Full release pipeline -- runs automatically in order:
+#   0. Already-released guard      -- abort if v<version> tag or CHANGELOG heading already
+#                                     exists, so re-running the script for a version that
+#                                     was already released can never repeat/duplicate work
 #   1. Doc check gate              -- confirm CHANGELOG [Unreleased] and TESTBASE-API/SDK-USER-GUIDE are updated
 #   2. Run ALL tests               -- abort if any fail
 #   3. Update SDK README.md        -- version badge, dependency snippet, footer
@@ -69,6 +72,41 @@ Write-Host "============================================"
 Write-Host ""
 
 # -------------------------------------------------------
+# STEP 0: Already-released guard -- catch "ran the script twice for the same
+# version" BEFORE any tests/docs/deploy work happens. This is what let a
+# duplicate "docs: release v1.1.1" commit and a failed re-deploy slip through
+# previously: re-running the script with an unchanged pom.xml version silently
+# repeated work that was already done and pushed.
+# -------------------------------------------------------
+Write-Host "[0/7] Already-released guard..."
+$existingLocalTag  = git tag -l "v$version"
+$existingRemoteTag = git ls-remote --tags origin "refs/tags/v$version" 2>$null
+if ($existingLocalTag -or $existingRemoteTag) {
+    Write-Host ""
+    Write-Host "============================================"
+    Write-Host "  ABORTED -- v$version already released"
+    Write-Host "  Tag v$version already exists (local and/or origin)."
+    Write-Host "  Bump <version> in pom.xml to the NEXT version before"
+    Write-Host "  running this script again."
+    Write-Host "============================================"
+    exit 1
+}
+
+$changelogContentPreCheck = Get-Content "$root\CHANGELOG.md" -Raw
+if ($changelogContentPreCheck -match [System.Text.RegularExpressions.Regex]::Escape("## [$version]")) {
+    Write-Host ""
+    Write-Host "============================================"
+    Write-Host "  ABORTED -- CHANGELOG.md already has a [$version] heading"
+    Write-Host "  This version was already promoted/released once."
+    Write-Host "  Bump <version> in pom.xml to the NEXT version before"
+    Write-Host "  running this script again (do not re-run for the same version)."
+    Write-Host "============================================"
+    exit 1
+}
+Write-Host "      No existing tag or CHANGELOG heading for v$version -- OK"
+Write-Host ""
+
+# -------------------------------------------------------
 # STEP 1: Doc check gate -- confirm docs are updated before anything else
 # -------------------------------------------------------
 Write-Host "[1/7] Doc check gate..."
@@ -79,7 +117,13 @@ $unreleasedMatch = [System.Text.RegularExpressions.Regex]::Match(
     '## \[Unreleased\]\s*\n(.*?)(\n## \[|\z)',
     [System.Text.RegularExpressions.RegexOptions]::Singleline
 )
-$unreleasedBody = if ($unreleasedMatch.Success) { $unreleasedMatch.Groups[1].Value.Trim() } else { "" }
+$unreleasedRaw = if ($unreleasedMatch.Success) { $unreleasedMatch.Groups[1].Value.Trim() } else { "" }
+# Strip the standing HTML-comment placeholder before measuring length, otherwise
+# an already-promoted (i.e. genuinely empty) [Unreleased] section is miscounted
+# as "has content" purely because of the placeholder comment text itself.
+$unreleasedBody = [System.Text.RegularExpressions.Regex]::Replace(
+    $unreleasedRaw, '<!--.*?-->', '', [System.Text.RegularExpressions.RegexOptions]::Singleline
+).Trim()
 
 if ($unreleasedBody.Length -lt 20) {
     Write-Host ""
