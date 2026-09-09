@@ -47,8 +47,6 @@ import com.test.automation.sdk.listener.WebEventListener;
 import com.test.automation.sdk.utility.Excel_Reader;
 import com.test.automation.sdk.utility.QueryExcelFile;
 import com.test.automation.sdk.config.YamlConfigReader;
-import com.aventstack.extentreports.ExtentReports;
-import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.Status;
 import com.test.automation.sdk.utility.reports.ExtentManager;
@@ -88,15 +86,32 @@ public class TestBase {
 	public FileInputStream FI;
 	public WebEventListener eventListener;
 	public Properties Prop = new Properties();
-	public static ExtentReports extent;
-	public static ExtentTest test;
 	public ITestResult result;
-	public static String baseURL;
+	/**
+	 * Instance field, not static -- see {@link #driver} javadoc for the
+	 * rationale (Phase 7 of the unified web+mobile SDK architecture,
+	 * docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md):
+	 * TestNG gives each test class its own {@code TestBase} instance, so a
+	 * static field here would leak the base URL of one test class into
+	 * another running on a different thread. Was previously a global static.
+	 */
+	public String baseURL;
 	public String browser;
 	protected String ExcelName;
-	public static int testRetryCount = 0;
+	/**
+	 * Instance field, not static -- same rationale as {@link #baseURL}: a
+	 * static retry counter shared across all {@code TestBase} instances/threads
+	 * would corrupt retry detection under mixed Web + Mobile parallel execution
+	 * (Phase 7). Was previously a global static.
+	 */
+	public int testRetryCount = 0;
 	ITestContext context;
-	public static String parentWindow;
+	/**
+	 * Instance field, not static -- same rationale as {@link #baseURL}: the
+	 * parent window handle is per-session state and must not be shared across
+	 * {@code TestBase} instances/threads (Phase 7). Was previously a global static.
+	 */
+	public String parentWindow;
 
 	/**
 	 * Sets the current data-driven test case name. Call this at the start of every
@@ -178,7 +193,6 @@ public class TestBase {
 		String resolvedBrowser = browser.isEmpty() ? Prop.getProperty("browser") : browser;
 		String resolvedUrl = baseUrl.isEmpty() ? Prop.getProperty("tst_base_url") : baseUrl;
 		driver = WebDriverFactory.getWebDriver(resolvedBrowser);
-		TestBase.baseURL = resolvedUrl;
 		this.baseURL = resolvedUrl;
 		this.browser = resolvedBrowser;
 		getUrl(resolvedUrl);

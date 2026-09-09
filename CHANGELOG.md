@@ -20,6 +20,26 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Structure Cleanup Phase 7 — Session Isolation / Parallel Safety**
+  (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): removed
+  remaining global static session state from `TestBase` -- `baseURL`,
+  `testRetryCount`, and `parentWindow` converted from `public static` to
+  instance fields (same rationale/pattern as the `driver` field fixed in
+  Phase 4: TestNG gives each test class its own `TestBase` instance, so an
+  instance field is correct and sufficient without a `ThreadLocal`, and a
+  shared static would leak one test class's base URL/retry count/window
+  handle into another running on a different thread). Removed two dead
+  static fields entirely rather than migrating them, since nothing read
+  them: `TestBase.extent`/`TestBase.test` (unused `ExtentReports`/`ExtentTest`
+  fields -- reporting already goes through the thread-keyed
+  `ExtentTestManager`) and `WebDriverFactory.driver` (unused static
+  `WebDriver` field). Removed the now-ineffective `testRetryCount = 0;` reset
+  in `Listener.onFinish()` (a no-op on a different object instance now that
+  the field is per-`TestBase`-instance, not a shared static) with an
+  explanatory comment. No remaining global mutable static session state was
+  found elsewhere (`mobile`, `driver`, `session`, `execution` packages
+  already use only static factory *methods*, no static session-holding
+  fields). Validated: full suite green.
 - **Structure Cleanup — AI Prompt/Skill Asset Standardization** (Priority item 6 /
   Phase 10, `docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`
   sections 26.1/26.2/29): new `src/main/resources/ai/{prompts,skills,schemas}`

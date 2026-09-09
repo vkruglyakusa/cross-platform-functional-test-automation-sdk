@@ -78,6 +78,23 @@
   `SdkResourcesTest` extended with a packaging-gate block for all 5 new
   files. Validated: full suite green.
 
+### Phase 7 — Session Isolation / Parallel Safety: ✅ COMPLETE (2026-09-09)
+
+- Removed remaining global static session state from `TestBase`: `baseURL`,
+  `testRetryCount`, `parentWindow` converted `public static` -> instance
+  fields (same pattern already established for `driver` in Phase 4 -- an
+  instance field is correct and sufficient given TestNG's one-instance-per-
+  class model, no `ThreadLocal` required). Removed two genuinely dead static
+  fields outright: `TestBase.extent`/`TestBase.test` (unused
+  `ExtentReports`/`ExtentTest` -- reporting already goes through the
+  thread-keyed `ExtentTestManager`) and `WebDriverFactory.driver` (unused
+  static `WebDriver`). Cleaned up the now-ineffective
+  `testRetryCount = 0;` reset in `Listener.onFinish()` (was resetting a
+  different object's copy once the field stopped being a shared static).
+  Confirmed no other static session-holding fields exist in `mobile`,
+  `driver`, `session`, or `execution` packages (only static factory
+  *methods*). Validated: full suite green.
+
 ### Section 33 (Multi-Session and Hybrid Web + Mobile Driver Architecture) — Reviewed Against Current Code (2026-09-09)
 
 Section 33 was appended after section 34 ("Final Recommendation") without a

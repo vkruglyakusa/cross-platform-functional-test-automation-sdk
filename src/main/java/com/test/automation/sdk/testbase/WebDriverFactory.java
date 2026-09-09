@@ -35,17 +35,19 @@ import io.github.bonigarcia.wdm.WebDriverManager;
  * not deprecated and remains fully supported, since it is the real
  * implementation those factories delegate to, not a compatibility shim.
  *
- * NOTE: The static {@code driver} field means tests run sequentially.
- * For parallel execution, migrate to {@code ThreadLocal<WebDriver>}.
+ * <p>As of Phase 7 (Session Isolation / Parallel Safety,
+ * docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md), this class
+ * holds no session state of its own -- {@code getWebDriver(...)} is a pure
+ * factory method and each caller (e.g. {@code TestBase#driver}) owns its own
+ * instance field. There used to be an unused static {@code driver} field here;
+ * it was dead code (never read anywhere) and has been removed rather than
+ * migrated, since no code depended on it.
  *
  * @author vkruglyak
  */
 public class WebDriverFactory {
 
     public static final Logger log = LogManager.getLogger(WebDriverFactory.class);
-
-    // NOTE: Static driver field -- single-threaded execution only.
-    public static WebDriver driver = null;
 
     // -- One-time JVM-level setup ----------------------------------------------
     static {

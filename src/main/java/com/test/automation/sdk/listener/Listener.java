@@ -39,7 +39,12 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 		Reporter.log("\n ========Test is finished:" + arg0.getName()+"=========== \n", true);
 		ExtentTestManager.endTest();
 		ExtentManager.getInstance().flush();
-		testRetryCount = 0;
+		// NOTE (Phase 7 -- Session Isolation / Parallel Safety): testRetryCount was
+		// converted from a global static to a TestBase instance field, so this
+		// Listener instance's copy is a distinct object from the actual running
+		// test class instance and resetting it here has no effect on that
+		// instance's counter. No reset is needed: each test class instance
+		// already starts with testRetryCount = 0 via its field initializer.
 	}
 
 	public void onStart(ITestContext context) {
