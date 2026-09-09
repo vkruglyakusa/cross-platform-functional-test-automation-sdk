@@ -20,6 +20,31 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Unified SDK Review Priority 2 — Finish Configuration Unification**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 8): added `config.ConfigurationManager`, the SDK's single
+  configuration-resolution engine implementing the full precedence chain
+  (system property > environment variable > project YAML via
+  `YamlConfigReader` > caller-supplied default) in exactly one place, plus
+  small typed `CommonConfig`/`WebConfig` views (`getCommonConfig()`,
+  `getWebConfig()`) over the handful of keys already in use. Refactored
+  `mobile.config.MobileConfigReader.get(String, String)` to delegate to
+  `ConfigurationManager.resolve(...)` for any key not present in an optional
+  standalone `mobile-config.yaml` (still the only Mobile-specific behavior it
+  owns, retained as a temporary migration path per the review), so Mobile
+  configuration is now subject to the exact same precedence rules as
+  Web/common configuration instead of reading `YamlConfigReader` directly
+  with no system-property/env override at all -- previously a real gap
+  (e.g. `-Dandroid.appPath=...` had no effect). Added
+  `MobileConfigReader.getMobileConfig()` returning a typed `MobileConfig`
+  view (`androidAppPath()`, `androidAutomationName()`, `iosAppPath()`,
+  `iosAutomationName()`, `appiumLocalUrl()`) so call sites can move off raw
+  dotted-key strings incrementally; existing `MobileConfigReader.get(...)`
+  call sites in `MobileDriverFactory`/crawler classes are unchanged and keep
+  working. New tests: `config.ConfigurationManagerTest`,
+  extended `mobile.config.MobileConfigReaderTest` (system-property override
+  precedence, typed view). Validated: targeted tests and full `mvn test`
+  suite pass with no regressions.
 - **Unified SDK Review Priority 1 — Complete TestBase Session Integration**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   section 16): `TestBase.initialization(String, String)` now builds an

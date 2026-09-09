@@ -10,16 +10,20 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.test.automation.sdk.config.ConfigurationManager;
 import com.test.automation.sdk.config.SdkConfig;
 
 /**
- * Reads mobile-config.yaml (Android/iOS app paths, local Appium URL, device
- * defaults, etc.) from the configuration directory resolved by {@link SdkConfig}.
+ * Typed Mobile view over the SDK's single configuration-resolution engine,
+ * {@link ConfigurationManager} (Unified SDK Review Priority 2, section 8 of
+ * docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md).
  *
- * Deliberately uses the same minimal flat-key YAML parsing strategy as
- * com.test.automation.sdk.utility.YamlConfigReader in the desktop SDK, to avoid
- * pulling in a SnakeYAML dependency for a handful of simple key: value settings.
- * Supports one level of nesting via dotted keys, e.g.:
+ * <p>This class owns exactly one piece of Mobile-specific behavior: the
+ * temporary compatibility path for a standalone {@code mobile-config.yaml}
+ * (Android/iOS app paths, local Appium URL, device defaults, etc.), read with
+ * the same minimal flat-key YAML parsing strategy used elsewhere in the SDK
+ * to avoid pulling in a SnakeYAML dependency for a handful of simple
+ * key: value settings. Supports one level of nesting via dotted keys, e.g.:
  *
  *   android:
  *     appPath: apps/app-debug.apk
@@ -27,14 +31,18 @@ import com.test.automation.sdk.config.SdkConfig;
  *
  * is read back via get("android.appPath") / get("android.deviceName").
  *
- * As of Phase 3 of the unified web+mobile SDK architecture
- * (docs/proposals/unified-sdk-architect-review.md), a standalone
- * mobile-config.yaml is no longer required: when the file is absent, {@link #get}
- * falls back to reading the same dotted keys (e.g. {@code android.appPath})
- * directly from the unified {@code sdk-config.yaml} via
- * {@link com.test.automation.sdk.config.YamlConfigReader}. Projects that
- * still ship a standalone mobile-config.yaml keep working unchanged for one
- * release.
+ * <p>For every key not present in that optional standalone file -- which, as
+ * of Phase 3 of the unified web+mobile SDK architecture, includes the normal
+ * case where no standalone file exists at all -- resolution delegates to
+ * {@link ConfigurationManager#resolve(String, String)}, so Mobile
+ * configuration is subject to the exact same
+ * system-property &gt; environment-variable &gt; project-YAML &gt; default
+ * precedence chain as Web/common configuration, rather than maintaining its
+ * own independent resolver. Compatibility with a standalone
+ * {@code mobile-config.yaml} is retained only as a temporary migration
+ * mechanism per the review's Priority 2 guidance and may be removed once
+ * consumer projects have migrated their {@code android.}/{@code ios.}
+ * sections into {@code sdk-config.yaml}.
  */
 public final class MobileConfigReader {
 
@@ -68,16 +76,24 @@ public final class MobileConfigReader {
         return instance;
     }
 
-    /** Returns the configured value for a dotted key, or {@code defaultValue} if absent. */
+    /**
+     * Returns the configured value for a dotted key, or {@code defaultValue}
+     * if absent anywhere in the chain.
+     *
+     * <p>Resolution order: standalone {@code mobile-config.yaml} (if present,
+     * temporary compatibility path) &gt; {@link ConfigurationManager}'s
+     * system-property &gt; environment-variable &gt; project-YAML &gt; default
+     * chain.</p>
+     */
     public static String get(String dottedKey, String defaultValue) {
         MobileConfigReader inst = getInstance();
         if (inst.usingStandaloneFile) {
             String value = inst.flatMap.get(dottedKey);
-            return (value == null || value.isEmpty()) ? defaultValue : value;
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
         }
-        // No standalone file: the unified sdk-config.yaml (extended in Phase 3
-        // with the same android.*/ios.*/appium.* default keys) is the source of truth.
-        return com.test.automation.sdk.config.YamlConfigReader.get(dottedKey, defaultValue);
+        return ConfigurationManager.resolve(dottedKey, defaultValue);
     }
 
     private void loadDefaults() {
@@ -131,5 +147,42 @@ public final class MobileConfigReader {
             return value.substring(1, value.length() - 1);
         }
         return value;
+    }
+
+    /**
+     * Typed view over the Mobile keys consumed by
+     * {@code MobileDriverFactory}/crawler classes today (Unified SDK Review
+     * Priority 2). Equivalent to calling {@link #get(String, String)}
+     * directly, but gives call sites a discoverable, typed API instead of
+     * raw dotted-key strings.
+     */
+    public static MobileConfig getMobileConfig() {
+        return new MobileConfig();
+    }
+
+    /** Typed, read-only view over Android/iOS/Appium configuration. */
+    public static final class MobileConfig {
+        private MobileConfig() {
+        }
+
+        public String androidAppPath() {
+            return get("android.appPath", null);
+        }
+
+        public String androidAutomationName() {
+            return get("android.automationName", "UiAutomator2");
+        }
+
+        public String iosAppPath() {
+            return get("ios.appPath", null);
+        }
+
+        public String iosAutomationName() {
+            return get("ios.automationName", "XCUITest");
+        }
+
+        public String appiumLocalUrl() {
+            return get("appium.localUrl", "http://127.0.0.1:4723/");
+        }
     }
 }

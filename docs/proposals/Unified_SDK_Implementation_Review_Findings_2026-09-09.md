@@ -866,6 +866,19 @@ Do not leave `AutomationSessionFactory` as an unused parallel abstraction.
 
 ## Priority 2 — Finish Configuration Unification
 
+> **Status: COMPLETE** (see `CHANGELOG.md`).
+> Added `config.ConfigurationManager` as the single precedence-resolution
+> engine (system property > env var > project YAML via `YamlConfigReader` >
+> default), with typed `getCommonConfig()`/`getWebConfig()` views.
+> `mobile.config.MobileConfigReader.get(...)` now delegates to it for every
+> key not present in an optional standalone `mobile-config.yaml` (retained
+> only as a temporary migration path), and gained a typed `getMobileConfig()`
+> view. This closes the gap where Mobile configuration had no
+> system-property/env override at all. Proven by
+> `config.ConfigurationManagerTest` and the extended
+> `mobile.config.MobileConfigReaderTest`. Validated: targeted tests and the
+> full `mvn test` suite pass with no regressions.
+
 Implement one precedence/resolution mechanism and make Mobile configuration a typed view over it.
 
 Retain compatibility fallbacks only as temporary migration mechanisms.
