@@ -895,6 +895,18 @@ Do not rewrite mature algorithms.
 
 ## Priority 4 — Finish Session Isolation
 
+> **Status: COMPLETE** (see `CHANGELOG.md`).
+> `MobileTestBase.mobileOsName`/`deviceName` converted from `protected
+> static` to instance fields; `getCurrentPlatformOS()` is now an instance
+> method (it reads `mobileOsName`). Proven by
+> `mobile.testbase.MixedWebMobileIsolationTest`, which runs a Web `TestBase`
+> test and a Mobile `MobileTestBase` test concurrently, and two concurrent
+> Mobile tests with different device names, asserting no session/device
+> state leaks between them. Validated: targeted tests and the full `mvn
+> test` suite pass with no regressions. Real mixed Web/Mobile
+> BrowserStack/Appium concurrency was not validated in this environment
+> (mocked `SessionFactory`s only).
+
 Remove remaining mutable static Mobile execution state.
 
 Add explicit mixed Web/Mobile concurrency/isolation validation.

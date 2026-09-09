@@ -72,8 +72,8 @@ public class MobileTestBase extends TestBase {
 
     public static final Logger log = LogManager.getLogger(MobileTestBase.class.getName());
 
-    protected static String mobileOsName;
-    protected static String deviceName = "";
+    protected String mobileOsName;
+    protected String deviceName = "";
 
     /**
      * True when the resolved {@link RunMode} is {@link RunMode#BROWSERSTACK}
@@ -99,8 +99,15 @@ public class MobileTestBase extends TestBase {
         return true;
     }
 
-    /** Current platform name ("android"/"ios"), from BrowserStack when in the cloud, else from the -Dmobile.os system property. */
-    public static String getCurrentPlatformOS() {
+    /**
+     * Current platform name ("android"/"ios"), from BrowserStack when in the cloud, else
+     * from this instance's {@link #mobileOsName} (set by {@link #setUpDriver}). Instance
+     * (not static) since Priority 4 of the Unified SDK Implementation Review
+     * (docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md, section 10):
+     * {@code mobileOsName}/{@code deviceName} are per-test-instance state so two concurrently
+     * executing Mobile test classes never leak each other's device/platform selection.
+     */
+    public String getCurrentPlatformOS() {
         if (isRunningInCloud()) {
             return BrowserStackSdk.getCurrentPlatform().get("platformName").toString();
         }

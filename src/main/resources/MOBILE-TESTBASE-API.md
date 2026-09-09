@@ -55,7 +55,10 @@ the javaagent/`browserstack.yml` isn't wired up correctly -- this is a fail-fast
 guard, not a silent `false`.
 
 ### `getCurrentPlatformOS()`
-`static String`. Returns `"android"`/`"ios"` -- read from BrowserStack when
+`String` (instance method as of Unified SDK Review Priority 4 -- previously
+`static`; `mobileOsName`/`deviceName` are now per-instance state so
+concurrent Mobile test classes never leak each other's device/platform
+selection). Returns `"android"`/`"ios"` -- read from BrowserStack when
 `isRunningInCloud()`, otherwise from the `-Dmobile.os`/`mobileOS` parameter
 set in `setUpDriver`. Throws `IllegalStateException` if neither source is set.
 

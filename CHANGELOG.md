@@ -20,6 +20,26 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Unified SDK Review Priority 4 — Finish Session Isolation (Mobile static state removal)**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 10): `MobileTestBase.mobileOsName`/`deviceName` were `protected
+  static` fields shared across all Mobile test instances -- two concurrently
+  executing Mobile test classes (or the same class run in parallel) could
+  leak each other's device/platform selection, especially around retries.
+  Converted both to instance fields; `getCurrentPlatformOS()` (which reads
+  `mobileOsName`) is now an instance method instead of `static` (no other
+  behavior change -- `isRunningInCloud()` remains `static`, it never read
+  either field). New test: `mobile.testbase.MixedWebMobileIsolationTest`,
+  which runs a Web `TestBase` test and a Mobile `MobileTestBase` test
+  concurrently (fake `SessionFactory`s, no real browser/Appium session) and
+  asserts neither driver/session leaks into the other, plus runs two
+  concurrent Mobile test instances with different `deviceName`s and asserts
+  each retains its own value -- proving the fields are genuine per-instance
+  state. A mocked concurrency test is sufficient for this architecture-level
+  validation per the review's own guidance; real mixed Web/Mobile
+  BrowserStack/Appium concurrency was not validated in this environment.
+  Validated: targeted tests and full `mvn test` suite pass with no
+  regressions.
 - **Unified SDK Review Priority 2 — Finish Configuration Unification**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   section 8): added `config.ConfigurationManager`, the SDK's single
