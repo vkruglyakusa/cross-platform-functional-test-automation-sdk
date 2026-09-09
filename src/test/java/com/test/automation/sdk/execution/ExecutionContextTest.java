@@ -57,4 +57,44 @@ class ExecutionContextTest {
         String s = ctx.toString();
         assertTrue(s.contains("WEB") && s.contains("BROWSERSTACK") && s.contains("firefox"));
     }
+
+    /*
+     * Priority 5 (Unified SDK Implementation Review, section 11):
+     * AutomationTechnology is reserved as a third resolution dimension.
+     * Existing 2-arg forWeb/forMobile callers must keep resolving to the
+     * platform-implied default technology unchanged.
+     */
+
+    @Test
+    void forWeb_twoArgOverload_defaultsToSelenium() {
+        ExecutionContext ctx = ExecutionContext.forWeb("chrome", RunMode.LOCAL);
+        assertEquals(AutomationTechnology.SELENIUM, ctx.getAutomationTechnology());
+    }
+
+    @Test
+    void forMobile_twoArgOverload_defaultsToAppium() {
+        ExecutionContext android = ExecutionContext.forMobile(Platform.ANDROID, "Pixel_6", RunMode.LOCAL);
+        ExecutionContext ios = ExecutionContext.forMobile(Platform.IOS, "iPhone_15", RunMode.LOCAL);
+        assertEquals(AutomationTechnology.APPIUM, android.getAutomationTechnology());
+        assertEquals(AutomationTechnology.APPIUM, ios.getAutomationTechnology());
+    }
+
+    @Test
+    void forWeb_explicitNullTechnology_defaultsToSelenium() {
+        ExecutionContext ctx = ExecutionContext.forWeb("chrome", RunMode.LOCAL, null);
+        assertEquals(AutomationTechnology.SELENIUM, ctx.getAutomationTechnology());
+    }
+
+    @Test
+    void forWeb_explicitTechnology_isHonored() {
+        ExecutionContext ctx = ExecutionContext.forWeb("chrome", RunMode.LOCAL, AutomationTechnology.SELENIUM);
+        assertEquals(AutomationTechnology.SELENIUM, ctx.getAutomationTechnology());
+    }
+
+    @Test
+    void forMobile_explicitTechnology_isHonored() {
+        ExecutionContext ctx = ExecutionContext.forMobile(Platform.ANDROID, "Pixel_6", RunMode.LOCAL,
+                AutomationTechnology.APPIUM);
+        assertEquals(AutomationTechnology.APPIUM, ctx.getAutomationTechnology());
+    }
 }

@@ -20,6 +20,30 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Unified SDK Review Priority 5 -- Reserve `AutomationTechnology` in Execution Selection**
+  (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
+  section 11): execution selection was strictly `Platform + RunMode`, with no
+  way to express that a platform could one day be served by more than one
+  automation engine (e.g. Web via Selenium today, Playwright later). Added a
+  new `execution.AutomationTechnology` enum (`SELENIUM`, `APPIUM` only --
+  `PLAYWRIGHT`/`USER_MIMIC` are explicitly *not* implemented, only the seam is
+  reserved). `SessionFactory` gained a `default getAutomationTechnology()`
+  method that infers the platform-implied value (`SELENIUM` for `WEB`,
+  `APPIUM` for `ANDROID`/`IOS`), so all 6 existing built-in factories compile
+  and resolve unchanged without overriding it. `ExecutionContext` gained a
+  matching `getAutomationTechnology()` plus new 3-arg
+  `forWeb(browserName, runMode, technology)` /
+  `forMobile(platform, deviceName, runMode, technology)` overloads (the
+  existing 2-arg overloads are unchanged and now delegate with `technology =
+  null`, defaulting the same way). `SessionFactoryRegistry` now keys
+  registrations on `(platform, runMode, technology)`; the existing 2-arg
+  `resolve(Platform, RunMode)` overload is preserved and defaults the
+  technology identically, so no existing caller (`DriverManager`, tests)
+  needed to change. New/updated tests: `execution.ExecutionContextTest`
+  (technology defaulting/override), `execution.SessionFactoryRegistryTest`
+  (technology-aware resolution, explicit-technology mismatch does not
+  silently fall back). No new technology implementation (e.g. Playwright) was
+  added, per the review's explicit scope boundary.
 - **Unified SDK Review Priority 4 — Finish Session Isolation (Mobile static state removal)**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   section 10): `MobileTestBase.mobileOsName`/`deviceName` were `protected

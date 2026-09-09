@@ -80,4 +80,64 @@ class SessionFactoryRegistryTest {
         assertEquals(webLocal, SessionFactoryRegistry.resolve(Platform.WEB, RunMode.LOCAL));
         assertEquals(webCloud, SessionFactoryRegistry.resolve(Platform.WEB, RunMode.BROWSERSTACK));
     }
+
+    /**
+     * Verifies Priority 5 of the Unified SDK Implementation Review
+     * (docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md,
+     * section 11): {@link AutomationTechnology} is reserved as a third
+     * resolution dimension without breaking any existing 2-arg
+     * {@code resolve(Platform, RunMode)} caller -- a {@link SessionFactory}
+     * that never overrides {@link SessionFactory#getAutomationTechnology()}
+     * still resolves via the platform-implied default (SELENIUM for WEB,
+     * APPIUM for ANDROID/IOS).
+     */
+    @Test
+    void resolve_twoArgOverload_stillWorks_usingPlatformImpliedTechnologyDefault() {
+        SessionFactory factory = fakeFactory(Platform.WEB, RunMode.LOCAL, mock(WebDriver.class));
+        SessionFactoryRegistry.register(factory);
+
+        assertSame(factory, SessionFactoryRegistry.resolve(Platform.WEB, RunMode.LOCAL));
+        assertSame(factory, SessionFactoryRegistry.resolve(Platform.WEB, RunMode.LOCAL, AutomationTechnology.SELENIUM));
+    }
+
+    @Test
+    void resolve_byExecutionContext_usesPlatformImpliedTechnologyByDefault() {
+        SessionFactory factory = fakeFactory(Platform.ANDROID, RunMode.LOCAL, mock(WebDriver.class));
+        SessionFactoryRegistry.register(factory);
+
+        ExecutionContext ctx = ExecutionContext.forMobile(Platform.ANDROID, "Pixel_6", RunMode.LOCAL);
+        assertEquals(AutomationTechnology.APPIUM, ctx.getAutomationTechnology());
+        assertSame(factory, SessionFactoryRegistry.resolve(ctx));
+    }
+
+    @Test
+    void resolve_withExplicitTechnology_doesNotMatchADifferentTechnologyFactory() {
+        SessionFactory seleniumFactory = new SessionFactory() {
+            @Override
+            public Platform getPlatform() {
+                return Platform.WEB;
+            }
+
+            @Override
+            public RunMode getRunMode() {
+                return RunMode.LOCAL;
+            }
+
+            @Override
+            public AutomationTechnology getAutomationTechnology() {
+                return AutomationTechnology.SELENIUM;
+            }
+
+            @Override
+            public WebDriver createDriver(ExecutionContext context) {
+                return mock(WebDriver.class);
+            }
+        };
+        SessionFactoryRegistry.register(seleniumFactory);
+
+        // No factory registered for (WEB, LOCAL, APPIUM) -- an explicit, non-default
+        // technology must not silently fall back to the SELENIUM registration.
+        assertThrows(IllegalStateException.class,
+                () -> SessionFactoryRegistry.resolve(Platform.WEB, RunMode.LOCAL, AutomationTechnology.APPIUM));
+    }
 }

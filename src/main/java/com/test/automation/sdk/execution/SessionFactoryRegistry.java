@@ -23,27 +23,53 @@ public final class SessionFactoryRegistry {
 
     private SessionFactoryRegistry() {}
 
-    /** Registers a factory for its own {@link SessionFactory#getPlatform()}/{@link SessionFactory#getRunMode()}. Last registration for a given key wins. */
+    /**
+     * Registers a factory for its own {@link SessionFactory#getPlatform()}/
+     * {@link SessionFactory#getRunMode()}/
+     * {@link SessionFactory#getAutomationTechnology()}. Last registration for
+     * a given key wins.
+     */
     public static void register(SessionFactory factory) {
         if (factory == null) {
             throw new IllegalArgumentException("factory must not be null");
         }
-        FACTORIES.put(key(factory.getPlatform(), factory.getRunMode()), factory);
+        FACTORIES.put(key(factory.getPlatform(), factory.getRunMode(), factory.getAutomationTechnology()), factory);
     }
 
-    /** Resolves the factory registered for the given (platform, runMode). */
+    /**
+     * Resolves the factory registered for the given (platform, runMode),
+     * using the platform-implied default {@link AutomationTechnology} (see
+     * {@link SessionFactory#getAutomationTechnology()}). Kept for backward
+     * compatibility -- equivalent to
+     * {@link #resolve(Platform, RunMode, AutomationTechnology)} with a
+     * {@code null} technology.
+     */
     public static SessionFactory resolve(Platform platform, RunMode runMode) {
-        SessionFactory factory = FACTORIES.get(key(platform, runMode));
+        return resolve(platform, runMode, null);
+    }
+
+    /**
+     * Resolves the factory registered for the given
+     * (platform, runMode, technology) (Unified SDK Review Priority 5,
+     * section 11) -- reserved for a future second Web/Mobile technology;
+     * {@code null} defaults to the platform-implied technology.
+     */
+    public static SessionFactory resolve(Platform platform, RunMode runMode, AutomationTechnology technology) {
+        AutomationTechnology resolvedTechnology = technology == null
+                ? (platform == Platform.WEB ? AutomationTechnology.SELENIUM : AutomationTechnology.APPIUM)
+                : technology;
+        SessionFactory factory = FACTORIES.get(key(platform, runMode, resolvedTechnology));
         if (factory == null) {
             throw new IllegalStateException(
-                    "No SessionFactory registered for platform=" + platform + ", runMode=" + runMode);
+                    "No SessionFactory registered for platform=" + platform + ", runMode=" + runMode
+                            + ", automationTechnology=" + resolvedTechnology);
         }
         return factory;
     }
 
-    /** Resolves the factory for the context's (platform, runMode). */
+    /** Resolves the factory for the context's (platform, runMode, automationTechnology). */
     public static SessionFactory resolve(ExecutionContext context) {
-        return resolve(context.getPlatform(), context.getRunMode());
+        return resolve(context.getPlatform(), context.getRunMode(), context.getAutomationTechnology());
     }
 
     /** Removes all registrations. Package-visible test hook only; not for production use. */
@@ -51,7 +77,7 @@ public final class SessionFactoryRegistry {
         FACTORIES.clear();
     }
 
-    private static String key(Platform platform, RunMode runMode) {
-        return platform + "::" + runMode;
+    private static String key(Platform platform, RunMode runMode, AutomationTechnology technology) {
+        return platform + "::" + runMode + "::" + technology;
     }
 }

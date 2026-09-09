@@ -25,6 +25,20 @@ public interface SessionFactory {
     /** Which {@link RunMode} this factory creates sessions for. */
     RunMode getRunMode();
 
+    /**
+     * Which {@link AutomationTechnology} this factory implements. Defaults to
+     * the platform-implied value ({@link AutomationTechnology#SELENIUM} for
+     * {@link Platform#WEB}, {@link AutomationTechnology#APPIUM} for
+     * {@link Platform#ANDROID}/{@link Platform#IOS}) so every existing
+     * {@link SessionFactory} implementation keeps compiling/behaving
+     * unchanged (Unified SDK Review Priority 5, section 11). Override only
+     * when a platform gains more than one coexisting technology (e.g.
+     * {@code WEB + PLAYWRIGHT} alongside {@code WEB + SELENIUM}).
+     */
+    default AutomationTechnology getAutomationTechnology() {
+        return getPlatform() == Platform.WEB ? AutomationTechnology.SELENIUM : AutomationTechnology.APPIUM;
+    }
+
     /** Creates and returns a ready-to-use driver session for the given context. */
     WebDriver createDriver(ExecutionContext context);
 

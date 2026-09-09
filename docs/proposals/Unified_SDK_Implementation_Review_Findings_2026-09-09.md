@@ -915,6 +915,23 @@ Add explicit mixed Web/Mobile concurrency/isolation validation.
 
 ## Priority 5 — Reserve Automation Technology in Execution Selection
 
+> **Status: COMPLETE**
+> Added `execution.AutomationTechnology` (`SELENIUM`, `APPIUM` only —
+> `PLAYWRIGHT`/`USER_MIMIC` intentionally not implemented). `SessionFactory`
+> gained `default getAutomationTechnology()` inferring the platform-implied
+> value, so all 6 built-in factories resolve unchanged without modification.
+> `ExecutionContext` gained `getAutomationTechnology()` plus new 3-arg
+> `forWeb(...)`/`forMobile(...)` overloads accepting an explicit technology;
+> existing 2-arg overloads are unchanged and default identically.
+> `SessionFactoryRegistry` now keys on `(platform, runMode, technology)`; the
+> existing 2-arg `resolve(Platform, RunMode)` is preserved and defaults the
+> technology the same way, so `DriverManager` and all existing callers/tests
+> needed no changes. Tests: `execution.ExecutionContextTest`,
+> `execution.SessionFactoryRegistryTest` (new technology-defaulting/override/
+> mismatch cases). Targeted and full `mvn test` suites pass. No new
+> technology (e.g. Playwright) was implemented, per this section's explicit
+> scope boundary.
+
 Prepare the execution model so a future browser engine can coexist with Selenium:
 
 ```text
