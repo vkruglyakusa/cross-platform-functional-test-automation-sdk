@@ -20,6 +20,31 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Structure Cleanup Phase 6 — Discovery/Crawler Normalization**
+  (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): new
+  `discovery` package with a common, crawler-neutral result contract --
+  `LocatorCandidate` (strategy label, value, `Marker` enum
+  `UNIQUE`/`NOT_UNIQUE`/`DYNAMIC`/`STALE`/`STRUCTURAL`/`OTHER`, match count),
+  `DiscoveredElement` (platform, tag/type, text, candidates, plus
+  `unwrap(Class<T>)` back to the original platform-specific object -- mirrors
+  the `AutomationSession#unwrap(Class)` pattern from Phase 3), `DiscoveryResult`
+  (element list + source label + `resolvedCount()`), and the
+  `ElementDiscoveryService` interface (`discoverCurrent()`). Two new adapters
+  implement it without changing either crawler's own algorithm (Guardrails
+  #15/#16 -- normalize outputs, not algorithms): `utility.WebElementDiscoveryAdapter`
+  (wraps `ElementCrawler`, parses its existing `allXpaths` composite-key
+  labels via its own public `LABEL_*` constants so normalization can never
+  drift out of sync) and `mobile.crawler.MobileElementDiscoveryAdapter` (wraps
+  `MobileElementCrawler`, converts native `MobileElementInfo`/`MobileLocatorCandidate`
+  and reuses `WebElementDiscoveryAdapter.toDiscoveredElement` for delegated
+  WebView elements -- there is now only one `ElementCrawler.ElementInfo`-to-
+  `DiscoveredElement` conversion in the whole SDK). Additive, non-breaking
+  change; neither crawler's crawl/uniqueness-detection algorithm was modified.
+  New unit tests (`WebElementDiscoveryAdapterTest`, 10 cases;
+  `MobileElementDiscoveryAdapterTest`, 6 cases) cover the pure, driver-free
+  conversion logic only (`discoverCurrent()` requires a live session and is
+  out of unit-test scope, consistent with existing crawler test conventions).
+  Full suite green after this change.
 - **Structure Cleanup Phase 3 — Lightweight Unified Session Boundary**
   (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): new
   `session.AutomationSession` interface (`navigate(url)`, `quit()`,

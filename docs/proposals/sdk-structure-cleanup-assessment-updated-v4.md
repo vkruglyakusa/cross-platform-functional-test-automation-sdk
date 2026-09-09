@@ -27,6 +27,41 @@
   (`MobileDriverFactory.getLocalDriver("android", "emulator-5554")` created a
   live session, confirmed via `driver.getSessionId()`, then cleanly quit).
 
+### Phase 2 — Configuration Unification: ✅ COMPLETE (2026-09-09)
+
+- Real YAML parser/singleton moved from `utility.YamlConfigReader` to
+  `config.YamlConfigReader`; `utility.YamlConfigReader` is now a `@Deprecated`
+  thin compatibility facade. Validated: `mvn test` → 442/442 passing.
+
+### Phase 3 (Lightweight) — `AutomationSession`/`AutomationSessionFactory`: ✅ COMPLETE (2026-09-09)
+
+- New `session` package: `AutomationSession` interface (`navigate`, `quit`,
+  `unwrap(Class<T>)`), `session.internal.SeleniumSession`/`AppiumSession`,
+  `session.AutomationSessionFactory` (`create(ExecutionContext)` delegates to
+  `driver.DriverManager.acquire()`; `wrap(WebDriver, Platform)`).
+  `AutomationElement`/`Locator` remain deferred per scope. Validated:
+  `mvn test` → 459/459 passing.
+
+### Appium WebView/Native Context Switching (Priority & Sequencing item 4): ✅ COMPLETE (2026-09-09)
+
+- Promoted the proven `SupportsContextSwitching` pattern out of
+  `MobileElementCrawler` into public `mobile.actions.MobileActions` helpers
+  (`getAvailableContexts`, `getCurrentContext`, `isInWebViewContext`,
+  `switchToNativeContext`, `switchToContext`, `switchToWebViewContext`) and
+  `mobile.testbase.MobileTestBase` wrappers (`mobileSwitchToNative()`,
+  `mobileSwitchToWebView()`, etc.). `MobileElementCrawler` refactored to reuse
+  the same helpers. Validated: full suite green.
+
+### Phase 6 — Discovery/Crawler Normalization: ✅ COMPLETE (2026-09-09)
+
+- New `discovery` package (`LocatorCandidate`, `DiscoveredElement`,
+  `DiscoveryResult`, `ElementDiscoveryService`) plus two adapters --
+  `utility.WebElementDiscoveryAdapter` and
+  `mobile.crawler.MobileElementDiscoveryAdapter` -- that normalize each
+  crawler's existing output into the common contract without changing either
+  crawler's own crawling/uniqueness-detection algorithm. Validated: full suite
+  green (16 new unit tests covering the pure, driver-free conversion logic).
+
 ### Section 33 (Multi-Session and Hybrid Web + Mobile Driver Architecture) — Reviewed Against Current Code (2026-09-09)
 
 Section 33 was appended after section 34 ("Final Recommendation") without a
