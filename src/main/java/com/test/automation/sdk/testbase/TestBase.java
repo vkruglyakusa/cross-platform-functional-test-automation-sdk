@@ -325,14 +325,35 @@ public class TestBase {
 	}
 
 	/**
-	 * Framework-internal -- captures a screenshot for a test result. Called by the test listener on failure.
-	 * Captures a screenshot for a TestNG result into the configured screenshots output directory.
+	 * Captures a screenshot for a TestNG result directly into the configured
+	 * screenshots output directory ({@code reporting.screenshotsDir}), paired
+	 * alongside the DOM dump written by {@link #saveDomDump(WebDriver, String)}.
+	 * This is the standard failure-capture API, called by the test listener on failure.
 	 *
 	 * @param driver active driver
 	 * @param result current test result
-	 * @param folderName logical report folder name
 	 */
+	protected void getScreenShot(WebDriver driver, ITestResult result) {
+		captureFailureScreenshot(driver, result, getScreenshotOutputDirectory());
+	}
+
+	/**
+	 * @deprecated Use {@link #getScreenShot(WebDriver, ITestResult)}. This overload's
+	 * {@code folderName} used to be appended as a hidden extra subdirectory under
+	 * {@code reporting.screenshotsDir} (e.g. {@code screenshots/screenshots/}),
+	 * which did not match the DOM dump's location. It is now ignored so screenshots
+	 * always land directly in {@code reporting.screenshotsDir}, matching the DOM dump.
+	 *
+	 * @param driver active driver
+	 * @param result current test result
+	 * @param folderName ignored -- retained only for binary/source compatibility
+	 */
+	@Deprecated
 	protected void getScreenShot(WebDriver driver, ITestResult result, String folderName) {
+		captureFailureScreenshot(driver, result, getScreenshotOutputDirectory());
+	}
+
+	private void captureFailureScreenshot(WebDriver driver, ITestResult result, File targetDirectory) {
 		if (driver == null) return;
 		try { driver.getWindowHandles(); } catch (Exception e) {
 			log.warn("getScreenShot skipped -- session no longer active");
@@ -348,10 +369,8 @@ public class TestBase {
 
 		File scrFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
 		try {
-			File reportDirectory = getScreenshotOutputDirectory();
-			File folder = new File(reportDirectory, folderName);
-			ensureDirectoryExists(folder);
-			File destFile = new File(folder, methodName + "_" + formater.format(calendar.getTime()) + ".png");
+			ensureDirectoryExists(targetDirectory);
+			File destFile = new File(targetDirectory, methodName + "_" + formater.format(calendar.getTime()) + ".png");
 			FileUtils.copyFile(scrFile, destFile);
 
 			Reporter.log("<a href='" + destFile.getAbsolutePath() + "'> <img src='" + destFile.getAbsolutePath()

@@ -196,6 +196,49 @@ The SDK `release.ps1` script updates the consumer template's `pom.xml`,
 Cloning the template always gives you the latest stable version -- no manual
 version tracking needed.
 
+### Known migration gotchas
+
+**Nested-type imports through a deprecated facade class don't work.** A
+`@Deprecated` top-level facade (e.g. an old `com.test.automation.sdk.utility.ElementCrawler`
+kept only for backward compatibility after tooling moved to
+`com.test.automation.sdk.tools.crawler.web.ElementCrawler`) can preserve most
+call sites via inheritance/delegation, but it **cannot** preserve an import of
+one of its nested types -- Java requires the canonical declaring class for a
+nested-type import. So this keeps compiling:
+```java
+import com.test.automation.sdk.utility.ElementCrawler; // deprecated facade -- still resolves
+```
+but this does not, even though the facade extends/delegates to the canonical class:
+```java
+import com.test.automation.sdk.utility.ElementCrawler.ElementInfo; // fails to resolve
+```
+Fix by importing the nested type from its canonical package instead:
+```java
+import com.test.automation.sdk.tools.crawler.web.ElementCrawler.ElementInfo;
+```
+This is a Java language rule, not an SDK bug -- there is no wrapper that can
+work around it, so update the import at the call site.
+
+**`TestBase.driver` is instance-scoped, not static.** Earlier SDK iterations
+shared a single static `driver` across threads; it is now an instance field
+(the correct thread-safety fix for parallel test execution). If your project
+has static helper methods or static Page Object methods that read `driver` or
+call instance `TestBase` helpers, they will fail to compile after upgrading
+and must be converted to instance methods:
+```java
+// old -- no longer compiles
+public static void clickLogin() {
+    driver.findElement(...).click();
+}
+
+// new
+public void clickLogin() {
+    driver.findElement(...).click();
+}
+```
+Do not reintroduce a static driver field/compatibility shim to avoid this
+change -- convert the calling code to instance methods instead.
+
 ---
 
 ## 4.1 Maven Authentication — Choose Your Option

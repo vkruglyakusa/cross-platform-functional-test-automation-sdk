@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RunModeTest {
 
@@ -16,7 +17,13 @@ class RunModeTest {
     }
 
     @Test
-    void resolve_defaultsToBrowserstack_whenNothingSet() {
+    void resolve_defaultsToLocal_whenNothingSet() {
+        assertEquals(RunMode.LOCAL, RunMode.resolve());
+    }
+
+    @Test
+    void resolve_usesCanonicalRunModeProperty_whenSetToBrowserstack() {
+        System.setProperty("run.mode", "BROWSERSTACK");
         assertEquals(RunMode.BROWSERSTACK, RunMode.resolve());
     }
 
@@ -52,6 +59,8 @@ class RunModeTest {
     @Test
     void resolve_throwsOnInvalidCanonicalValue() {
         System.setProperty("run.mode", "not-a-real-mode");
-        assertThrows(IllegalArgumentException.class, RunMode::resolve);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, RunMode::resolve);
+        assertTrue(ex.getMessage().contains("run.mode"));
+        assertTrue(ex.getMessage().contains("not-a-real-mode"));
     }
 }

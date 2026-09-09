@@ -32,17 +32,20 @@ public enum RunMode {
      *  3. Legacy {@code -DtestInBrowserstack=true|false} flag (still set by the
      *     "browserstack"/"local" Maven profiles) -- {@code true} maps to
      *     {@link #BROWSERSTACK}, {@code false} maps to {@link #LOCAL}.
-     *  4. Default: {@link #BROWSERSTACK} (matches the existing default-active Maven profile).
+     *  4. Default: {@link #LOCAL}. Remote/cloud execution must be explicitly
+     *     opted into via one of the properties above -- upgrading the SDK (or
+     *     running with no execution-target property at all) must never
+     *     silently start a BrowserStack session.
      */
     public static RunMode resolve() {
         String explicit = System.getProperty("run.mode");
         if (explicit != null && !explicit.trim().isEmpty()) {
-            return RunMode.valueOf(explicit.trim().toUpperCase());
+            return parse("run.mode", explicit);
         }
 
         String legacyMobileTarget = System.getProperty("mobile.execution.target");
         if (legacyMobileTarget != null && !legacyMobileTarget.trim().isEmpty()) {
-            return RunMode.valueOf(legacyMobileTarget.trim().toUpperCase());
+            return parse("mobile.execution.target", legacyMobileTarget);
         }
 
         String legacyFlag = System.getProperty("testInBrowserstack");
@@ -50,6 +53,23 @@ public enum RunMode {
             return Boolean.parseBoolean(legacyFlag) ? BROWSERSTACK : LOCAL;
         }
 
-        return BROWSERSTACK;
+        return LOCAL;
+    }
+
+    /**
+     * Parses a resolved system property value into a {@link RunMode}, failing with a
+     * message that names the offending property and its accepted values rather than
+     * the raw {@code Enum.valueOf} message.
+     */
+    private static RunMode parse(String propertyName, String rawValue) {
+        String normalized = rawValue.trim().toUpperCase();
+        try {
+            return RunMode.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid value '" + rawValue + "' for system property '" + propertyName
+                            + "' -- expected one of " + java.util.Arrays.toString(values()),
+                    e);
+        }
     }
 }

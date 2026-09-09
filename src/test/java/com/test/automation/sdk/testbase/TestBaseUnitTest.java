@@ -4,7 +4,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.OutputType;
 import org.mockito.Mockito;
+import org.testng.ITestResult;
 
 import java.io.File;
 import java.util.Arrays;
@@ -255,6 +258,72 @@ class TestBaseUnitTest extends TestBase {
             assertTrue(htmlFiles[0].getName().startsWith("Case_ 1_2_"), "Filename should be sanitized");
             String content = org.apache.commons.io.FileUtils.readFileToString(htmlFiles[0], "UTF-8");
             assertTrue(content.contains("hello"), "DOM dump should contain page source");
+        } finally {
+            if (originalUserDir != null) {
+                System.setProperty("user.dir", originalUserDir);
+            }
+            if (originalConfigDir != null) {
+                System.setProperty("sdk.config.dir", originalConfigDir);
+            } else {
+                System.clearProperty("sdk.config.dir");
+            }
+            resetYamlConfigReaderSingleton();
+        }
+    }
+
+    @Test
+    @DisplayName("getScreenShot(driver, result) writes PNG directly to reporting.screenshotsDir, no nested 'screenshots' subfolder")
+    void getScreenShot_writesDirectlyToConfiguredDirectory_noDoubleNesting() throws Exception {
+        String originalUserDir = System.getProperty("user.dir");
+        String originalConfigDir = System.getProperty("sdk.config.dir");
+        File workDir = new File("target\\test-work\\getScreenShot");
+        if (!workDir.exists()) {
+            assertTrue(workDir.mkdirs() || workDir.exists(), "Failed to create work directory");
+        }
+        File configDir = new File(workDir, "configuration");
+        if (!configDir.exists()) {
+            assertTrue(configDir.mkdirs() || configDir.exists(), "Failed to create config directory");
+        }
+
+        File screenshotsDir = new File(workDir, "screenshots");
+        if (screenshotsDir.exists()) {
+            org.apache.commons.io.FileUtils.cleanDirectory(screenshotsDir);
+        }
+        screenshotsDir.mkdirs();
+
+        File yaml = new File(configDir, "sdk-config.yaml");
+        org.apache.commons.io.FileUtils.writeStringToFile(
+                yaml,
+                "screenshots:\n" +
+                "  outputDir: \"screenshots\"\n",
+                "UTF-8");
+
+        try {
+            System.setProperty("user.dir", workDir.getAbsolutePath());
+            System.setProperty("sdk.config.dir", configDir.getAbsolutePath());
+            resetYamlConfigReaderSingleton();
+
+            WebDriver mockedDriver = Mockito.mock(WebDriver.class,
+                    Mockito.withSettings().extraInterfaces(TakesScreenshot.class));
+            File fakeCapture = new File(workDir, "fake-capture.png");
+            org.apache.commons.io.FileUtils.writeStringToFile(fakeCapture, "not-a-real-png", "UTF-8");
+            Mockito.when(((TakesScreenshot) mockedDriver).getScreenshotAs(OutputType.FILE)).thenReturn(fakeCapture);
+
+            ITestResult mockedResult = Mockito.mock(ITestResult.class);
+            Mockito.when(mockedResult.getName()).thenReturn("someFailingTest");
+
+            com.test.automation.sdk.utility.reports.ExtentTestManager.startTest("someFailingTest");
+            getScreenShot(mockedDriver, mockedResult);
+
+            File nestedScreenshotsFolder = new File(screenshotsDir, "screenshots");
+            assertFalse(nestedScreenshotsFolder.exists(),
+                    "Screenshot must not create a hidden nested 'screenshots' subfolder");
+
+            File[] pngFiles = screenshotsDir.listFiles(new java.io.FilenameFilter() {
+                public boolean accept(File dir, String name) { return name.endsWith(".png"); }
+            });
+            assertNotNull(pngFiles, "Screenshots directory should exist");
+            assertEquals(1, pngFiles.length, "Expected exactly one screenshot written directly to the configured directory");
         } finally {
             if (originalUserDir != null) {
                 System.setProperty("user.dir", originalUserDir);

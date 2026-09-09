@@ -80,7 +80,7 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 				String testCaseName = TestBase.getCurrentTestCaseName();
 				String captureName = (testCaseName != null && !testCaseName.trim().isEmpty())
 						? testCaseName : getTestMethodName(result);
-				getScreenShot(driver, result, "screenshots");
+				getScreenShot(driver, result);
 				saveDomDump(driver, captureName);
 				log.info("Screenshot and DOM dump captured for: {}", captureName);
 				takeScreenshot(driver);

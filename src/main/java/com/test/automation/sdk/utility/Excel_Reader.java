@@ -127,11 +127,31 @@ public class Excel_Reader {
 			fis = new FileInputStream(path);
 			workbook = new XSSFWorkbook(fis);
 		} catch (Exception e) {
-			e.printStackTrace();
+			throw new IllegalStateException(
+					"Unable to open Excel workbook '" + path + "' while reading sheet '" + sheetName + "': "
+							+ e.getMessage(), e);
+		}
+
+		int sheetIndex = workbook.getSheetIndex(sheetName);
+		if (sheetIndex == -1) {
+			throw new IllegalStateException(
+					"Excel workbook '" + path + "' does not contain a sheet named '" + sheetName + "'.");
 		}
 
 		int rowNum = getRowCount(sheetName);
 		int colNum = getColumnCount(sheetName);
+
+		// rowNum counts the header row plus data rows; rowNum <= 1 means there are
+		// zero usable data rows below the header (including a completely empty sheet,
+		// where rowNum is 0). Fail with a descriptive message instead of allocating a
+		// negatively-sized array (previously surfaced as a raw NegativeArraySizeException).
+		if (rowNum <= 1 || colNum <= 0) {
+			throw new IllegalStateException(
+					"Excel sheet '" + sheetName + "' in workbook '" + path
+							+ "' contains no usable data rows below the header (found " + Math.max(rowNum, 0)
+							+ " row(s) and " + Math.max(colNum, 0) + " column(s)).");
+		}
+
 		Object sampleData[][] = new Object[rowNum - 1][colNum];
 		for (int i = 2; i <= rowNum; i++) {
 			for (int j = 0; j < colNum; j++) {

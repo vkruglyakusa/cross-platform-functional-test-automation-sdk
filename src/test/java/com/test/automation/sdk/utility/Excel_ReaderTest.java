@@ -79,4 +79,66 @@ class Excel_ReaderTest {
     void getRunMode_row2() {
         assertEquals("N", reader.getCellData("TestData", "RunMode", 3));
     }
+
+    // -------------------------------------------------------------------------
+    // getDataFromSheet -- malformed/sparse sheet validation (OBS-6)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getDataFromSheet() returns data rows for a normally populated sheet")
+    void getDataFromSheet_returnsData_forPopulatedSheet() {
+        Object[][] data = Excel_Reader.getDataFromSheet(fixtureFile.toAbsolutePath().toString(), "TestData");
+        assertEquals(2, data.length, "Expected 2 data rows below the header");
+        assertEquals("TC_001", data[0][0]);
+        assertEquals("TC_002", data[1][0]);
+    }
+
+    @Test
+    @DisplayName("getDataFromSheet() throws a descriptive exception for a header-only sheet")
+    void getDataFromSheet_throwsDescriptiveException_forHeaderOnlySheet() throws Exception {
+        Path headerOnlyFile = Files.createTempFile("sdk-test-header-only-", ".xlsx");
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            XSSFSheet sheet = wb.createSheet("HeaderOnly");
+            XSSFRow header = sheet.createRow(0);
+            header.createCell(0).setCellValue("TestCaseName");
+            try (OutputStream os = Files.newOutputStream(headerOnlyFile)) {
+                wb.write(os);
+            }
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> Excel_Reader.getDataFromSheet(headerOnlyFile.toAbsolutePath().toString(), "HeaderOnly"));
+            assertTrue(ex.getMessage().contains("HeaderOnly"), "Message should name the sheet");
+            assertTrue(ex.getMessage().contains("no usable data rows"), "Message should describe the problem");
+        } finally {
+            Files.deleteIfExists(headerOnlyFile);
+        }
+    }
+
+    @Test
+    @DisplayName("getDataFromSheet() throws a descriptive exception for a completely empty sheet")
+    void getDataFromSheet_throwsDescriptiveException_forEmptySheet() throws Exception {
+        Path emptyFile = Files.createTempFile("sdk-test-empty-", ".xlsx");
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            wb.createSheet("Empty");
+            try (OutputStream os = Files.newOutputStream(emptyFile)) {
+                wb.write(os);
+            }
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> Excel_Reader.getDataFromSheet(emptyFile.toAbsolutePath().toString(), "Empty"));
+            assertTrue(ex.getMessage().contains("Empty"), "Message should name the sheet");
+            assertTrue(ex.getMessage().contains("no usable data rows"), "Message should describe the problem");
+        } finally {
+            Files.deleteIfExists(emptyFile);
+        }
+    }
+
+    @Test
+    @DisplayName("getDataFromSheet() throws a descriptive exception for a missing sheet")
+    void getDataFromSheet_throwsDescriptiveException_forMissingSheet() {
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> Excel_Reader.getDataFromSheet(fixtureFile.toAbsolutePath().toString(), "NoSuchSheet"));
+        assertTrue(ex.getMessage().contains("NoSuchSheet"), "Message should name the missing sheet");
+        assertTrue(ex.getMessage().contains("does not contain a sheet"), "Message should describe the problem");
+    }
 }

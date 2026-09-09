@@ -338,7 +338,8 @@ public void scrollAndVerify() {
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `getScreenShot` | `getScreenShot(String name)` | Captures a screenshot to the output directory with a timestamp. |
-| `getScreenShot` | `getScreenShot(WebDriver driver, ITestResult result, String folderName)` | Captures a screenshot on test failure and attaches it to the Extent report. |
+| `getScreenShot` | `getScreenShot(WebDriver driver, ITestResult result)` | Standard failure-capture API -- writes directly to `reporting.screenshotsDir` (paired with the DOM dump) and attaches it to the Extent report. |
+| `getScreenShot` *(deprecated)* | `getScreenShot(WebDriver driver, ITestResult result, String folderName)` | Deprecated: `folderName` is now ignored (previously nested a hidden extra subfolder under `reporting.screenshotsDir`). Use the 2-arg overload. |
 | `captureScreen` | `captureScreen(String fileName)` | Captures a screenshot and returns the absolute file path. |
 | `saveDomDump` | `saveDomDump(WebDriver driver, String testName)` | Saves a DOM dump HTML file to `screenshots.outputDir`, paired with the screenshot artifact when used on failure. |
 | `setCurrentTestCaseName` | `setCurrentTestCaseName(String name)` | Sets the current data-driven test case name so Listener can rename report entries and failure artifacts per DataProvider row. Call this at the start of every data-driven `@Test` method after the `runMode` check. |

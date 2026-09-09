@@ -29,6 +29,47 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   the `[Unreleased]` doc-gate check to ignore the standing HTML-comment
   placeholder so an already-promoted (genuinely empty) section is no longer
   miscounted as "has content".
+- **`RunMode.resolve()` defaulted to `BROWSERSTACK` when no execution-target
+  property was configured** (OBS-1, Poletop consumer-validation finding). A
+  local-only consumer upgrading the SDK -- or simply forgetting to set
+  `-Drun.mode`/`-DtestInBrowserstack` -- could silently attempt a remote
+  BrowserStack session instead of running locally. Unspecified execution now
+  resolves to `RunMode.LOCAL`; remote/provider execution must be explicit via
+  `-Drun.mode=BROWSERSTACK`, the legacy `-Dmobile.execution.target`, or the
+  legacy `-DtestInBrowserstack=true` flag, all of which are unchanged.
+  Invalid `-Drun.mode`/`-Dmobile.execution.target` values now raise an
+  `IllegalArgumentException` naming the offending property and its accepted
+  values, instead of the raw `Enum.valueOf` message.
+- **Standard failure screenshots were written to a hidden, double-nested
+  `<reporting.screenshotsDir>/screenshots/` folder** instead of directly to
+  `reporting.screenshotsDir` (OBS-3, Poletop consumer-validation finding),
+  while the paired DOM dump was written one level up in the correct,
+  configured directory -- so a failure's screenshot and DOM evidence ended up
+  in different folders. `TestBase.getScreenShot(WebDriver, ITestResult)` is
+  now the standard failure-capture API and writes directly to
+  `reporting.screenshotsDir`, matching the DOM dump. The old
+  `getScreenShot(WebDriver, ITestResult, String folderName)` overload is
+  `@Deprecated` and now ignores `folderName` (rather than nesting it) for
+  source/binary compatibility.
+- **`Excel_Reader.getDataFromSheet` threw a raw `NegativeArraySizeException(-1)`**
+  for a missing sheet or a sheet with no data rows below the header (OBS-6,
+  Poletop consumer-validation finding), instead of describing the actual
+  test-data problem. It now validates the sheet exists and has at least one
+  data row and one column before allocating the result array, and raises a
+  descriptive `IllegalStateException` naming the workbook, sheet, and the
+  row/column counts found.
+
+### Documentation
+- **Added a "Known migration gotchas" subsection** (SDK-USER-GUIDE.md Section 4a)
+  covering two recurring consumer-migration issues surfaced by the Poletop
+  consumer-validation pass: (1) a `@Deprecated` top-level facade class cannot
+  preserve imports of its nested types (Java requires the canonical declaring
+  class for nested-type imports -- e.g. `ElementCrawler.ElementInfo` must be
+  imported from `com.test.automation.sdk.tools.crawler.web.ElementCrawler`,
+  not a deprecated facade), and (2) `TestBase.driver` is instance-scoped, so
+  consumer static helper/Page Object methods that touch the driver must be
+  converted to instance methods. Both are documentation-only; no SDK code
+  changes accompany them since neither is a bug to fix in the SDK.
 
 ---
 
