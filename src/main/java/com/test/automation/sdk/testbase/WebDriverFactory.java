@@ -18,7 +18,7 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.support.events.EventFiringDecorator;
 import com.test.automation.sdk.listener.WebEventListener;
-import com.test.automation.sdk.utility.YamlConfigReader;
+import com.test.automation.sdk.config.YamlConfigReader;
 import io.github.bonigarcia.wdm.WebDriverManager;
 
 /**

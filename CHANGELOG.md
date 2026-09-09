@@ -20,6 +20,24 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Changed
+- **Structure Cleanup Phase 2 — Configuration Unification**
+  (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): the real,
+  tested YAML parser/singleton moved from `utility.YamlConfigReader` to
+  `config.YamlConfigReader`, which is now the single source of truth.
+  `utility.YamlConfigReader` is a `@Deprecated` thin compatibility facade that
+  delegates to `config.YamlConfigReader` (kept for one release so existing
+  reflection-based lookups of the old class name keep working).
+  `mobile.config.MobileConfigReader` already delegated to `config.YamlConfigReader`
+  for its fallback path (no change needed there — it was already "a typed mobile
+  view, not a second resolver"). Production call sites updated to import
+  `config.YamlConfigReader` directly: `testbase.WebDriverFactory`,
+  `testbase.TestBase`, `utility.GapReportWriter`, `utility.PageObjectGenerator`,
+  `utility.mailinator.Mailinator`, `utility.mailinator.MailinatorEmailReader`.
+  Test coverage: the full parsing/defaults test suite moved from
+  `utility.YamlConfigReaderTest` to `config.YamlConfigReaderTest` (47 tests);
+  `utility.YamlConfigReaderTest` now contains a small facade-delegation
+  compatibility test instead. `README.md`/`SDK-USER-GUIDE.md` updated to
+  reference `sdk.config.YamlConfigReader`. 442/442 tests passing, `BUILD SUCCESS`.
 - `mobile.testbase.MobileTestBase` now `extends com.test.automation.sdk.testbase.TestBase`
   instead of duplicating a parallel lifecycle -- the deferred item from Phase 4/5 of
   `docs/proposals/unified-sdk-architect-review.md`. Both platforms now share one `driver`

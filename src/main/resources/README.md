@@ -26,7 +26,7 @@ page objects, test classes, and test data.
 | **CrawlerScenario** | `sdk.utility.CrawlerScenario` | Named step sequence; `fromTestCase()` builder for ADO-driven crawling |
 | **ElementSearchEngine** | `sdk.utility.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label, placeholder, aria-label, text |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap/blocker `.md` reports when automation is not possible |
-| **YamlConfigReader** | `sdk.utility.YamlConfigReader` | Reads `sdk-config.yaml` -- browser, proxy, crawler, reporting settings |
+| **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` -- browser, proxy, crawler, reporting settings |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
 | **Listener** | `sdk.listener.Listener` | Auto-screenshot, DOM dump on failure, Extent report integration, XML test-name renaming for data-driven rows |

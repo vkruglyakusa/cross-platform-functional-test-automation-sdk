@@ -323,7 +323,7 @@ class TestBaseUnitTest extends TestBase {
     }
 
     private void resetYamlConfigReaderSingleton() throws Exception {
-        Class<?> clazz = Class.forName("com.test.automation.sdk.utility.YamlConfigReader");
+        Class<?> clazz = Class.forName("com.test.automation.sdk.config.YamlConfigReader");
         java.lang.reflect.Field field = clazz.getDeclaredField("instance");
         field.setAccessible(true);
         field.set(null, null);

@@ -46,7 +46,7 @@ import org.testng.annotations.Test;
 import com.test.automation.sdk.listener.WebEventListener;
 import com.test.automation.sdk.utility.Excel_Reader;
 import com.test.automation.sdk.utility.QueryExcelFile;
-import com.test.automation.sdk.utility.YamlConfigReader;
+import com.test.automation.sdk.config.YamlConfigReader;
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.MediaEntityBuilder;

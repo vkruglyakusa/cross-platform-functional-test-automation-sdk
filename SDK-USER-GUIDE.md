@@ -60,7 +60,7 @@ automation project only needs **one** Maven dependency.
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
 | **WebEventListener** | `sdk.listener.WebEventListener` | Logs every browser action for debugging |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
-| **YamlConfigReader** | `sdk.utility.YamlConfigReader` | Reads `sdk-config.yaml` for advanced SDK settings |
+| **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` for advanced SDK settings |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap-report.md / blocker-report.md to the configured output directory |
 | **AccessibilityChecker** | `sdk.accessibility.AccessibilityChecker` | Built-in 5-layer WCAG scan engine: axe-core, interaction, WCAG 2.2, structural, and motion checks. |
 | **A11ySessionManager** | `sdk.accessibility.A11ySessionManager` | De-duplicates scans by URL, cooldown, and DOM fingerprint; applies severity threshold and allowlists. |

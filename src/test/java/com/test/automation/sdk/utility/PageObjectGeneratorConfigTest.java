@@ -265,7 +265,7 @@ class PageObjectGeneratorConfigTest {
 
     private static void resetYamlSingleton() {
         try {
-            Field field = YamlConfigReader.class.getDeclaredField("instance");
+            Field field = com.test.automation.sdk.config.YamlConfigReader.class.getDeclaredField("instance");
             field.setAccessible(true);
             field.set(null, null);
         } catch (Exception e) {

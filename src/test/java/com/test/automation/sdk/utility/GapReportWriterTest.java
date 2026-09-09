@@ -203,7 +203,7 @@ class GapReportWriterTest {
     // ---------------------------------------------------------------
 
     private static void resetYamlSingleton() throws Exception {
-        Field f = YamlConfigReader.class.getDeclaredField("instance");
+        Field f = com.test.automation.sdk.config.YamlConfigReader.class.getDeclaredField("instance");
         f.setAccessible(true);
         f.set(null, null);
     }

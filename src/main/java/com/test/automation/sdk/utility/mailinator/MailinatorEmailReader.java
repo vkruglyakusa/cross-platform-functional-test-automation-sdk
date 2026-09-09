@@ -6,7 +6,7 @@
 package com.test.automation.sdk.utility.mailinator;
 
 import com.test.automation.sdk.config.SdkConfig;
-import com.test.automation.sdk.utility.YamlConfigReader;
+import com.test.automation.sdk.config.YamlConfigReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;

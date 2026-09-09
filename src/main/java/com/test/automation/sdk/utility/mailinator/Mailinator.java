@@ -1,6 +1,6 @@
 package com.test.automation.sdk.utility.mailinator;
 
-import com.test.automation.sdk.utility.YamlConfigReader;
+import com.test.automation.sdk.config.YamlConfigReader;
 import com.test.automation.sdk.utility.mailinator.Email.EmailPart;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;

@@ -34,8 +34,11 @@ class SdkSmokeTest {
     @Test @DisplayName("ExtentManager loads")
     void extentManager() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.utility.reports.ExtentManager")); }
 
-    @Test @DisplayName("YamlConfigReader loads")
+    @Test @DisplayName("YamlConfigReader loads (deprecated facade)")
     void yamlConfigReader() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.utility.YamlConfigReader")); }
+
+    @Test @DisplayName("config.YamlConfigReader loads")
+    void configYamlConfigReader() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.config.YamlConfigReader")); }
 
     @Test @DisplayName("InstructionExtractor loads")
     void instructionExtractor() { assertDoesNotThrow(() -> Class.forName("com.test.automation.sdk.utility.InstructionExtractor")); }

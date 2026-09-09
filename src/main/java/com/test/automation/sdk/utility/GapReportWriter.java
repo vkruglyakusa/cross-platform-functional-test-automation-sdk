@@ -1,5 +1,6 @@
 package com.test.automation.sdk.utility;
 
+import com.test.automation.sdk.config.YamlConfigReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
