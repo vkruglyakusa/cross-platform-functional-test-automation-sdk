@@ -1,5 +1,18 @@
 # =============================================================================
 # mobile-config.yaml.example
+#
+# DEPRECATED / LEGACY COMPATIBILITY CONFIGURATION.
+# This standalone-file path exists only as a TEMPORARY migration mechanism
+# (Unified SDK Review Priority 2, section 8 of
+# docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md) and
+# will be removed once consumer projects migrate their android.*/ios.*/appium.*
+# settings into the unified sdk-config.yaml (see
+# src/main/resources/sdk-defaults/sdk-config.yaml.template's "Mobile
+# (Appium / Android / iOS) Settings" section, which is the recommended
+# location for new projects). If a standalone mobile-config.yaml is present,
+# its values are used only when no system property or environment variable
+# override is set for the same key -- a system/env override always wins.
+#
 # Copy this file to mobile-config.yaml (kept out of git, see .gitignore) and
 # fill in project-specific values. Read by com.test.automation.sdk.mobile.config.MobileConfigReader.
 # =============================================================================

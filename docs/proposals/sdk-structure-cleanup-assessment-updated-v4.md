@@ -114,6 +114,19 @@
 
 ### Section 33 (Multi-Session and Hybrid Web + Mobile Driver Architecture) — Reviewed Against Current Code (2026-09-09)
 
+> **Update (2026-09-09, later same day): items 1 and 2 below are now
+> implemented and this block's "not yet"/"NOT yet buildable" wording is
+> historical, not current state.** Public `mobileSwitchToNative()` /
+> `mobileSwitchToWebView(...)` / `getAvailableContexts()` now exist on
+> `MobileTestBase` (see `mobile.testbase.MobileTestBase`), and
+> `AutomationSession`/`AutomationSessionFactory` are implemented and wired
+> into `TestBase`/`MobileTestBase` (see "Phase 3" status note at the top of
+> this document and `docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`
+> section 16, Priority 1). The `SessionContext`/multi-session model described
+> in item 2 remains correctly deferred (no concrete consumer need yet) --
+> only the "NOT yet buildable because AutomationSession doesn't exist" premise
+> is now outdated, not the deferral decision itself.
+
 Section 33 was appended after section 34 ("Final Recommendation") without a
 phase number, so as written it is **not yet sequenced into the Phase 1–12
 roadmap** (section 20/30). Reviewing it against the current codebase found:
@@ -2538,13 +2551,13 @@ The recommended target is:
 
 The architectural priorities are:
 
-1. **Complete configuration and structural cleanup.**
-2. **Promote current Web/Mobile crawlers and related utilities into a formal SDK tooling layer.**
-3. **Expose proven Appium native/WebView context switching as a supported SDK capability.**
-4. **Introduce only the lightweight `AutomationSession` boundary needed to keep Selenium/Appium replaceable behind the SDK.**
-5. **Keep full element/locator abstraction conditional until Page Object/crawler portability requires it.**
-6. **Keep true named multi-session runtime conditional until the first real Web+Mobile or multiple-device test appears, while preserving it as an approved target architecture.**
-7. **Version prompts and AI skills now, but defer agent registry/orchestration infrastructure until an actual AI consumer requires it.**
+1. **Complete configuration and structural cleanup.** — ✅ implemented; see `docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md` section 16, Priorities 1-2.
+2. **Promote current Web/Mobile crawlers and related utilities into a formal SDK tooling layer.** — ✅ implemented; see the same document, Priority 3.
+3. **Expose proven Appium native/WebView context switching as a supported SDK capability.** — ✅ implemented: `MobileTestBase.mobileSwitchToNative()` / `mobileSwitchToWebView(...)` / `getAvailableContexts()`.
+4. **Introduce only the lightweight `AutomationSession` boundary needed to keep Selenium/Appium replaceable behind the SDK.** — ✅ implemented; see the "Phase 3" status note at the top of this document and Priority 1/5 of the same review document.
+5. **Keep full element/locator abstraction conditional until Page Object/crawler portability requires it.** — still correctly deferred; no concrete consumer need yet.
+6. **Keep true named multi-session runtime conditional until the first real Web+Mobile or multiple-device test appears, while preserving it as an approved target architecture.** — still correctly deferred; no concrete consumer need yet.
+7. **Version prompts and AI skills now, but defer agent registry/orchestration infrastructure until an actual AI consumer requires it.** — prompts/skills remain versioned assets under `src/main/resources/ai/*`; agent runtime remains deferred by architecture.
 
 The central architectural rule is:
 

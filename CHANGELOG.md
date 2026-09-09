@@ -20,6 +20,35 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Final cleanup for the v1.1.0 iteration (pre-release)**: fixed
+  `MobileConfigReader.get(...)` precedence so a system property/environment
+  variable override (via `ConfigurationManager.resolveOverride(...)`) is now
+  checked *before* an optional standalone `mobile-config.yaml`, matching the
+  documented "system property > env var > project YAML > default" chain --
+  previously a value present in `mobile-config.yaml` incorrectly took
+  precedence over `-Dandroid.appPath=...`/the equivalent env var. No second
+  Mobile-specific resolver was introduced; the fix only reorders the existing
+  calls to `ConfigurationManager.resolveOverride(...)`/`resolve(...)`. Added
+  a package-private `MobileConfigReader.resetForTests()` test hook and a new
+  regression test (`systemProperty_overridesStandaloneMobileConfigYamlValue`
+  in `MobileConfigReaderTest`) that writes a real standalone
+  `mobile-config.yaml`, and proves both that its value wins over the
+  project-YAML default and that a system property still wins over it. Added
+  an "Mobile (Appium / Android / iOS) Settings" section (`appium.localUrl`,
+  `android.appPath`/`automationName`, `ios.appPath`/`automationName`) to
+  `sdk-defaults/sdk-config.yaml.template` as the new recommended location for
+  Mobile configuration. Marked `configuration/mobile-config.yaml.example`
+  with an explicit DEPRECATED/legacy-compatibility banner pointing at the
+  unified `sdk-config.yaml` template instead (not removed, since no
+  confirmation exists that all consumer projects have migrated). Fixed
+  stale "not yet implemented"/"NOT yet buildable" wording in
+  `docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`'s Section
+  33 review block and its "34. Final Recommendation" priority list, which
+  predated this session's `AutomationSession`/`AutomationSessionFactory` and
+  public `mobileSwitchToNative()`/`mobileSwitchToWebView()` work -- both are
+  now annotated as implemented rather than left reading as still-pending.
+  Validated: full `mvn clean test` suite passes with no regressions; clean
+  `git status`.
 - **Unified SDK Review Priority 6 -- Documentation and Repository Hygiene**
   (`docs/proposals/Unified_SDK_Implementation_Review_Findings_2026-09-09.md`,
   sections 13, 14, and 16): removed 11 stray compiled `.class` artifacts

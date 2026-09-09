@@ -38,7 +38,13 @@ import com.test.automation.sdk.config.SdkConfig;
  * configuration is subject to the exact same
  * system-property &gt; environment-variable &gt; project-YAML &gt; default
  * precedence chain as Web/common configuration, rather than maintaining its
- * own independent resolver. Compatibility with a standalone
+ * own independent resolver. Critically, a system property or environment
+ * variable override (via {@link ConfigurationManager#resolveOverride(String)})
+ * is checked <em>before</em> the standalone file, so
+ * {@code -Dandroid.appPath=...} (or the equivalent env var) always wins over
+ * a value already committed to {@code mobile-config.yaml} -- the standalone
+ * file only ever supplies a value when no system/env override exists.
+ * Compatibility with a standalone
  * {@code mobile-config.yaml} is retained only as a temporary migration
  * mechanism per the review's Priority 2 guidance and may be removed once
  * consumer projects have migrated their {@code android.}/{@code ios.}
@@ -77,15 +83,38 @@ public final class MobileConfigReader {
     }
 
     /**
+     * Test-only hook that clears the cached singleton so the next
+     * {@link #get(String, String)} call re-reads the standalone
+     * {@code mobile-config.yaml} (or its absence) from disk. Package-private
+     * -- not part of the public API; exists solely so tests can exercise the
+     * standalone-file-present precedence path without depending on process
+     * startup order.
+     */
+    static synchronized void resetForTests() {
+        instance = null;
+    }
+
+    /**
      * Returns the configured value for a dotted key, or {@code defaultValue}
      * if absent anywhere in the chain.
      *
-     * <p>Resolution order: standalone {@code mobile-config.yaml} (if present,
-     * temporary compatibility path) &gt; {@link ConfigurationManager}'s
-     * system-property &gt; environment-variable &gt; project-YAML &gt; default
-     * chain.</p>
+     * <p>Resolution order: {@link ConfigurationManager}'s system-property
+     * &gt; environment-variable override (highest precedence, always wins)
+     * &gt; standalone {@code mobile-config.yaml} (if present, temporary
+     * compatibility path) &gt; project YAML (via
+     * {@link ConfigurationManager#resolve(String, String)}) &gt;
+     * {@code defaultValue}. A system property or environment variable must
+     * always win over the standalone file so a consumer running
+     * {@code -Dandroid.appPath=...} (or the equivalent env var) can override
+     * a value already committed to {@code mobile-config.yaml} -- this is the
+     * same override semantics {@link ConfigurationManager} already applies
+     * to every other configuration key in the SDK.</p>
      */
     public static String get(String dottedKey, String defaultValue) {
+        String override = ConfigurationManager.resolveOverride(dottedKey);
+        if (override != null) {
+            return override;
+        }
         MobileConfigReader inst = getInstance();
         if (inst.usingStandaloneFile) {
             String value = inst.flatMap.get(dottedKey);

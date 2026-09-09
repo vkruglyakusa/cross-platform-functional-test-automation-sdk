@@ -75,6 +75,27 @@ crawler:
     outputDir: "src/main/java/com/mycompany/automation/uiActions/"  # relative path to write .java files
 
 # ------------------------------------------------------------
+# Mobile (Appium / Android / iOS) Settings
+# Read via com.test.automation.sdk.mobile.config.MobileConfigReader,
+# which delegates to this file's ConfigurationManager precedence chain
+# (system property > env var > this file > default) for every key below.
+# A standalone configuration/mobile-config.yaml is also supported but is
+# a DEPRECATED, temporary compatibility path -- see
+# configuration/mobile-config.yaml.example. New projects should configure
+# Mobile settings here instead.
+# ------------------------------------------------------------
+appium:
+  localUrl: "http://127.0.0.1:4723/"   # local Appium server URL (-Dappium.localUrl)
+
+android:
+  appPath: ""                          # absolute/relative path to the .apk under test (-Dandroid.appPath)
+  automationName: "UiAutomator2"       # Appium automationName capability (-Dandroid.automationName)
+
+ios:
+  appPath: ""                          # absolute/relative path to the .app/.ipa under test (-Dios.appPath)
+  automationName: "XCUITest"           # Appium automationName capability (-Dios.automationName)
+
+# ------------------------------------------------------------
 # Reporting / Output Directories
 # All test artifacts land under these paths.
 # Override any individual dir with the matching -D flag shown.

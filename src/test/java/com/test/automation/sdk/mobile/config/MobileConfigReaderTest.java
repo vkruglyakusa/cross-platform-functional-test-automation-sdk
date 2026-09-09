@@ -70,5 +70,45 @@ class MobileConfigReaderTest {
         assertEquals("UiAutomator2", mobileConfig.androidAutomationName());
         assertEquals("XCUITest", mobileConfig.iosAutomationName());
     }
+
+    /*
+     * Final-cleanup fix (prior to the v1.1.0 release): a system property or
+     * environment variable must always win over a value already committed to
+     * a standalone mobile-config.yaml, using the same ConfigurationManager
+     * precedence chain (no second Mobile-specific resolver).
+     */
+
+    @Test
+    @DisplayName("A system property overrides a value present in a standalone mobile-config.yaml")
+    void systemProperty_overridesStandaloneMobileConfigYamlValue() throws Exception {
+        java.io.File yamlFile = new java.io.File(com.test.automation.sdk.config.SdkConfig.MOBILE_CONFIG_YAML);
+        java.io.File parent = yamlFile.getParentFile();
+        boolean createdParent = parent != null && !parent.exists() && parent.mkdirs();
+        boolean fileExistedBefore = yamlFile.exists();
+        try {
+            java.nio.file.Files.write(yamlFile.toPath(),
+                    "android:\n  automationName: FileValue\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            MobileConfigReader.resetForTests();
+
+            // No override set -- the standalone file's value must win over the project-YAML default.
+            assertEquals("FileValue", MobileConfigReader.get("android.automationName", "should-not-be-used"));
+
+            // A system property override must win over the standalone file's value.
+            System.setProperty("android.automationName", "Espresso");
+            try {
+                assertEquals("Espresso", MobileConfigReader.get("android.automationName", "should-not-be-used"));
+            } finally {
+                System.clearProperty("android.automationName");
+            }
+        } finally {
+            if (!fileExistedBefore) {
+                yamlFile.delete();
+            }
+            if (createdParent) {
+                parent.delete();
+            }
+            MobileConfigReader.resetForTests();
+        }
+    }
 }
 
