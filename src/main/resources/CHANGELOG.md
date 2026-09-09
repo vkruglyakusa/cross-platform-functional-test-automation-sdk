@@ -43,6 +43,29 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   `mobile-functional-automation-consumer-template`'s `WikipediaSearchTest`.
 
 ### Removed
+- **[Breaking]** `mobile.execution.MobileExecutionStrategy` /
+  `MobileExecutionStrategyFactory` / `LocalExecutionStrategy` /
+  `BrowserStackExecutionStrategy` / `MobileExecutionStrategySupport` /
+  `ExecutionTarget` / `MobileSessionRequest` -- Phase 1 of
+  `docs/proposals/sdk-structure-cleanup-assessment-updated-v2.md` (now the
+  formal architecture document for this SDK). This mobile-only
+  session-selection mechanism duplicated the already-existing, platform-neutral
+  `execution.SessionFactoryRegistry`, which was wired up (all 6
+  web/Android/iOS local/BrowserStack factories registered in
+  `driver.DriverManager`) but not yet the sole resolution path. `ExecutionTarget`
+  required no migration -- `execution.RunMode` already fully superseded it
+  (including its `-Dmobile.execution.target`/`-DtestInBrowserstack` legacy-flag
+  fallback resolution). `mobile.driver.MobileDriverFactory` now owns the real
+  local/BrowserStack Appium driver-creation logic directly (mirroring how
+  `testbase.WebDriverFactory` already owns the equivalent web logic), exposing
+  new public `getLocalDriver`/`getBrowserStackDriver` methods that the 4
+  `driver.mobile.*SessionFactory` classes call directly; `getDriver(mobileOS,
+  deviceName)`'s public signature/behavior is unchanged. `MobileTestBase.
+  isRunningInCloud()` switched from `ExecutionTarget.resolve()` to
+  `RunMode.resolve()`. 441/441 tests passing, `BUILD SUCCESS`; additionally
+  validated against a real local Appium 3.0.1 server + Android emulator
+  (`emulator-5554`) -- `MobileDriverFactory.getLocalDriver("android", ...)`
+  created and cleanly quit a live session.
 - **[Breaking]** `testbase.SdkConfig` and `mobile.testbase.MobileSdkConfig` --
   the two backward-compat shims kept since Phase 3 (delegating to
   `config.SdkConfig`) have been deleted entirely; `config.SdkConfig` is now the

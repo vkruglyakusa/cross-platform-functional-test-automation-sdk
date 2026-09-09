@@ -11,8 +11,8 @@ For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, se
 | Class | Package | Purpose |
 |---|---|---|
 | `MobileTestBase` | `com.test.automation.sdk.mobile.testbase` | Base class for mobile test classes; owns the `AppiumDriver` lifecycle (`@BeforeClass`/`@AfterClass`) and common wait/click helpers. Full API: [`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md). |
-| `MobileDriverFactory` | `com.test.automation.sdk.mobile.driver` | Builds an `AndroidDriver`/`IOSDriver` from `mobile-config.yaml` (local Appium) or `browserstack.yml.example.mobile` (BrowserStack App Automate), selected via `ExecutionTarget`. |
-| `ExecutionTarget` | `com.test.automation.sdk.mobile.execution` | Enum + `resolve()` strategy that picks `LOCAL` vs. `BROWSERSTACK` execution based on `-Dmobile.execution.target` (or the legacy `-DtestInBrowserstack` flag). |
+| `MobileDriverFactory` | `com.test.automation.sdk.mobile.driver` | Builds an `AndroidDriver`/`IOSDriver` from `mobile-config.yaml` (local Appium) or `browserstack.yml.example.mobile` (BrowserStack App Automate), selected via `RunMode`. |
+| `RunMode` | `com.test.automation.sdk.execution` | Enum + `resolve()` strategy (shared by web and mobile) that picks `LOCAL` vs. `BROWSERSTACK` execution based on `-Drun.mode` (or the legacy `-Dmobile.execution.target`/`-DtestInBrowserstack` flags). |
 | `MobileActions` | `com.test.automation.sdk.mobile.actions` | Static gesture/action helpers (tap, longPress, swipe, scrollToElement, hideKeyboard) that `MobileTestBase` and page objects call into. |
 | `MobileElementCrawler` | `com.test.automation.sdk.mobile.crawler` | Crawls the current screen (native XML tree) into locator candidates; also detects and delegates any active WebView content (see Section 4, Hybrid App Testing). |
 | `MobileScreenSnapshot` | `com.test.automation.sdk.mobile.crawler` | Result of one crawl: native elements (`getNativeElements()`) + per-context WebView DOM elements (`getWebViewElements()`). |

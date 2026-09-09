@@ -6,9 +6,7 @@ import com.test.automation.sdk.execution.ExecutionContext;
 import com.test.automation.sdk.execution.Platform;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.execution.SessionFactory;
-import com.test.automation.sdk.mobile.execution.ExecutionTarget;
-import com.test.automation.sdk.mobile.execution.MobileExecutionStrategyFactory;
-import com.test.automation.sdk.mobile.execution.MobileSessionRequest;
+import com.test.automation.sdk.mobile.driver.MobileDriverFactory;
 
 /**
  * {@link SessionFactory} for {@link Platform#IOS} + {@link RunMode#BROWSERSTACK}.
@@ -28,7 +26,6 @@ public final class IosBrowserStackSessionFactory implements SessionFactory {
 
     @Override
     public WebDriver createDriver(ExecutionContext context) {
-        return MobileExecutionStrategyFactory.forTarget(ExecutionTarget.BROWSERSTACK)
-                .createDriver(new MobileSessionRequest("ios", context.getDeviceName()));
+        return MobileDriverFactory.getBrowserStackDriver("ios", context.getDeviceName());
     }
 }

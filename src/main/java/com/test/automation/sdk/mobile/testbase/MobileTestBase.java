@@ -16,9 +16,9 @@ import org.testng.annotations.Test;
 import io.appium.java_client.AppiumDriver;
 
 import com.browserstack.BrowserStackSdk;
+import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.mobile.actions.MobileActions;
 import com.test.automation.sdk.mobile.driver.MobileDriverFactory;
-import com.test.automation.sdk.mobile.execution.ExecutionTarget;
 import com.test.automation.sdk.testbase.TestBase;
 
 /**
@@ -61,14 +61,14 @@ public class MobileTestBase extends TestBase {
     protected static String deviceName = "";
 
     /**
-     * True when the resolved {@link ExecutionTarget} is {@link ExecutionTarget#BROWSERSTACK}
-     * (see {@link ExecutionTarget#resolve()} for the {@code -Dmobile.execution.target}/legacy
-     * {@code -DtestInBrowserstack} resolution order) AND the BrowserStack Java SDK javaagent
-     * confirms an active platform. Mirrors {@code TestBase.isTestInBrowserstack()} from the
-     * 311 prior art.
+     * True when the resolved {@link RunMode} is {@link RunMode#BROWSERSTACK}
+     * (see {@link RunMode#resolve()} for the {@code -Drun.mode}/legacy
+     * {@code -Dmobile.execution.target}/{@code -DtestInBrowserstack} resolution order)
+     * AND the BrowserStack Java SDK javaagent confirms an active platform. Mirrors
+     * {@code TestBase.isTestInBrowserstack()} from the 311 prior art.
      */
     public static boolean isRunningInCloud() {
-        if (ExecutionTarget.resolve() != ExecutionTarget.BROWSERSTACK) {
+        if (RunMode.resolve() != RunMode.BROWSERSTACK) {
             return false;
         }
         try {

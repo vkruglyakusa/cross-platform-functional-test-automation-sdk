@@ -48,7 +48,7 @@ same pattern as web's `driver` field on `TestBase`.
 ## 2. Platform Detection
 
 ### `isRunningInCloud()`
-`static boolean`. True only when `ExecutionTarget.resolve()` returns
+`static boolean`. True only when `RunMode.resolve()` returns
 `BROWSERSTACK` **and** the BrowserStack Java SDK javaagent confirms an active
 platform. Throws `IllegalStateException` if the target is `BROWSERSTACK` but
 the javaagent/`browserstack.yml` isn't wired up correctly -- this is a fail-fast

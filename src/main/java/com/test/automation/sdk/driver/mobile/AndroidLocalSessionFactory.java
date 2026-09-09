@@ -6,20 +6,19 @@ import com.test.automation.sdk.execution.ExecutionContext;
 import com.test.automation.sdk.execution.Platform;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.execution.SessionFactory;
-import com.test.automation.sdk.mobile.execution.ExecutionTarget;
-import com.test.automation.sdk.mobile.execution.MobileExecutionStrategyFactory;
-import com.test.automation.sdk.mobile.execution.MobileSessionRequest;
+import com.test.automation.sdk.mobile.driver.MobileDriverFactory;
 
 /**
  * {@link SessionFactory} for {@link Platform#ANDROID} + {@link RunMode#LOCAL}.
  *
  * Deliberately delegates to the existing, already-tested
- * {@code mobile.execution.LocalExecutionStrategy} (via the public
- * {@link MobileExecutionStrategyFactory#forTarget(ExecutionTarget)} entry
- * point) rather than duplicating its Appium capability-building logic -- see
- * {@code docs/proposals/unified-sdk-architect-review.md} Phase 2, which calls
- * for driver ACQUISITION to be unified without rewriting the working mobile
- * execution-strategy code underneath it.
+ * {@link MobileDriverFactory#getLocalDriver(String, String)} rather than
+ * duplicating its Appium capability-building logic -- see
+ * {@code docs/proposals/sdk-structure-cleanup-assessment-updated-v2.md}
+ * Phase 1, which retired the previously-parallel
+ * {@code mobile.execution.MobileExecutionStrategy} hierarchy in favor of
+ * {@link com.test.automation.sdk.execution.SessionFactoryRegistry} as the
+ * single session-selection mechanism.
  */
 public final class AndroidLocalSessionFactory implements SessionFactory {
 
@@ -35,7 +34,6 @@ public final class AndroidLocalSessionFactory implements SessionFactory {
 
     @Override
     public WebDriver createDriver(ExecutionContext context) {
-        return MobileExecutionStrategyFactory.forTarget(ExecutionTarget.LOCAL)
-                .createDriver(new MobileSessionRequest("android", context.getDeviceName()));
+        return MobileDriverFactory.getLocalDriver("android", context.getDeviceName());
     }
 }
