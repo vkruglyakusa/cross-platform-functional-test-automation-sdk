@@ -108,6 +108,34 @@ class SdkResourcesTest {
         is.close();
     }
 
+    // -- AI assets (ai/prompts, ai/skills, ai/schemas) --------------------------
+
+    @ParameterizedTest(name = "ai/prompts file exists: {0}")
+    @ValueSource(strings = {
+        "ai/README.md",
+        "ai/prompts/element-discovery/analyze-locator-candidates.md",
+        "ai/skills/element-discovery/element-discovery.skill.yaml",
+        "ai/schemas/discovery-result-v1.schema.json",
+        "ai/schemas/locator-recommendation-v1.schema.json"
+    })
+    @DisplayName("All ai/ asset files are packaged in JAR")
+    void aiAssetFilesExist(String resourcePath) throws IOException {
+        InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath);
+        assertNotNull(is, "AI asset resource missing from JAR: " + resourcePath);
+        assertTrue(is.read() != -1, "AI asset resource is empty: " + resourcePath);
+        is.close();
+    }
+
+    @Test
+    @DisplayName("analyze-locator-candidates.md prompt has required YAML front-matter fields")
+    void analyzeLocatorCandidatesPrompt_hasFrontMatter() throws IOException {
+        String content = readResource("ai/prompts/element-discovery/analyze-locator-candidates.md");
+        assertTrue(content.trim().startsWith("---"), "Prompt must start with YAML front matter");
+        for (String field : new String[] {"name:", "version:", "capability:", "inputSchema:", "outputSchema:", "requiredTools:"}) {
+            assertTrue(content.contains(field), "Prompt front matter missing field: " + field);
+        }
+    }
+
     // -- Content checks on key templates --------------------------------------
 
     @ParameterizedTest(name = "sdk-config.yaml.template contains section: {0}")

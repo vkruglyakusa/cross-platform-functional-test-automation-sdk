@@ -62,6 +62,22 @@
   crawler's own crawling/uniqueness-detection algorithm. Validated: full suite
   green (16 new unit tests covering the pure, driver-free conversion logic).
 
+### Priority Item 6 / Phase 10 — AI Prompt/Skill Asset Standardization: ✅ COMPLETE (2026-09-09)
+
+- New `src/main/resources/ai/{prompts,skills,schemas}` asset tree (sections
+  26.1/26.2/29), additive to and clearly distinguished from the existing
+  `sdk-prompts/`/`InstructionExtractor` mechanism (untouched). One concrete
+  example shipped end-to-end for Phase 6's `ElementDiscoveryService`:
+  `ai/schemas/discovery-result-v1.schema.json`,
+  `ai/schemas/locator-recommendation-v1.schema.json` (`$ref`-linked),
+  `ai/prompts/element-discovery/analyze-locator-candidates.md`, and
+  `ai/skills/element-discovery/element-discovery.skill.yaml`. `ai/README.md`
+  documents the convention. Per Guardrail #23, the Java-side agent
+  orchestration runtime (tool registry/context builder) remains deferred
+  until a concrete agent consumer exists -- only the asset files were added.
+  `SdkResourcesTest` extended with a packaging-gate block for all 5 new
+  files. Validated: full suite green.
+
 ### Section 33 (Multi-Session and Hybrid Web + Mobile Driver Architecture) — Reviewed Against Current Code (2026-09-09)
 
 Section 33 was appended after section 34 ("Final Recommendation") without a

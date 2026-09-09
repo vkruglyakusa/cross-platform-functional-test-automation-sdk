@@ -1,0 +1,36 @@
+name: element-discovery
+version: 1.0
+
+description: >
+  Discovers UI elements on the current Web page or Mobile screen and
+  recommends a stable locator for a described target element, using the
+  SDK's existing crawlers (utility.ElementCrawler / mobile.crawler.MobileElementCrawler)
+  through the normalized com.test.automation.sdk.discovery.ElementDiscoveryService
+  contract (Structure Cleanup Phase 6). Does not invent new locators or
+  re-implement either crawler's uniqueness-detection algorithm.
+
+inputs:
+  - executionContext   # web URL, or mobile platform+screen identifier
+  - targetDescription  # plain-language description of the element to locate
+
+tools:
+  - element-discovery  # discovery.ElementDiscoveryService#discoverCurrent()
+
+prompts:
+  - analyze-locator-candidates
+
+validation:
+  - locator-policy     # recommendedCandidate.marker must be UNIQUE, or null with a warning
+
+outputs:
+  - discoveryResult          # discovery-result-v1
+  - recommendedCandidate     # locator-recommendation-v1
+  - warnings
+
+workflow:
+  - call element-discovery tool (ElementDiscoveryService#discoverCurrent()) against the current session
+  - invoke the analyze-locator-candidates prompt with (targetDescription, discoveryResult)
+  - validate the prompt's output against locator-recommendation-v1.schema.json
+  - if recommendedCandidate is present, confirm marker == UNIQUE before returning it to the caller
+  - if recommendedCandidate is null or fails validation, surface warnings and stop
+    (do not fall back to a DYNAMIC/STRUCTURAL/NOT_UNIQUE candidate automatically)

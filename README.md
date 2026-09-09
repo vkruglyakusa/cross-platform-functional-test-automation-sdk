@@ -307,6 +307,8 @@ functional-test-automation-sdk/
     |   +-- resources/
     |       +-- sdk-instructions/    <- Copilot instruction files (bundled in JAR)
     |       +-- sdk-prompts/         <- Copilot prompt files (bundled in JAR)
+    |       +-- ai/                  <- AI agent prompts/skills/schemas (bundled in JAR;
+    |       |                           NOT the same as sdk-prompts/ above -- see ai/README.md)
     |       +-- sdk-defaults/        <- sdk-config.yaml.template, log4j templates
     |       +-- sdk-templates/       <- gap report template
     |       +-- SDK-USER-GUIDE.md

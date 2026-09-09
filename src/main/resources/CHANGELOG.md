@@ -20,6 +20,31 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Structure Cleanup — AI Prompt/Skill Asset Standardization** (Priority item 6 /
+  Phase 10, `docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`
+  sections 26.1/26.2/29): new `src/main/resources/ai/{prompts,skills,schemas}`
+  asset tree for a future LLM *agent* that drives the SDK's tool contracts
+  programmatically -- distinct from, and additive to, the existing
+  `sdk-prompts/`/`InstructionExtractor` mechanism (human-facing Copilot CLI
+  `#slash-command` templates), which is untouched. Ships one concrete,
+  end-to-end example tied to Phase 6's `ElementDiscoveryService`: JSON Schemas
+  `ai/schemas/discovery-result-v1.schema.json` (mirrors `DiscoveryResult`/
+  `DiscoveredElement`/`LocatorCandidate`) and `ai/schemas/locator-recommendation-v1.schema.json`
+  (the prompt's output contract, `$ref`-linked to the discovery-result schema);
+  prompt `ai/prompts/element-discovery/analyze-locator-candidates.md`
+  (versioned YAML front matter -- name/version/capability/inputSchema/
+  outputSchema/requiredTools) instructing an agent to pick the best `UNIQUE`
+  locator candidate from a `DiscoveryResult`; and skill descriptor
+  `ai/skills/element-discovery/element-discovery.skill.yaml` tying the
+  `ElementDiscoveryService` tool call, the prompt, and output-schema
+  validation together. `ai/README.md` documents the convention and explicitly
+  distinguishes it from `sdk-prompts/`. Per the roadmap's Priority &
+  Sequencing Adjustments item 6, only the asset files are added now -- the
+  Java-side `AgentToolRegistry`/`AgentContextBuilder`/orchestration runtime
+  remains deferred until a concrete agent consumer exists (Guardrail #23).
+  `SdkResourcesTest` gained a packaging-gate block asserting all 5 new `ai/*`
+  files are present and non-empty on the classpath, plus a front-matter
+  content check on the new prompt.
 - **Structure Cleanup Phase 6 — Discovery/Crawler Normalization**
   (`docs/proposals/sdk-structure-cleanup-assessment-updated-v4.md`): new
   `discovery` package with a common, crawler-neutral result contract --

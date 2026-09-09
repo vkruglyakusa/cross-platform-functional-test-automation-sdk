@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "discovery-result-v1",
+  "title": "DiscoveryResult",
+  "description": "Normalized output of one discovery pass over a page/screen, matching com.test.automation.sdk.discovery.DiscoveryResult (Structure Cleanup Phase 6). Produced by utility.WebElementDiscoveryAdapter or mobile.crawler.MobileElementDiscoveryAdapter.",
+  "type": "object",
+  "required": ["platform", "sourceLabel", "elements"],
+  "properties": {
+    "platform": {
+      "type": "string",
+      "description": "\"web\", \"android\", or \"ios\".",
+      "enum": ["web", "android", "ios"]
+    },
+    "sourceLabel": {
+      "type": "string",
+      "description": "URL (web) or screen/context identifier (mobile) this result was discovered from."
+    },
+    "elements": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/discoveredElement" }
+    }
+  },
+  "definitions": {
+    "discoveredElement": {
+      "title": "DiscoveredElement",
+      "type": "object",
+      "required": ["platform", "tagOrType", "text", "candidates", "resolved"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["web", "android", "ios"]
+        },
+        "tagOrType": {
+          "type": "string",
+          "description": "HTML tag (web) or native class name (mobile), e.g. \"input\" or \"android.widget.Button\"."
+        },
+        "text": {
+          "type": "string",
+          "description": "Visible text, or resolved label text when the element itself has none."
+        },
+        "resolved": {
+          "type": "boolean",
+          "description": "True when at least one candidate is marked UNIQUE."
+        },
+        "candidates": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/locatorCandidate" }
+        }
+      }
+    },
+    "locatorCandidate": {
+      "title": "LocatorCandidate",
+      "type": "object",
+      "required": ["strategyLabel", "value", "marker", "matchCount"],
+      "properties": {
+        "strategyLabel": {
+          "type": "string",
+          "description": "e.g. \"BY ID\", \"BY FORMCONTROLNAME\", \"RESOURCE_ID\", \"ACCESSIBILITY_ID\"."
+        },
+        "value": {
+          "type": "string",
+          "description": "The XPath (web) or locator value (mobile) for this candidate."
+        },
+        "marker": {
+          "type": "string",
+          "description": "Uniqueness/safety marker -- only UNIQUE candidates are safe to use in a Page Object.",
+          "enum": ["UNIQUE", "NOT_UNIQUE", "DYNAMIC", "STALE", "STRUCTURAL", "OTHER"]
+        },
+        "matchCount": {
+          "type": "integer",
+          "description": "Number of elements this candidate matched, when known; -1 when not tracked."
+        }
+      }
+    }
+  }
+}
