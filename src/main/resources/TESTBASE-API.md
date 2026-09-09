@@ -663,7 +663,7 @@ public class Test_MyFeature extends TestBase {
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:functional-test-automation-sdk:1.4.6`*
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.0`*
 
 ---
 

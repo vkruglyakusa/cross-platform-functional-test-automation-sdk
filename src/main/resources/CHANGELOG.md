@@ -1,6 +1,6 @@
 # Changelog -- Framework Automation SDK
 
-All notable changes to `com.test.automation:functional-test-automation-sdk` are documented here.
+All notable changes to `com.test.automation:cross-platform-functional-test-automation-sdk` are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
@@ -18,6 +18,27 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
+
+### Fixed
+- **`scripts/release.ps1` step 7 (consumer template update) was hard-coded to
+  the legacy `functional-test-automation-sdk` artifactId.** When releasing
+  *this* SDK (`cross-platform-functional-test-automation-sdk`), it could bump
+  an unrelated SDK dependency's version in a consumer template to match this
+  release -- a silent downgrade/corruption bug (caught only because the
+  template's own `mvn compile test-compile` validation failed). The script now
+  reads its own `artifactId` from `pom.xml` at runtime, uses it in every
+  version-bump regex (its own docs *and* the template's), and skips step 7
+  entirely with a clear warning if the target template does not actually
+  depend on that artifactId. Added a `-SkipTemplate` switch to opt out of step
+  7 explicitly.
+- **Stale/incorrect Maven coordinates in this SDK's own docs**: `README.md`,
+  `SDK-USER-GUIDE.md`, `TESTBASE-API.md`, and `CHANGELOG.md` (plus their
+  `src/main/resources/` mirrors) still referenced the old
+  `functional-test-automation-sdk` artifactId/coordinate in dependency
+  snippets, verification commands, and footers -- corrected to
+  `cross-platform-functional-test-automation-sdk` (Azure Artifacts feed name
+  and server/repository `<id>` references were left unchanged since that feed
+  is intentionally shared infrastructure, not an artifactId).
 
 ---
 

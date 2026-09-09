@@ -1,8 +1,13 @@
 ﻿# SDK Release Script (Windows PowerShell)
-# Usage: scripts\release.ps1 [-ProxyHost bcpxy.nycnet] [-ProxyPort 8080] [-AssumeYes]
+# Usage: scripts\release.ps1 [-ProxyHost bcpxy.nycnet] [-ProxyPort 8080] [-AssumeYes] [-TemplatePath <dir>] [-SkipTemplate]
 #   -AssumeYes: skip the interactive "docs may need updating" confirmation prompt
 #               (required for non-interactive/automated runs; use only when you have
 #               already verified docs don't need updating for this release)
+#   -TemplatePath: consumer template directory to validate/update in step 7.
+#               Defaults to the sibling directory `functional-automation-consumer-template`.
+#               Point this at whichever consumer project actually depends on THIS
+#               SDK's artifactId when releasing a different SDK from this same script.
+#   -SkipTemplate: skip step 7 entirely (no template files are read/modified).
 #
 # Full release pipeline -- runs automatically in order:
 #   1. Doc check gate              -- confirm CHANGELOG [Unreleased] and TESTBASE-API/SDK-USER-GUIDE are updated
@@ -12,9 +17,15 @@
 #   5. Git commit SDK docs         -- single commit: "docs: release vX.Y.Z"
 #   6. Deploy                      -- Maven deploy to Azure Artifacts + local repo
 #   7. Update consumer template    -- pom.xml, README.md, GETTING-STARTED.md, CHANGELOG.md
-#                                     then validate with `mvn compile test-compile` before
-#                                     committing -- template changes are NEVER committed/pushed
-#                                     if this validation fails
+#                                     ONLY if the template's pom.xml actually depends on
+#                                     THIS SDK's artifactId (read from this repo's own
+#                                     pom.xml at runtime) -- otherwise step 7 is skipped
+#                                     with a warning, so an unrelated SDK dependency in
+#                                     the template is never bumped by mistake. If it does
+#                                     depend on this SDK, changes are validated with
+#                                     `mvn compile test-compile` before committing --
+#                                     template changes are NEVER committed/pushed if that
+#                                     validation fails.
 #
 # NEVER use `mvn deploy -DskipTests` directly. Always use this script.
 
@@ -22,7 +33,8 @@ param(
     [string]$ProxyHost = "",
     [string]$ProxyPort = "8080",
     [string]$TemplatePath = "",
-    [switch]$AssumeYes
+    [switch]$AssumeYes,
+    [switch]$SkipTemplate
 )
 
 $ErrorActionPreference = "Continue"
@@ -45,11 +57,14 @@ if ($ProxyHost -ne "") {
 # Read current version from pom.xml
 $pom = [xml](Get-Content "$root\pom.xml")
 $version = $pom.project.version
+$artifactId = $pom.project.artifactId
+$artifactIdEsc = [System.Text.RegularExpressions.Regex]::Escape($artifactId)
+$artifactIdBadge = [System.Text.RegularExpressions.Regex]::Escape(($artifactId -replace '-', '--'))
 $today   = (Get-Date).ToString("yyyy-MM-dd")
 
 Write-Host ""
 Write-Host "============================================"
-Write-Host "  SDK Release Pipeline - v$version"
+Write-Host "  SDK Release Pipeline - $artifactId v$version"
 Write-Host "============================================"
 Write-Host ""
 
@@ -139,11 +154,11 @@ Write-Host "[3/7] Updating README.md to v$version..."
 
 $readmePath = "$root\README.md"
 $readme = [System.IO.File]::ReadAllText($readmePath, [System.Text.Encoding]::UTF8)
-$readme = $readme -replace 'functional-test-automation-sdk:\d+\.\d+\.\d+', "functional-test-automation-sdk:$version"
-$readme = $readme -replace 'functional--test--automation--sdk:\d+\.\d+\.\d+', "functional--test--automation--sdk:$version"
+$readme = $readme -replace "$artifactIdEsc`:\d+\.\d+\.\d+", "$artifactId`:$version"
+$readme = $readme -replace "$artifactIdBadge`:\d+\.\d+\.\d+", "$($artifactId -replace '-', '--')`:$version"
 $readme = $readme -replace '<version>\d+\.\d+\.\d+</version>', "<version>$version</version>"
-$readme = $readme -replace 'SDK: `com\.test\.automation:functional-test-automation-sdk:\d+\.\d+\.\d+`',
-    "SDK: ``com.test.automation:functional-test-automation-sdk:$version``"
+$readme = $readme -replace "SDK: ``com\.test\.automation:$artifactIdEsc`:\d+\.\d+\.\d+``",
+    "SDK: ``com.test.automation:$artifactId`:$version``"
 [System.IO.File]::WriteAllText($readmePath, $readme, (New-Object System.Text.UTF8Encoding $false))
 # Sync bundled mirror (previously never synced -- caused it to silently drift stale across releases)
 $readmeMirror = "$root\src\main\resources\README.md"
@@ -157,7 +172,7 @@ $guidePath = "$root\SDK-USER-GUIDE.md"
 if (Test-Path $guidePath) {
     $guide = [System.IO.File]::ReadAllText($guidePath, [System.Text.Encoding]::UTF8)
     $guide = $guide -replace '\*\*Version:\*\* \d+\.\d+\.\d+', "**Version:** $version"
-    $guide = $guide -replace 'functional-test-automation-sdk:\d+\.\d+\.\d+', "functional-test-automation-sdk:$version"
+    $guide = $guide -replace "$artifactIdEsc`:\d+\.\d+\.\d+", "$artifactId`:$version"
     [System.IO.File]::WriteAllText($guidePath, $guide, (New-Object System.Text.UTF8Encoding $false))
     # Sync mirror
     $guideMirror = "$root\src\main\resources\SDK-USER-GUIDE.md"
@@ -251,10 +266,35 @@ Write-Host ""
 # -------------------------------------------------------
 Write-Host "[7/7] Updating consumer template at: $TemplatePath"
 
-if (-not (Test-Path $TemplatePath)) {
+if ($SkipTemplate) {
+    Write-Host "      -SkipTemplate supplied -- skipping consumer template update entirely."
+} elseif (-not (Test-Path $TemplatePath)) {
     Write-Host "      WARNING: Template directory not found -- skipping template update."
     Write-Host "      Expected: $TemplatePath"
 } else {
+
+    # --- Safety guard: only touch this template if it actually depends on THIS
+    #     SDK's artifactId. Multiple, independently-versioned SDKs
+    #     (e.g. the legacy `functional-test-automation-sdk` vs this
+    #     `cross-platform-functional-test-automation-sdk`) can share the same
+    #     groupId and the same Azure Artifacts feed name, but a template that
+    #     depends on a DIFFERENT SDK must never have its version bumped to
+    #     match this release -- that silently corrupts an unrelated dependency.
+    $tplPomCheck = "$TemplatePath\pom.xml"
+    $dependsOnThisSdk = $false
+    if (Test-Path $tplPomCheck) {
+        $tplPomCheckContent = Get-Content $tplPomCheck -Raw
+        if ($tplPomCheckContent -match "<artifactId>$artifactIdEsc</artifactId>") {
+            $dependsOnThisSdk = $true
+        }
+    }
+
+    if (-not $dependsOnThisSdk) {
+        Write-Host "      SKIPPED: $TemplatePath does not depend on artifactId '$artifactId'."
+        Write-Host "      (It may intentionally track a different SDK -- not touching it."
+        Write-Host "       Pass -TemplatePath to point at the correct consumer project,"
+        Write-Host "       or -SkipTemplate to silence this check.)"
+    } else {
 
     # --- pom.xml: bump SDK version ---
     $tplPom = "$TemplatePath\pom.xml"
@@ -263,7 +303,7 @@ if (-not (Test-Path $TemplatePath)) {
         # Replace ONLY the SDK dependency version -- match the artifactId line followed by version
         $pomContent = [System.Text.RegularExpressions.Regex]::Replace(
             $pomContent,
-            '(<artifactId>functional-test-automation-sdk</artifactId>\s*<version>)\d+\.\d+\.\d+(</version>)',
+            "(<artifactId>$artifactIdEsc</artifactId>\s*<version>)\d+\.\d+\.\d+(</version>)",
             "`${1}$version`${2}",
             [System.Text.RegularExpressions.RegexOptions]::Singleline
         )
@@ -275,8 +315,8 @@ if (-not (Test-Path $TemplatePath)) {
     $tplReadme = "$TemplatePath\README.md"
     if (Test-Path $tplReadme) {
         $tplRm = [System.IO.File]::ReadAllText($tplReadme, [System.Text.Encoding]::UTF8)
-        $tplRm = $tplRm -replace 'functional-test-automation-sdk:\d+\.\d+\.\d+', "functional-test-automation-sdk:$version"
-        $tplRm = $tplRm -replace 'functional--test--automation--sdk:\d+\.\d+\.\d+', "functional--test--automation--sdk:$version"
+        $tplRm = $tplRm -replace "$artifactIdEsc`:\d+\.\d+\.\d+", "$artifactId`:$version"
+        $tplRm = $tplRm -replace "$artifactIdBadge`:\d+\.\d+\.\d+", "$($artifactId -replace '-', '--')`:$version"
         $tplRm = $tplRm -replace '<version>\d+\.\d+\.\d+</version>', "<version>$version</version>"
         [System.IO.File]::WriteAllText($tplReadme, $tplRm, (New-Object System.Text.UTF8Encoding $false))
         Write-Host "      README.md updated to $version"
@@ -287,7 +327,7 @@ if (-not (Test-Path $TemplatePath)) {
     if (Test-Path $tplGuide) {
         $tplGd = [System.IO.File]::ReadAllText($tplGuide, [System.Text.Encoding]::UTF8)
         $tplGd = $tplGd -replace '\*\*Version:\*\* \d+\.\d+\.\d+', "**Version:** $version"
-        $tplGd = $tplGd -replace 'functional-test-automation-sdk:\d+\.\d+\.\d+', "functional-test-automation-sdk:$version"
+        $tplGd = $tplGd -replace "$artifactIdEsc`:\d+\.\d+\.\d+", "$artifactId`:$version"
         [System.IO.File]::WriteAllText($tplGuide, $tplGd, (New-Object System.Text.UTF8Encoding $false))
         Write-Host "      SDK-USER-GUIDE.md updated to $version"
     }
@@ -296,9 +336,9 @@ if (-not (Test-Path $TemplatePath)) {
     $tplGs = "$TemplatePath\GETTING-STARTED.md"
     if (Test-Path $tplGs) {
         $gs = [System.IO.File]::ReadAllText($tplGs, [System.Text.Encoding]::UTF8)
-        $gs = $gs -replace 'functional-test-automation-sdk:\d+\.\d+\.\d+', "functional-test-automation-sdk:$version"
-        $gs = $gs -replace 'functional-test-automation-sdk/\d+\.\d+\.\d+/', "functional-test-automation-sdk/$version/"
-        $gs = $gs -replace 'functional-test-automation-sdk-\d+\.\d+\.\d+', "functional-test-automation-sdk-$version"
+        $gs = $gs -replace "$artifactIdEsc`:\d+\.\d+\.\d+", "$artifactId`:$version"
+        $gs = $gs -replace "$artifactIdEsc/\d+\.\d+\.\d+/", "$artifactId/$version/"
+        $gs = $gs -replace "$artifactIdEsc-\d+\.\d+\.\d+", "$artifactId-$version"
         $gs = $gs -replace '-Dversion=\d+\.\d+\.\d+', "-Dversion=$version"
         [System.IO.File]::WriteAllText($tplGs, $gs, (New-Object System.Text.UTF8Encoding $false))
         Write-Host "      GETTING-STARTED.md updated to $version"
@@ -308,7 +348,7 @@ if (-not (Test-Path $TemplatePath)) {
     $tplCl = "$TemplatePath\CHANGELOG.md"
     if (Test-Path $tplCl) {
         $tplClContent = [System.IO.File]::ReadAllText($tplCl, [System.Text.Encoding]::UTF8)
-        $upgradeEntry = "- **SDK upgraded** ``functional-test-automation-sdk`` to ``$version``"
+        $upgradeEntry = "- **SDK upgraded** ``$artifactId`` to ``$version``"
         # Only add entry if not already there
         if ($tplClContent -notmatch [regex]::Escape("to ``$version``")) {
             $tplClContent = $tplClContent -replace '(## \[Unreleased\][^\n]*\n)', "`$1`n$upgradeEntry`n"
@@ -347,7 +387,9 @@ if (-not (Test-Path $TemplatePath)) {
     } else {
         Write-Host "      Template already up to date -- nothing to commit."
     }
+    } # end dependsOnThisSdk
 }
+Set-Location $root
 
 Write-Host ""
 Write-Host "============================================"

@@ -1,8 +1,8 @@
 # Framework Automation SDK -- User Guide
 
 **Version:** 1.1.0  
-**Artifact:** `com.test.automation:functional-test-automation-sdk:1.1.0`
-**Repository:** `OTI QA Automation / functional-test-automation-sdk`
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.0`
+**Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the **single document** a QA engineer needs to start a new Selenium
 automation project on top of this SDK. No Selenium or TestNG expertise required
@@ -114,8 +114,8 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 ```xml
 <dependency>
     <groupId>com.test.automation</groupId>
-    <artifactId>functional-test-automation-sdk</artifactId>
-    <version>1.5.0</version>
+    <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -156,7 +156,7 @@ When a new SDK version is released:
 ```xml
 <dependency>
     <groupId>com.test.automation</groupId>
-    <artifactId>functional-test-automation-sdk</artifactId>
+    <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
     <version>X.Y.Z</version>   <!-- replace with new version -->
 </dependency>
 ```
@@ -181,12 +181,12 @@ mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.utility.InstructionExtra
 > and reset a specific file back to the pristine SDK default.
 
 **4. Check the CHANGELOG** for breaking changes or new required config keys:
-- [SDK CHANGELOG](https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/functional-test-automation-sdk?path=/CHANGELOG.md)
+- [SDK CHANGELOG](https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/cross-platform-functional-test-automation-sdk?path=/CHANGELOG.md)
 
 ### How to check what version is currently latest
 
 - **Azure Artifacts feed**: [functional-test-automation-sdk packages](https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_artifacts/feed/functional-test-automation-sdk)
-- **maven-repository** (git fallback): browse `../maven-repository/com/test/automation/functional-test-automation-sdk/`
+- **maven-repository** (git fallback): browse `../maven-repository/com/test/automation/cross-platform-functional-test-automation-sdk/`
 - **SDK README**: the version badge at the top always shows the current release
 
 ### How the template stays current automatically
@@ -299,10 +299,10 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:functional-test-automation-sdk:1.1.0
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.1.0
 ```
 
-Expected output: `BUILD SUCCESS` with `functional-test-automation-sdk-1.5.0.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.1.0.jar` downloaded.
 
 ---
 
@@ -1887,7 +1887,7 @@ via its official Selenium Java binding:
 
 **You do not add this dependency yourself** — it ships transitively with the SDK jar
 (see `pom.xml`'s `<!-- Accessibility (axe-core) -->` block), so a consumer project's
-`pom.xml` still only needs the single `functional-test-automation-sdk` dependency
+`pom.xml` still only needs the single `cross-platform-functional-test-automation-sdk` dependency
 described in [§4](#4-maven-dependency).
 
 `AccessibilityChecker` wraps `AxeBuilder` internally and drives it with
@@ -2292,6 +2292,6 @@ BUILD SUCCESS
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:functional-test-automation-sdk:1.1.0`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.0`*  
 *Maintained by OTI QA Automation Team*
 
