@@ -4,14 +4,122 @@
 
 **Architecture update / refactoring plan — implementation should proceed in controlled phases.**
 
-This document updates the previous cleanup assessment with a stronger long-term target: one clean Web + Mobile SDK that is easy to extend, avoids duplicated framework concepts, and keeps Selenium/Appium behind replaceable implementation boundaries.
+**Adopted as the formal architecture document for this SDK (2026-09-09), superseding `sdk-structure-cleanup-assessment-updated-v2.md`.**
 
-The current repository baseline documented in the assessment is:
+### Phase 1 — Remove Real Duplication: ✅ COMPLETE (2026-09-09)
 
-- Repo: `cross-platform-functional-test-automation-sdk`
-- Revision reviewed: `a108c36`
-- `SdkConfig` / `MobileSdkConfig` shim cleanup already completed
-- 441/441 tests passing at the time of the assessment
+- `mobile.execution.MobileExecutionStrategy` / `MobileExecutionStrategyFactory` /
+  `LocalExecutionStrategy` / `BrowserStackExecutionStrategy` /
+  `MobileExecutionStrategySupport` / `ExecutionTarget` / `MobileSessionRequest`
+  deleted entirely (`ExecutionTarget` needed no migration -- `execution.RunMode`
+  already fully superseded it, including its legacy-flag fallback resolution).
+- `mobile.driver.MobileDriverFactory` now owns the real local/BrowserStack
+  Appium driver-creation logic directly (mirrors how `testbase.WebDriverFactory`
+  already owns the equivalent web logic), exposing `getLocalDriver` /
+  `getBrowserStackDriver`, with `getDriver` switching on `RunMode.resolve()`.
+- All 4 `driver.mobile.*SessionFactory` classes now delegate straight to
+  `MobileDriverFactory`, so `execution.SessionFactoryRegistry` is the only
+  (platform, runMode) → session resolution mechanism left in the SDK.
+- `MobileTestBase.isRunningInCloud()` switched from `ExecutionTarget.resolve()`
+  to `RunMode.resolve()`.
+- Validated: `mvn test` → 441/441 passing, `BUILD SUCCESS`; additionally
+  verified with a real local Appium server + Android emulator
+  (`MobileDriverFactory.getLocalDriver("android", "emulator-5554")` created a
+  live session, confirmed via `driver.getSessionId()`, then cleanly quit).
+
+### Section 33 (Multi-Session and Hybrid Web + Mobile Driver Architecture) — Reviewed Against Current Code (2026-09-09)
+
+Section 33 was appended after section 34 ("Final Recommendation") without a
+phase number, so as written it is **not yet sequenced into the Phase 1–12
+roadmap** (section 20/30). Reviewing it against the current codebase found:
+
+1. **The NATIVE_APP/WEBVIEW context-switch mechanism section 33 calls for
+   already exists and works today** -- `mobile.crawler.MobileElementCrawler`
+   already uses `io.appium.java_client.remote.SupportsContextSwitching`
+   (`getContextHandles()` / `context(...)`) to hop into a WebView context,
+   delegate to the desktop `ElementCrawler`, and restore `NATIVE_APP`
+   afterward. It is currently private to the crawler, not exposed to test
+   authors via `MobileTestBase`/`MobileActions` (no public
+   `mobileSwitchToNative()`/`mobileSwitchToWebView()` yet).
+2. **The `SessionContext`/`SessionManager`/multi-session `SessionRequest`
+   model (33.1–33.4) is NOT yet buildable** -- it explicitly depends on the
+   `AutomationSession`/`AutomationSessionFactory` abstraction from sections
+   5–8, which is still just proposed (originally scheduled as Phase 3 in
+   section 20) and has not been implemented. `TestBase.driver` today is a
+   per-instance field (fixed away from `static` in Phase 4 of the prior
+   `unified-sdk-architect-review.md`), but still **singular** -- one driver
+   per test class, not a named-session map. Building `SessionContext` before
+   `AutomationSession` exists would mean building the session-storage layer
+   twice.
+3. **Recommended sequencing fix** -- split section 33 into two tracks rather
+   than treating it as one atomic phase:
+   - **Near-term, low-risk, no architecture prerequisites**: promote the
+     already-proven `SupportsContextSwitching` pattern from
+     `MobileElementCrawler` into public `MobileTestBase`/`MobileActions`
+     helpers (`mobileSwitchToNative()`, `mobileSwitchToWebView(...)`,
+     `getAvailableContexts()`). This alone delivers the most common concrete
+     hybrid scenario named in 33 (native file picker/permission dialog from a
+     WebView) with no `SessionContext` work at all.
+   - **Deferred until after Phase 3 (`AutomationSession`) exists, AND gated
+     on a real consumer need** -- true independent multi-session support
+     (Web + Mobile in the same test, `SessionContext`, `SessionManager`,
+     multi-session YAML) should not be built speculatively; this follows the
+     document's own Guardrail #10 ("Do not add layers without a concrete
+     second implementation or responsibility"). No current consumer project
+     (`311-Automation-SDK`, `mobile-functional-automation-consumer-template`)
+     has a hybrid-session test case today.
+4. This section's roadmap numbering (Phase 1–12 in sections 20/30) should be
+   updated to insert multi-session work explicitly once Phase 3 is underway,
+   rather than leaving section 33 as an unsequenced addendum.
+
+### Priority & Sequencing Adjustments (2026-09-09)
+
+Reviewed against the current codebase and against this document's own
+Guardrails (section 22). Four adjustments, agreed by the user, to keep this
+document accurate and to keep the roadmap deliverable rather than
+open-ended:
+
+1. **Phase 3 (`AutomationSession`/`AutomationElement`/`Locator`) is downgraded
+   from mandatory to optional/conditional.** It is the largest and riskiest
+   piece of the whole plan, and its main justification -- future replaceability
+   of Selenium/Appium (section 21) -- is currently hypothetical: no second UI
+   automation technology is being evaluated today, and `WebElement`/
+   `AppiumDriver` already satisfy essentially all real test needs. Guardrail
+   #10 ("do not add layers without a concrete second implementation or
+   responsibility") is only partially satisfied here -- Selenium and Appium
+   are two real technologies, but the *value-add* of the new abstraction over
+   today's `SessionFactoryRegistry`/driver-factory boundary is speculative
+   until a real second technology is on the table. **Decision: keep Phase 3 in
+   the roadmap as a designed option, but do not schedule or start it until a
+   concrete consumer need (a real second automation technology, or a proven
+   pain point with the current boundary) exists.** Phases 4–8, which assume
+   Phase 3 is complete, are conditionally deferred along with it.
+2. **Phases 9–12 (AI/Tooling formalization: tooling package, AI asset
+   structure, AI tool contracts, agent validation) are deferred.** These
+   introduce registries/contracts for an AI agent layer that has no concrete
+   pilot consumer yet in this repository. Per Guardrail #10 and section 23's
+   own Definition of Done spirit, this work should start only once one real
+   skill/tool needs it, not ahead of that need.
+3. **Section 4's target package tree keeps `TestBase` in the existing
+   `testbase` package, not a renamed `base` package.** A pure package rename
+   is a breaking change for every consumer import
+   (`com.test.automation.sdk.testbase.TestBase`) with no functional benefit,
+   and it is inconsistent with this document's own compatibility guardrails
+   (sections 8–9, Guardrail #11/#12: preserve working Web/Mobile behavior).
+   The tree in section 4 has been updated accordingly.
+4. **Phase numbering disambiguation.** This document's "Phase 1–12" reuses
+   phase numbers already used with different meaning in the earlier
+   `unified-sdk-architect-review.md` ("Phase 1–5"). To avoid ambiguous
+   references in commits/CHANGELOG going forward, phases introduced by this
+   document should be referred to as **"Structure Cleanup Phase N"** (e.g.
+   "Structure Cleanup Phase 1 — Remove Real Duplication", already used this
+   way in commit `8e9be4e`).
+
+**Net effect on the roadmap:** only Phases 1–2 (Structure Cleanup) are firm,
+near-term, unconditional commitments. Phase 3 onward (including the AI/
+Tooling phases and the multi-session work in section 33) are documented
+designs, sequenced and guardrailed, but explicitly gated on real need rather
+than scheduled work.
 
 ---
 
@@ -189,8 +297,8 @@ Technology-specific features remain available when needed.
 ```text
 com.test.automation.sdk
 │
-├── base/
-│   └── TestBase
+├── testbase/               ← unchanged from today; NOT renamed to base/ (see
+│   └── TestBase              "Priority & Sequencing Adjustments" note above)
 │
 ├── config/
 │   ├── AutomationConfig
@@ -926,7 +1034,10 @@ Validation:
 
 ---
 
-## Phase 3 — Unified Session Boundary
+## Phase 3 — Unified Session Boundary (CONDITIONAL — see Guardrail #21)
+
+Not scheduled. Start only when a concrete second automation technology or a
+proven pain point with the current session boundary emerges.
 
 Introduce:
 
@@ -1073,6 +1184,10 @@ This is the primary reason to introduce the small session/element/locator abstra
 18. Remove obsolete mobile-SDK artifacts after consumer-impact verification.
 19. Use deprecation wrappers for controlled migration.
 20. Every refactoring phase must compile and pass regression validation.
+21. Phases 3 and onward (Unified Session Boundary, and everything that depends
+    on it, including Phases 9–12 and section 33's multi-session work) are
+    gated on a concrete consumer need, not scheduled speculatively — see
+    "Priority & Sequencing Adjustments" in the Status section.
 
 ---
 
@@ -1703,7 +1818,10 @@ AI-Agent Capabilities
 
 Add the following work to the refactoring roadmap.
 
-## Phase 9 — Tooling Consolidation
+## Phase 9 — Tooling Consolidation (CONDITIONAL — see Guardrail #21)
+
+Not scheduled. Start only once a concrete AI skill/tool pilot needs this
+structure.
 
 - move crawler-related classes out of generic `utility`
 - introduce `tools.discovery`
