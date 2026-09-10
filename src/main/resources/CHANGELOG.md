@@ -19,6 +19,22 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **BrowserStack dependency transitivity:** marked `com.browserstack:browserstack-java-sdk`
+  as an optional dependency so pure-LOCAL consumers no longer inherit the
+  BrowserStack javaagent/provider jar transitively. BrowserStack users must now
+  declare that dependency explicitly in their own `pom.xml`; `browserstack.yml`,
+  credentials, and any BrowserStack javaagent wiring remain consumer-owned.
+  Validated with a clean external consumer repo: LOCAL Selenium still passed,
+  AspectJ/Allure attachments still worked without BrowserStack on the runtime
+  classpath, and the full SDK suite increased from 532 to 534 passing tests.
+
+### Documentation
+- **BrowserStack provider note:** documented this as a dependency-isolation fix
+  only. The deprecated `LATEST` BrowserStack version remains unchanged in this
+  iteration and should be pinned separately once a concrete BrowserStack release
+  is compatibility-validated.
+
 ---
 
 ## [1.1.2] — 2026-09-10
@@ -1623,4 +1639,3 @@ Three resolution mechanisms implemented in `collectLabelAssociations()`:
 - Initial release: TestBase, WebDriverFactory, SdkConfig, ElementCrawler,
   PageObjectGenerator, Excel_Reader, Listener, RetryListener, WebEventListener,
   YamlConfigReader
-

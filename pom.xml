@@ -63,7 +63,7 @@
     <dependencies>
         <!-- ===== Mobile/Appium (merged in from mobile-functional-test-automation-sdk) ===== -->
         <dependency><groupId>io.appium</groupId><artifactId>java-client</artifactId><version>10.1.1</version></dependency>
-        <dependency><groupId>com.browserstack</groupId><artifactId>browserstack-java-sdk</artifactId><version>LATEST</version><scope>compile</scope></dependency>
+        <dependency><groupId>com.browserstack</groupId><artifactId>browserstack-java-sdk</artifactId><version>LATEST</version><scope>compile</scope><optional>true</optional></dependency>
 
         <dependency><groupId>org.testng</groupId><artifactId>testng</artifactId><version>7.3.0</version><scope>compile</scope></dependency>
         <!-- NOTE: pinned to 4.44.0 (not the web SDK's original 4.47.0), the highest version
@@ -221,7 +221,6 @@
         </plugins>
     </build>
 </project>
-
 
 
 
