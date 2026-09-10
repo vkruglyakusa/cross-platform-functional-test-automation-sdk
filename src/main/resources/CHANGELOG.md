@@ -21,6 +21,13 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.1.4] — 2026-09-10
+
+### Changed
+- **Test Case Generation Contract** (docs only): `formal-testcase-to-script.instructions.md` and `create-test.prompt.md` now enforce a strict 1:1 mapping between Azure DevOps Test Case IDs and generated `@Test` methods -- one Azure TC ID must produce exactly one `@Test` method, regardless of how many steps/validations/screens it contains. Helper methods are allowed but must never be annotated `@Test`. Includes a mandatory self-validation step (TC ID count == `@Test` count) to perform before returning generated code.
+
+---
+
 ## [1.1.3] — 2026-09-10
 
 ### Fixed

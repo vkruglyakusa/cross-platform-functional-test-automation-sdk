@@ -41,13 +41,69 @@ When source is Azure DevOps:
 4. If MCP data is incomplete (missing steps/expected), stop and request clarification.
 
 ## Script Generation Rules
-- One `@Test` method per formal scenario.
+- One `@Test` method per formal scenario -- see **Test Case Generation Contract** below for the strict, non-negotiable form of this rule.
 - Use `@DataProvider` backed by Excel if test data varies by row.
 - Always enforce `runMode` skip logic first.
 - **Add `step("...")` for every formal test case step -- 1-to-1 mapping, no merging.**
 - **Every formal expected result must have a matching `Assert.*` call -- no expected result may be skipped.**
 - Steps where the expected result is "no error / page loads" require an explicit element-presence or title assertion -- `assertTrue(true)` is never acceptable.
 - No hidden logic branches without assertions.
+
+## Test Case Generation Contract (Strict 1:1 -- Non-Negotiable)
+
+The mapping between Azure Test Cases and generated automated tests is **strictly 1:1**.
+
+**RULE: One Azure Test Case ID MUST produce exactly one `@Test` method.**
+
+Do not split one Azure Test Case into multiple `@Test` methods just because it has
+multiple test steps, multiple expected results, multiple validations, multiple UI
+screens, multiple actions, preconditions, setup steps, or cleanup steps. All steps
+belonging to the same Azure Test Case ID must execute inside the **same** automated
+`@Test` method.
+
+Allowed:
+```java
+@Test
+public void TC_123456_verifySomething() {
+    login();
+    createRequest();
+    validateRequest();
+}
+
+private void login() { ... }
+private void createRequest() { ... }
+private void validateRequest() { ... }
+```
+Helper methods are encouraged for readability but **must never** be annotated with `@Test`.
+
+NOT allowed:
+```java
+@Test
+public void TC_123456_step1() { ... }
+
+@Test
+public void TC_123456_step2() { ... }
+
+@Test
+public void TC_123456_validation() { ... }
+```
+
+**Multiple `@Test` methods are allowed only when the input contains multiple distinct
+Azure Test Case IDs** -- one `@Test` per distinct TC ID (e.g. TC 123456, TC 123457,
+TC 123458 -> exactly three `@Test` methods, one each).
+
+Therefore: `number of generated @Test annotations` MUST equal
+`number of distinct Azure Test Case IDs provided as input`.
+
+### Mandatory Self-Validation (perform before returning generated code)
+1. Count distinct Azure Test Case IDs in the input.
+2. Count `@Test` annotations in the generated code.
+3. Verify the two counts are equal.
+4. Verify every `@Test` maps to exactly one TC ID.
+5. Verify no TC ID maps to more than one `@Test`.
+
+If validation fails, correct the generated code before returning it -- do not return
+code that violates this contract.
 
 ## Negative Scenario Derivation (Optional -- Only When User Explicitly Requests)
 
@@ -125,6 +181,7 @@ If any step or expected result cannot be automated:
 ## Completion Checklist
 - [ ] Autonomous mode confirmed by user
 - [ ] Formal steps fully mapped to automation steps (1-to-1)
+- [ ] Test Case Generation Contract self-validation performed: `@Test` count == distinct Azure Test Case ID count, each TC ID maps to exactly one `@Test`
 - [ ] Every expected result covered by an `Assert.*` call
 - [ ] Page object actions reused (no duplicated Selenium logic in test class)
 - [ ] Locators updated through crawler flow when needed

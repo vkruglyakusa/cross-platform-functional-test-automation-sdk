@@ -86,7 +86,7 @@ If no stable locators found for a required element -- write a blocker entry (see
 Follow `test-creation.instructions.md` exactly:
 - Class extends `TestBase`
 - `@DataProvider` backed by Excel sheet `${Excel sheet name}`
-- One `@Test` method per scenario
+- **Strict 1:1 Test Case Generation Contract**: one `@Test` method per distinct Azure Test Case ID -- never split one TC ID's steps/preconditions/validations/cleanup across multiple `@Test` methods. Helper methods (not annotated `@Test`) are encouraged for readability. Before returning code, self-validate: count of `@Test` annotations MUST equal count of distinct TC IDs in the input, with no TC ID mapped to more than one `@Test`. See `formal-testcase-to-script.instructions.md` for full contract and examples.
 - `runMode` check first in every test method
 - **`step("...")` for EVERY formal test case step** -- steps must be 1-to-1 with the source test case; no steps may be skipped or merged without a documented reason
 - **`Assert.*` for EVERY expected result** -- every formal expected result from the test case must have a matching assertion; a test step with no assertion does not count as covered
@@ -239,6 +239,7 @@ Include in class JavaDoc:
 - [ ] Crawler ran and report reviewed
 - [ ] Page object created/updated with `UNIQUE [x]` locators only
 - [ ] Test class created following template
+- [ ] Test Case Generation Contract validated: `@Test` count == distinct TC ID count (1:1, no splitting/merging)
 - [ ] **Every formal step has a `step("...")` call**
 - [ ] **Every expected result has an `Assert.*` call**
 - [ ] Excel column mapping documented
