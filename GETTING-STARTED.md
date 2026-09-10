@@ -1,6 +1,6 @@
 # Getting Started -- Cross-Platform Functional Test Automation SDK
 
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.0.0-SNAPSHOT`
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`
 
 This is the **single, definitive, step-by-step setup guide** for a new consumer
 project. Follow the steps **in order**. Steps 1-5 are required for every
@@ -40,9 +40,8 @@ Step 8: Verify your setup (compile + smoke test)  <── all tracks converge he
 
 ## Step 2 -- Get the SDK Jar
 
-This SDK is **not yet published** to the Azure Artifacts feed (still
-`1.0.0-SNAPSHOT`). Until a maintainer runs `mvn deploy` (see
-`SDK-PUBLISHING.md`), install it into your local Maven repository:
+Install the released SDK from Azure Artifacts or from a local
+`maven-repository` clone if you are validating unpublished changes:
 
 ```bash
 git clone <this-repository-url>
@@ -50,11 +49,11 @@ cd cross-platform-functional-test-automation-sdk
 mvn clean install -DskipTests
 ```
 
-This places the jar in `~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.0.0-SNAPSHOT/`,
+This places the jar in `~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.1.2/`,
 where any local consumer project's Maven build can find it.
 
-> Once a maintainer publishes a real release, this step changes to just adding
-> the Azure Artifacts repository (Step 3B below) -- no local clone/install needed.
+> Released builds can be consumed directly from Azure Artifacts; a local install
+> remains useful for validating an unpublished SDK working tree before release.
 
 ---
 
@@ -66,9 +65,15 @@ where any local consumer project's Maven build can find it.
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.1.2</version>
 </dependency>
 ```
+
+LOCAL-only consumers should stop here. Do **not** declare
+`com.browserstack:browserstack-java-sdk` unless you explicitly run against
+BrowserStack. BrowserStack-enabled consumers must add that dependency
+themselves, plus `browserstack.yml`, credentials, and any Surefire
+`-javaagent` wiring they use.
 
 **3B. Add the Azure Artifacts repository** (for when a real release is
 published; harmless to add now, Maven will fall back to your local `.m2` copy
@@ -196,11 +201,11 @@ android:
 ### Step 7B -- Write a smoke test
 
 Extend `com.test.automation.sdk.mobile.testbase.MobileTestBase`. Pass
-`-Dmobile.execution.target=local` (or run the `local` Maven profile) so
-`ExecutionTarget.resolve()` picks local Appium instead of BrowserStack:
+no BrowserStack flag for a local run. The SDK defaults to LOCAL unless you
+explicitly opt into BrowserStack:
 
 ```bash
-mvn test -Pl ocal -Dtest=YourMobileSmokeTest
+mvn test -Dtest=YourMobileSmokeTest
 ```
 
 Full reference: **`MOBILE-USER-GUIDE.md`** (mobile driver factory, execution
@@ -232,11 +237,11 @@ Prefer environment variables over inline credentials:
 ### Step 7C -- Write a smoke test
 
 Same `MobileTestBase` subclass as Track B works unmodified -- the
-BrowserStack-vs-local switch is handled internally by `ExecutionTarget`. Run
-under the default `browserstack` Maven profile (no extra flags needed):
+BrowserStack-vs-local switch is handled internally by `RunMode.resolve()`. Run
+with an explicit BrowserStack opt-in:
 
 ```bash
-mvn test -Dtest=YourMobileSmokeTest
+mvn test -Dtest=YourMobileSmokeTest -Drun.mode=BROWSERSTACK
 ```
 
 ---

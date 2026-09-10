@@ -1,14 +1,29 @@
 # Framework Automation SDK
 
-![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.1.0-blue)
+![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.1.2-blue)
 
 > **Reusable Selenium + TestNG framework layer for OTI QA Automation**  
-> Java 20 * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`
+> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`
 
 This SDK is a single JAR that consumer automation projects depend on.
 It provides TestBase, WebDriverFactory, ElementCrawler, listeners, utilities,
 and AI-agent prompts -- so every consumer project contains **only** its own
 page objects, test classes, and test data.
+
+## Validated dependency baseline
+
+| Component | Supported baseline |
+|---|---|
+| Java | 20 or newer |
+| Selenium | 4.44.0 |
+| Appium Java Client | 10.1.1 |
+| AspectJ Weaver | 1.9.25 |
+| BrowserStack Java SDK | Optional for consumers; declare it explicitly only when using BrowserStack |
+
+LOCAL consumers should depend on the SDK alone and should not inherit
+`browserstack-java-sdk` transitively. BrowserStack-enabled consumers must opt in
+explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
+`browserstack.yml`, credentials, and any Surefire `-javaagent` wiring they use.
 
 ---
 
@@ -323,4 +338,3 @@ cross-platform-functional-test-automation-sdk/
 
 *Maintained by OTI QA Automation Team*  
 *SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`*
-

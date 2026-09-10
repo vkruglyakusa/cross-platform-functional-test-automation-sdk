@@ -8,6 +8,16 @@ This guide is the **single document** a QA engineer needs to start a new Seleniu
 automation project on top of this SDK. No Selenium or TestNG expertise required
 beyond what is described here.
 
+## Validated baseline
+
+| Component | Supported baseline |
+|---|---|
+| Java | 20 or newer |
+| Selenium | 4.44.0 |
+| Appium Java Client | 10.1.1 |
+| AspectJ Weaver | 1.9.25 |
+| BrowserStack Java SDK | Optional for consumers; required only for BrowserStack-enabled runs |
+
 ---
 
 ## Table of Contents
@@ -116,7 +126,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 
@@ -357,6 +367,19 @@ Recommended smoke assertion set:
 - if you use an AspectJ/Allure javaagent, the smoke test starts without any
   `AspectJ Internal Error` / `Unsupported class file major version` failure
 
+### 7. BrowserStack consumers opt in explicitly
+
+`com.browserstack:browserstack-java-sdk` is intentionally **optional** in the
+SDK. That means:
+
+- a pure LOCAL consumer should declare only the SDK dependency
+- a BrowserStack-enabled consumer must add its own explicit BrowserStack SDK dependency
+- BrowserStack consumers still own `browserstack.yml`, credentials, and any Surefire
+  `-javaagent` setup used to activate the BrowserStack Java SDK
+
+This keeps LOCAL consumers free of BrowserStack instrumentation while preserving
+the current BrowserStack execution path for projects that explicitly need it.
+
 ---
 
 
@@ -464,7 +487,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.1.1.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.1.2.jar` downloaded.
 
 ---
 
@@ -2459,4 +2482,3 @@ BUILD SUCCESS
 
 *Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`*  
 *Maintained by OTI QA Automation Team*
-

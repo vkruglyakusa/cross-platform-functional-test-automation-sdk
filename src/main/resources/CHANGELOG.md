@@ -20,6 +20,15 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Fixed
+- **Dependency baseline alignment (Poletop migration finding):** centralized the
+  approved framework stack in `pom.xml` with explicit `appium.version`,
+  `selenium.version`, compiler-release, and Surefire properties; enforced the
+  Java contract as **20 or newer** via `maven-enforcer-plugin`; and made
+  Selenium version control authoritative through the SDK-owned `selenium-bom`
+  instead of duplicated literals / nearest-wins mediation. This keeps
+  `io.appium:java-client:10.1.1` compiling against a coherent Selenium
+  `4.44.0` module set under the SDK's control rather than pushing
+  reconciliation work onto consumers.
 - **BrowserStack dependency transitivity:** marked `com.browserstack:browserstack-java-sdk`
   as an optional dependency so pure-LOCAL consumers no longer inherit the
   BrowserStack javaagent/provider jar transitively. BrowserStack users must now
@@ -30,10 +39,20 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   classpath, and the full SDK suite increased from 532 to 534 passing tests.
 
 ### Documentation
+- **Supported stack contract:** documented the validated SDK baseline and
+  consumer ownership boundaries in `README.md`, `SDK-USER-GUIDE.md`, and
+  `GETTING-STARTED.md`: Java 20+, Selenium 4.44.0, Appium Java Client 10.1.1,
+  AspectJ Weaver 1.9.25, and BrowserStack as an explicit consumer opt-in only.
 - **BrowserStack provider note:** documented this as a dependency-isolation fix
   only. The deprecated `LATEST` BrowserStack version remains unchanged in this
   iteration and should be pinned separately once a concrete BrowserStack release
   is compatibility-validated.
+
+### Tests
+- **Dependency contract regression coverage:** added `PomDependencyContractTest`
+  to guard the Java minimum, Selenium/Appium baseline, AspectJ version, and
+  BrowserStack optional flag directly from the Maven model source. Full SDK
+  regression: 539 tests passing (up from 534).
 
 ---
 
