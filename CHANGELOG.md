@@ -19,7 +19,49 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Considered for a future iteration
+- **Remove the `org.aspectj:aspectjweaver` dependency entirely by converting
+  the SDK's remaining annotation-based Allure attachment weaving to the
+  explicit `Allure.addAttachment(...)` API.** A focused investigation
+  (2026-09-10) confirmed: (1) `TestBase`'s screenshot/DOM-dump failure
+  artifacts already use plain Java file I/O and have no AspectJ dependency;
+  (2) `Listener.takeScreenshot(...)` already calls `Allure.addAttachment(...)`
+  explicitly in its body, so its `@Attachment` annotation is redundant; (3)
+  `Listener.saveTextLog(...)` is the one remaining call site that relies
+  purely on `@Attachment` annotation weaving (proven via a live TestNG+Allure
+  smoke: without the AspectJ javaagent, the explicit-API attachment linked
+  correctly but the annotation-only attachment produced nothing). Converting
+  `saveTextLog(...)` to call `Allure.addAttachment(...)` explicitly would let
+  the SDK drop `aspectjweaver` and its consumer-owned `-javaagent` wiring
+  entirely, simplifying first-time consumer setup. Latest Allure (2.35.5 as
+  of 2026-09-10) still requires AspectJ for annotation-based `@Attachment`,
+  so this dependency is not going away on its own. Not undertaken now because
+  it changes a public-facing method's attachment mechanism and needs its own
+  regression coverage; current config (`aspectjweaver:1.9.25`,
+  `allure-testng:2.23.0`) is confirmed compatible with Java 20 and Java 25+
+  and is being kept as-is for this release.
+
 ### Fixed
+- **AspectJ load-time weaving was pinned to `aspectjweaver:1.9.5` even though
+  the SDK is compiled for Java 20 bytecode** (real first-time consumer
+  feedback). A consumer project using the common Surefire `-javaagent`
+  pattern for Allure/AspectJ could fail before any tests executed with
+  `AspectJ Internal Error: unable to add stackmap attributes. Unsupported
+  class file major version 64`. The SDK now pins `org.aspectj:aspectjweaver`
+  to `1.9.25`, and adds 2 regression tests (532 passing in the full SDK
+  suite) including a real child JVM probe that proves Java 20+ bytecode
+  can still be woven by the AspectJ javaagent.
+
+### Documentation
+- **Added a "First-Time Consumer Setup" section to `SDK-USER-GUIDE.md`**
+  (root + bundled mirror) from real first-time consumer feedback, clarifying
+  that the SDK requires **Java 20 or newer** (not exactly Java 20), how to
+  verify `java -version` / `mvn -version`, when Azure Artifacts
+  `ReadPackages` permission is required, how public transitive dependencies
+  relate to the private SDK feed, that `RunMode.resolve()` now defaults to
+  `LOCAL`, and how to run a minimal smoke test. Also corrected stale 1.1.0
+  examples in the guide's dependency-verification snippets.
+
 - **`scripts/release.ps1` could be accidentally re-run for a version that was
   already released**, producing a duplicate `docs: release` commit and a
   failed re-deploy (Azure Artifacts rejects re-uploading an existing version).

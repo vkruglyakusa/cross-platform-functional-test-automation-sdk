@@ -63,4 +63,12 @@ class RunModeTest {
         assertTrue(ex.getMessage().contains("run.mode"));
         assertTrue(ex.getMessage().contains("not-a-real-mode"));
     }
+
+    @Test
+    void resolve_throwsOnInvalidLegacyMobileExecutionTargetValue() {
+        System.setProperty("mobile.execution.target", "not-a-real-mode");
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, RunMode::resolve);
+        assertTrue(ex.getMessage().contains("mobile.execution.target"));
+        assertTrue(ex.getMessage().contains("not-a-real-mode"));
+    }
 }

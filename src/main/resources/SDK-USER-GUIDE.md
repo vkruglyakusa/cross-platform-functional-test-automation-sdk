@@ -16,6 +16,7 @@ beyond what is described here.
 2. [Prerequisites](#2-prerequisites)
 3. [Set Up a New Project](#3-set-up-a-new-project)
 4. [Maven Dependency](#4-maven-dependency)
+    - [4b. First-Time Consumer Setup](#4b-first-time-consumer-setup)
 5. [Project Structure](#5-project-structure)
 6. [Configuration Reference](#6-configuration-reference)
 7. [The Element Crawler -- Generating Page Objects](#7-the-element-crawler--generating-page-objects)
@@ -115,7 +116,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
@@ -240,6 +241,124 @@ Do not reintroduce a static driver field/compatibility shim to avoid this
 change -- convert the calling code to instance methods instead.
 
 ---
+## 4b. First-Time Consumer Setup
+
+Use this checklist before debugging your first consumer build. It captures the
+setup issues repeatedly surfaced by real first-time SDK consumers.
+
+### 1. Confirm the JVM Maven is actually using
+
+The SDK is compiled to **Java 20 bytecode**, so the JVM running Maven must be
+**20 or newer**. JDK 20, 21, 22, 23, 24, and 25+ are all valid; the requirement
+is **>= 20**, not "exactly Java 20." Your consumer project may still compile its
+own source at Java 8 or 11, but Maven itself must run on a 20+ JDK in order to
+load the SDK classes.
+
+Verify both commands before investigating any class-version error:
+
+```bash
+java -version
+mvn -version
+```
+
+Expected result:
+- `java -version` reports JDK 20 or newer
+- `mvn -version` reports the **same** JDK family (or at least another 20+ JDK)
+- `JAVA_HOME` points at that same installation
+
+If `java -version` and `mvn -version` disagree, fix `JAVA_HOME` / IDE Maven
+runner settings first.
+
+### 2. Decide where the SDK artifact will come from
+
+There are two normal ways to consume the SDK:
+
+1. **Local install / local maven-repository clone** - best for a first smoke test
+2. **Azure Artifacts feed** - required when you want a released SDK directly from ADO
+
+Important nuance: **public dependencies such as Selenium, AspectJ, Jackson, or
+Apache POI are not published privately by this repo.** They still resolve from
+standard Maven repositories such as Maven Central.
+
+However, once your consumer `pom.xml` declares the Azure Artifacts feed, Maven
+may also **probe that feed while resolving transitive metadata for public
+coordinates**. In practice that means a missing feed permission can surface as a
+401/403 while Maven is looking up a public artifact such as
+`org.seleniumhq.selenium:selenium-api`, even though the real missing permission
+is simply access to the SDK feed itself.
+
+So the rule is:
+
+- **If the SDK artifact is already local** (`mvn install` or a cloned local `maven-repository`), you do **not** need Azure credentials just to resolve Selenium or other public transitive dependencies.
+- **If you download the SDK from Azure Artifacts**, you must have **Packaging -> Read / ReadPackages** permission on the `functional-test-automation-sdk` feed and a matching Maven `<server>` entry or pipeline authentication step.
+- **Never commit credentials** into `pom.xml`, `settings.xml`, or source control.
+
+### 3. Keep the repository `<id>` and credentials aligned
+
+Your consumer `pom.xml` repository id and your Maven credentials must use the
+exact same id:
+
+```xml
+<repository>
+  <id>functional-test-automation-sdk</id>
+  <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+</repository>
+```
+
+```xml
+<server>
+  <id>functional-test-automation-sdk</id>
+  <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+  <password>YOUR_PAT_HERE</password>
+</server>
+```
+
+If the ids do not match exactly, Maven will ignore the credentials and the feed
+will behave as unauthenticated.
+
+### 4. Know the default execution target
+
+`RunMode.resolve()` now defaults to **`LOCAL`** when no execution-target system
+property is supplied. A consumer that omits `-Drun.mode` should stay local; a
+BrowserStack session must be an explicit opt-in via `-Drun.mode=BROWSERSTACK`
+or the legacy compatibility flags.
+
+### 5. If your consumer uses an AspectJ javaagent for Allure, keep it modern
+
+Some older consumer projects still declare their own Surefire argLine similar to:
+
+```xml
+-javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar
+```
+
+If you do this on Java 20+ with **AspectJ 1.9.5**, the test JVM can fail before
+executing any tests with:
+
+```text
+AspectJ Internal Error: unable to add stackmap attributes. Unsupported class file major version 64
+```
+
+Use **AspectJ 1.9.25 or newer** for Java 20+ consumer runs, and keep any
+consumer-defined `aspectj.version` aligned with the SDK\'s tested version.
+
+### 6. Minimal smoke-test command
+
+After wiring the dependency, run one intentionally small test **without**
+`-Drun.mode` so you verify both dependency resolution and the default local
+execution behavior in one pass:
+
+```bash
+mvn -Dtest=YourSmokeTest clean test
+```
+
+Recommended smoke assertion set:
+- `RunMode.resolve()` returns `LOCAL`
+- a trivial class extending `TestBase` compiles
+- if you use an AspectJ/Allure javaagent, the smoke test starts without any
+  `AspectJ Internal Error` / `Unsupported class file major version` failure
+
+---
+
 
 ## 4.1 Maven Authentication — Choose Your Option
 
@@ -345,7 +464,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.1.1
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.1.0.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.1.1.jar` downloaded.
 
 ---
 
@@ -2332,6 +2451,9 @@ BUILD SUCCESS
 | Corporate proxy blocking ChromeDriver download | Proxy not configured | Set `proxy.enabled=true` in `sdk-config.yaml`; or set `browser.chromeDriverPath` to a pre-downloaded binary |
 | Excel `NullPointerException` | Wrong sheet name in `getData()` | Check sheet name matches exactly (case-sensitive) |
 | `BUILD FAILURE` on compile | Import not found | Verify SDK dependency version in `pom.xml` |
+| `UnsupportedClassVersionError` when tests start | Maven is running on a JVM older than Java 20 | Re-check `java -version` and `mvn -version`; point `JAVA_HOME` / your IDE Maven runner at JDK 20+ |
+| `AspectJ Internal Error: unable to add stackmap attributes` or `Unsupported class file major version 64` | An old AspectJ javaagent (for example `aspectjweaver:1.9.5`) is trying to weave Java 20+ bytecode | Upgrade the consumer's AspectJ javaagent/dependency to 1.9.25 or newer |
+| `403 Forbidden` / `ReadPackages` while resolving `org.seleniumhq.selenium:*` from Azure Artifacts | The consumer can reach the SDK feed URL but lacks read permission or matching Maven credentials for that feed | Grant feed Reader/Packaging Read permission, ensure the `<server><id>` matches the repository `<id>`, or use a local SDK install for the first smoke test |
 
 ---
 

@@ -1,6 +1,8 @@
 package com.test.automation.sdk.utility;
 
 import java.io.FileInputStream;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
@@ -8,6 +10,8 @@ import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class Excel_Reader {
+	private static final Logger log = LogManager.getLogger(Excel_Reader.class);
+
 	public String path;
 	static FileInputStream fis;
 	static XSSFWorkbook workbook;
@@ -98,7 +102,10 @@ public class Excel_Reader {
 				return number;
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			// Expected for an empty/malformed sheet -- getDataFromSheet validates
+			// rowNum/colNum before use and raises a descriptive IllegalStateException,
+			// so this is logged at debug level only and never surfaced as a raw trace.
+			log.debug("getRowCount('{}') could not read row count: {}", sheetName, e.getMessage());
 		}
 		return 0;
 
@@ -116,7 +123,9 @@ public class Excel_Reader {
 			}
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			// Expected for an empty/malformed sheet (e.g. no header row) -- see note
+			// above in getRowCount(). getDataFromSheet raises the descriptive exception.
+			log.debug("getColumnCount('{}') could not read column count: {}", sheetName, e.getMessage());
 		}
 		return 0;
 
