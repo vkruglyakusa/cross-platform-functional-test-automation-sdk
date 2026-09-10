@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.1.2] — 2026-09-10
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Considered for a future iteration
 - **Remove the `org.aspectj:aspectjweaver` dependency entirely by converting
   the SDK's remaining annotation-based Allure attachment weaving to the

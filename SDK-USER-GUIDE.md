@@ -1,7 +1,7 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 1.1.1  
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.1`
+**Version:** 1.1.2  
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the **single document** a QA engineer needs to start a new Selenium
@@ -461,7 +461,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.1.1
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2
 ```
 
 Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.1.1.jar` downloaded.
@@ -2457,6 +2457,6 @@ BUILD SUCCESS
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.1`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`*  
 *Maintained by OTI QA Automation Team*
 
