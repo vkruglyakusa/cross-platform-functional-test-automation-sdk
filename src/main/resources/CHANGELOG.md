@@ -19,6 +19,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.1.3] — 2026-09-10
+
 ### Fixed
 - **Dependency baseline alignment (Poletop migration finding):** centralized the
   approved framework stack in `pom.xml` with explicit `appium.version`,
@@ -53,8 +57,6 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   to guard the Java minimum, Selenium/Appium baseline, AspectJ version, and
   BrowserStack optional flag directly from the Maven model source. Full SDK
   regression: 539 tests passing (up from 534).
-
----
 
 ## [1.1.2] — 2026-09-10
 <!-- Add entries here during development; move to a version heading on release -->

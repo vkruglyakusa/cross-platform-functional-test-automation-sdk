@@ -1,6 +1,6 @@
 # Getting Started -- Cross-Platform Functional Test Automation SDK
 
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.2`
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.3`
 
 This is the **single, definitive, step-by-step setup guide** for a new consumer
 project. Follow the steps **in order**. Steps 1-5 are required for every
@@ -49,7 +49,7 @@ cd cross-platform-functional-test-automation-sdk
 mvn clean install -DskipTests
 ```
 
-This places the jar in `~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.1.2/`,
+This places the jar in `~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.1.3/`,
 where any local consumer project's Maven build can find it.
 
 > Released builds can be consumed directly from Azure Artifacts; a local install
@@ -65,7 +65,7 @@ where any local consumer project's Maven build can find it.
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.1.2</version>
+    <version>1.1.3</version>
 </dependency>
 ```
 
