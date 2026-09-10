@@ -85,11 +85,13 @@ The template already has the SDK dependency, suite XMLs, config files, and folde
 </dependency>
 ```
 
-**3. Add Maven authentication** in `~/.m2/settings.xml`:
+**3. Add Maven authentication** in `~/.m2/settings.xml` for local workstation use.
+For CI, prefer secret-backed `settings.xml` injection or `MavenAuthenticate@0`
+rather than storing or echoing credentials inline.
 ```xml
 <server>
   <id>functional-test-automation-sdk</id>
-  <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+  <username>YOUR_AZURE_ARTIFACTS_USERNAME</username>
   <password>YOUR_PAT_HERE</password>  <!-- PAT scope: Packaging -> Read -->
 </server>
 ```
@@ -229,13 +231,18 @@ Review the `_Crawled` file and manually merge any improved locators.
 
 ## Generating Page Objects
 
-Never write `@FindBy` locators by hand. Run the crawler against a live page:
+Never write `@FindBy` locators by hand. Run the crawler against a live page.
+
+Prefer environment-backed secrets, CI secret variables, or your existing SDK
+credential-resolution flow for any required login. Treat explicit inline
+`-Dinv.email` / `-Dinv.password` style overrides as compatibility fallbacks for
+one-off local troubleshooting only -- never as the default or a committed script.
 
 ```bash
 # Via crawler suite (when LocatorInvestigator exists in consumer project)
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Denvironment=stg -DbrowserName=chrome \
-         -Dinv.email=your@email.com -Dinv.password=yourpassword
+         -Dinv.email=your@email.com -Dinv.******
 
 # Standalone
 mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.tools.pageobject.PageObjectGenerator" \
@@ -244,7 +251,6 @@ mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.tools.pageobject.PageObj
 
 **Only use locators marked `UNIQUE [x]`** in the generated report.
 
----
 
 ## Copilot Prompts
 

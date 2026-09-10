@@ -21,7 +21,12 @@ Only use locators the crawler marks as **`UNIQUE [x]`**.
 > Always invoke it via `crawler_suite.xml` or with the fully qualified class name.
 > It must never appear in `regression_suite.xml`.
 
-Run one of these before creating/updating any `uiActions` class:
+Run one of these before creating/updating any `uiActions` class.
+
+**Credential handling:** prefer environment-backed secrets, CI secret variables, or
+the project's existing SDK credential-resolution flow. Treat explicit inline
+`-Dinv.email` / `-Dinv.password` examples as temporary compatibility fallbacks for
+one-off local troubleshooting only -- never as the default or a committed script.
 
 ```bash
 # Option A - dedicated crawler suite (recommended)
@@ -81,6 +86,8 @@ explain the problem. Running the crawler blindly wastes time and may solve the w
 ### Step 1 -- Run the Crawler
 
 > [!]? **`LocatorInvestigator` is in package `com.test.automation.tools`** -- use the fully qualified name or `crawler_suite.xml`.
+> Prefer secret-backed credential injection/environment variables. Inline `-Dinv.*`
+> overrides below are compatibility fallbacks, not the preferred path.
 
 ```bash
 # Option A - dedicated crawler suite (recommended)

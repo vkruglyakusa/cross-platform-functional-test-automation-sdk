@@ -26,9 +26,10 @@ For conventions and the Hybrid App Testing feature, see [`MOBILE-USER-GUIDE.md`]
 ### `setUpDriver(String mobileOS, String device)`
 `@BeforeClass` hook. Reads the TestNG `<parameter>` values `mobileOS`
 (defaults to `"android"`) and `deviceName` (defaults to `""`), stores them on
-static fields, then obtains a driver via
-`MobileDriverFactory.getDriver(mobileOS, device)`. Called automatically --
-you do not call this yourself.
+instance fields, then obtains a driver through the unified execution path
+`ExecutionContext -> AutomationSessionFactory -> DriverManager -> SessionFactoryRegistry`
+(which delegates to the platform-specific session factory and ultimately the mobile
+driver implementation). Called automatically -- you do not call this yourself.
 
 ```xml
 <parameter name="mobileOS" value="android"/>

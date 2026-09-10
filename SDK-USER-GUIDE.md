@@ -637,10 +637,10 @@ steps:
     inputs:
       artifactsFeeds: functional-test-automation-sdk
 
-  # 2. Install Java 20 (source level as of SDK v2.0.0)
+  # 2. Install Java 21 (meets the SDK's Java >=20 minimum; Maven@4 offers 1.21)
   - task: JavaToolInstaller@0
     inputs:
-      versionSpec: '20'
+      versionSpec: '21'
       jdkArchitectureOption: 'x64'
       jdkSourceOption: 'PreInstalled'
 
@@ -657,7 +657,7 @@ steps:
         -Dsurefire.suiteXmlFiles=regression_suite.xml
       publishJUnitResults: false      # disabled — we publish TestNG XML directly below
       javaHomeOption: 'JDKVersion'
-      jdkVersionOption: '1.11'
+      jdkVersionOption: '1.21'
     continueOnError: true             # allow publish steps to run even if tests fail
 
   # 4. Filter TestNG results — remove runMode=N skips before publishing to ADO.

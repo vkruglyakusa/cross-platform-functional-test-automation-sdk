@@ -211,12 +211,12 @@ After any SDK release, ALL of these must be updated and pushed:
 
 
 ## Project Identity
-- **Artifact**: com.test.automation.sdk:test-automation-sdk
-- **Language**: Java 8 (no var, no lambdas in driver.findElements, no instanceof pattern matching)
+- **Artifact**: com.test.automation:cross-platform-functional-test-automation-sdk
+- **Language**: Java 20 or newer (`Java >=20`). Generate code compatible with the SDK's minimum supported Java version; do not downlevel code to Java 8 for compatibility.
 - **Core base class**: com.test.automation.sdk.testbase.TestBase
 - **Listeners**: com.test.automation.sdk.listener.{Listener, RetryListener, Retry}
 - **Utilities**: com.test.automation.sdk.utility.{Excel_Reader, PageContext, SdkConfig}
-- **Driver factory**: com.test.automation.sdk.factory.WebDriverFactory
+- **Driver factory**: com.test.automation.sdk.testbase.WebDriverFactory
 
 ---
 
@@ -226,7 +226,7 @@ After any SDK release, ALL of these must be updated and pushed:
 2. **Zero hardcoded config** - all configuration read from consumer-supplied config.properties via SdkConfig.
 3. **Backward compatible** - adding methods is fine; changing method signatures breaks consumers.
 4. **Thread safe** - all shared state must use ThreadLocal (driver, currentPage, etc.).
-5. **Java 8 compatible** - no language features above Java 8.
+5. **Java >=20 compatible** - keep examples and generated code aligned with the SDK's minimum supported Java version of 20 or newer.
 
 ---
 
@@ -388,7 +388,7 @@ The release script will abort if CHANGELOG.md [Unreleased] is empty.
 - [ ] src/main/resources/sdk-instructions/test-creation.instructions.md -- identical copy
 - [ ] .github/copilot-instructions.md -- if test class template changed
 - [ ] src/main/resources/sdk-instructions/copilot-instructions.md -- identical copy
-- [ ] Code examples in all docs are syntactically correct Java 8
+- [ ] Code examples in all docs are syntactically correct for Java 20 or newer
 - [ ] All doc files are plain ASCII (no em-dashes, arrows, smart quotes)
 - [ ] Both docs still render correctly as Markdown (no broken tables)
 ```
@@ -409,7 +409,7 @@ New lifecycle change    -> SDK-USER-GUIDE Section 6 (Config) + TESTBASE-API Sect
 ---
 
 ## Quality Checklist for SDK Changes
-- [ ] Java 8 compatible (no var, no instanceof patterns, no text blocks)
+- [ ] Java >=20 compatible; do not instruct consumers or agents to downlevel to Java 8
 - [ ] No hardcoded application URLs, locators, or credentials
 - [ ] All shared state uses ThreadLocal
 - [ ] New helpers have 3-attempt retry for transient WebDriverExceptions

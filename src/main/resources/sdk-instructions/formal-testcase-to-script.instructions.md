@@ -42,6 +42,7 @@ When source is Azure DevOps:
 
 ## Script Generation Rules
 - One `@Test` method per formal scenario -- see **Test Case Generation Contract** below for the strict, non-negotiable form of this rule.
+- Generate code compatible with Java 20 or newer (`Java >=20`). Do not downlevel generated code to Java 8.
 - Use `@DataProvider` backed by Excel if test data varies by row.
 - Always enforce `runMode` skip logic first.
 - **Add `step("...")` for every formal test case step -- 1-to-1 mapping, no merging.**
@@ -57,9 +58,14 @@ The mapping between Azure Test Cases and generated automated tests is **strictly
 
 Do not split one Azure Test Case into multiple `@Test` methods just because it has
 multiple test steps, multiple expected results, multiple validations, multiple UI
-screens, multiple actions, preconditions, setup steps, or cleanup steps. All steps
-belonging to the same Azure Test Case ID must execute inside the **same** automated
-`@Test` method.
+screens, multiple actions, preconditions, setup steps, cleanup steps, alternate UI
+paths, or many assertions. All steps belonging to the same Azure Test Case ID must
+execute inside the **same** automated `@Test` method.
+
+**Priority rule:** this 1 Azure TC ID -> 1 `@Test` rule has higher priority than test
+granularity, parallelization, readability, scenario decomposition, or attempts to
+create smaller independent tests. Do not reinterpret one formal Azure Test Case as
+several automated tests.
 
 Allowed:
 ```java
@@ -74,7 +80,10 @@ private void login() { ... }
 private void createRequest() { ... }
 private void validateRequest() { ... }
 ```
-Helper methods are encouraged for readability but **must never** be annotated with `@Test`.
+Helper methods are encouraged for readability and decomposition (`login()`,
+`createRequest()`, `validateRequest()` style), but helper methods **must never** be
+annotated with `@Test` unless that helper itself represents a genuinely separate
+Azure Test Case ID.
 
 NOT allowed:
 ```java
@@ -89,21 +98,29 @@ public void TC_123456_validation() { ... }
 ```
 
 **Multiple `@Test` methods are allowed only when the input contains multiple distinct
-Azure Test Case IDs** -- one `@Test` per distinct TC ID (e.g. TC 123456, TC 123457,
-TC 123458 -> exactly three `@Test` methods, one each).
+Azure Test Case IDs** -- one `@Test` per distinct TC ID (for example: TC 123456 +
+TC 123457 + TC 123458 input -> exactly three `@Test` methods, one each).
 
 Therefore: `number of generated @Test annotations` MUST equal
 `number of distinct Azure Test Case IDs provided as input`.
 
-### Mandatory Self-Validation (perform before returning generated code)
-1. Count distinct Azure Test Case IDs in the input.
-2. Count `@Test` annotations in the generated code.
-3. Verify the two counts are equal.
-4. Verify every `@Test` maps to exactly one TC ID.
-5. Verify no TC ID maps to more than one `@Test`.
+### Data-Driven Clarification
+This contract governs **`@Test` method count**, not runtime invocation count. A single
+`@Test(dataProvider = "data")` method invoked by TestNG with N data rows is still
+**one `@Test` method**. Do not generate multiple `@Test` methods merely because one
+Azure Test Case has multiple data combinations.
 
-If validation fails, correct the generated code before returning it -- do not return
-code that violates this contract.
+### Mandatory Self-Validation (perform before returning generated code)
+1. Extract the distinct Azure Test Case IDs from the input.
+2. Count the distinct Azure Test Case IDs.
+3. Count `@Test` annotations in the generated code.
+4. Verify the two counts are equal.
+5. Verify every `@Test` maps to exactly one TC ID.
+6. Verify no TC ID maps to more than one `@Test` method.
+7. Verify helper methods contain no `@Test` annotation.
+
+If any check fails, the result is **INVALID**. Correct the generated code before
+returning it -- do not return code that violates this contract.
 
 ## Negative Scenario Derivation (Optional -- Only When User Explicitly Requests)
 

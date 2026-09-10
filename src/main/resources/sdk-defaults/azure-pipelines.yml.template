@@ -30,12 +30,12 @@ steps:
     inputs:
       artifactsFeeds: functional-test-automation-sdk
 
-  # -- 2. Install Java 11 runtime ------------------------------------------
-  #    SDK requires Java 8 source level; runtime may be 11 or 17.
+  # -- 2. Install Java 21 runtime ------------------------------------------
+  #    SDK requires Java >=20; this template uses Java 21 because Maven@4 offers jdkVersionOption 1.21.
   - task: JavaToolInstaller@0
-    displayName: 'Install Java 11'
+    displayName: 'Install Java 21'
     inputs:
-      versionSpec: '11'
+      versionSpec: '21'
       jdkArchitectureOption: 'x64'
       jdkSourceOption: 'PreInstalled'
 
@@ -54,7 +54,7 @@ steps:
         -Dsurefire.suiteXmlFiles=regression_suite.xml
       publishJUnitResults: false
       javaHomeOption: 'JDKVersion'
-      jdkVersionOption: '1.11'
+      jdkVersionOption: '1.21'
     continueOnError: true
 
   # -- 4. Filter TestNG results (remove runMode=N skips) -------------------

@@ -51,7 +51,9 @@ Before changing anything:
 3. If modifying a page object, identify all existing `@FindBy` locators.
 
 ### Step 2 -- If Locators Need Updating
-**Do not guess new locators.** Re-run the crawler first:
+**Do not guess new locators.** Re-run the crawler first. Prefer secret-backed
+credential injection/environment variables for any required login. Inline
+`-Dinv.email` / `-Dinv.password` style overrides are compatibility fallbacks only:
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Denvironment=stg -DbrowserName=chrome \

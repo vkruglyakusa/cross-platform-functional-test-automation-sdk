@@ -64,7 +64,13 @@ Create the gap report in ``\${reporting.gapOutputDir}` (default: docs/test-case-
 See `#report-test-gap` prompt and `test-case-gap.instructions.md`.
 
 ### Step 1 -- Run the Crawler
-Before writing any `@FindBy` locator, run the crawler on the target page:
+Before writing any `@FindBy` locator, run the crawler on the target page.
+
+**Credential handling:** prefer pipeline secrets, environment-backed values, or the
+project's existing SDK credential/secret-resolution flow. Treat explicit inline
+`-Dinv.email` / `-Dinv.password` style overrides as a temporary compatibility
+fallback for one-off local troubleshooting only -- never as the default or a
+committed script.
 
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
@@ -85,8 +91,9 @@ If no stable locators found for a required element -- write a blocker entry (see
 ### Step 3 -- Create Test Class -- Full Step Coverage Required
 Follow `test-creation.instructions.md` exactly:
 - Class extends `TestBase`
+- Generate code compatible with Java 20 or newer (`Java >=20`). Do not downlevel generated code to Java 8.
 - `@DataProvider` backed by Excel sheet `${Excel sheet name}`
-- **Strict 1:1 Test Case Generation Contract**: one `@Test` method per distinct Azure Test Case ID -- never split one TC ID's steps/preconditions/validations/cleanup across multiple `@Test` methods. Helper methods (not annotated `@Test`) are encouraged for readability. Before returning code, self-validate: count of `@Test` annotations MUST equal count of distinct TC IDs in the input, with no TC ID mapped to more than one `@Test`. See `formal-testcase-to-script.instructions.md` for full contract and examples.
+- **Strict 1:1 Test Case Generation Contract**: one Azure Test Case ID MUST produce exactly one `@Test` method. Never split one TC ID's steps, preconditions, validations, cleanup, alternate UI paths, or many assertions across multiple `@Test` methods. This rule has higher priority than granularity, readability, decomposition, or attempts to create smaller independent tests. Helper methods (`login()`, `createRequest()`, `validateRequest()`, etc.) are encouraged for readability, but helper methods must NOT carry `@Test` unless they represent a genuinely separate Azure TC ID. Distinct Azure TC IDs in the input must equal generated `@Test` method count (for example: 3 distinct TC IDs -> exactly 3 `@Test` methods). This contract concerns `@Test` METHOD count, not TestNG runtime invocation count -- one `@Test(dataProvider = "data")` method with 10 rows is still one `@Test` method. Before returning code, self-validate: (1) extract distinct TC IDs, (2) count them, (3) count generated `@Test` annotations, (4) verify counts match, (5) verify each `@Test` maps to exactly one TC ID, (6) verify no TC ID maps to multiple `@Test` methods, and (7) verify helper methods contain no `@Test`. If any check fails, the result is INVALID and must be corrected before returning it. See `formal-testcase-to-script.instructions.md` for full contract and examples.
 - `runMode` check first in every test method
 - **`step("...")` for EVERY formal test case step** -- steps must be 1-to-1 with the source test case; no steps may be skipped or merged without a documented reason
 - **`Assert.*` for EVERY expected result** -- every formal expected result from the test case must have a matching assertion; a test step with no assertion does not count as covered

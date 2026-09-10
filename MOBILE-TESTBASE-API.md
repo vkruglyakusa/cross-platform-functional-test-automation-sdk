@@ -26,9 +26,10 @@ For conventions and the Hybrid App Testing feature, see [`MOBILE-USER-GUIDE.md`]
 ### `setUpDriver(String mobileOS, String device)`
 `@BeforeClass` hook. Reads the TestNG `<parameter>` values `mobileOS`
 (defaults to `"android"`) and `deviceName` (defaults to `""`), stores them on
-static fields, then obtains a driver via
-`MobileDriverFactory.getDriver(mobileOS, device)`. Called automatically --
-you do not call this yourself.
+instance fields, then obtains a driver through the unified execution path
+`ExecutionContext -> AutomationSessionFactory -> DriverManager -> SessionFactoryRegistry`
+(which delegates to the platform-specific session factory and ultimately the mobile
+driver implementation). Called automatically -- you do not call this yourself.
 
 ```xml
 <parameter name="mobileOS" value="android"/>
@@ -55,7 +56,10 @@ the javaagent/`browserstack.yml` isn't wired up correctly -- this is a fail-fast
 guard, not a silent `false`.
 
 ### `getCurrentPlatformOS()`
-`static String`. Returns `"android"`/`"ios"` -- read from BrowserStack when
+`String` (instance method as of Unified SDK Review Priority 4 -- previously
+`static`; `mobileOsName`/`deviceName` are now per-instance state so
+concurrent Mobile test classes never leak each other's device/platform
+selection). Returns `"android"`/`"ios"` -- read from BrowserStack when
 `isRunningInCloud()`, otherwise from the `-Dmobile.os`/`mobileOS` parameter
 set in `setUpDriver`. Throws `IllegalStateException` if neither source is set.
 

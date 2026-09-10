@@ -2,18 +2,18 @@
 applyTo: "**"
 ---
 
-# Skill: Migrating an Existing Project to use test-automation-sdk
+# Skill: Migrating an Existing Project to use cross-platform-functional-test-automation-sdk
 
 ## Purpose
 This instruction guides an AI agent through converting an existing Selenium + TestNG
-automation project to depend on `test-automation-sdk` instead of bundling its own
-framework utilities.
+automation project to depend on `cross-platform-functional-test-automation-sdk`
+instead of bundling its own framework utilities.
 
 ---
 
 ## Prerequisites
-- `test-automation-sdk` JAR is available in a local Maven repository (e.g., `../maven-repository`)
-- The consumer project uses Maven and Java 8+
+- `cross-platform-functional-test-automation-sdk` JAR is available in a local Maven repository (e.g., `../maven-repository`)
+- The consumer project uses Maven and **Java 20 or newer** (`Java >=20`) -- the Unified SDK minimum supported Java version is 20, so migrating consumers must upgrade their runtime/tooling JDK before adoption
 - The existing project has a `TestBase` class or equivalent framework base
 
 ---
@@ -35,7 +35,7 @@ Add inside `<dependencies>`:
 ```xml
 <dependency>
   <groupId>com.test.automation</groupId>
-  <artifactId>test-automation-sdk</artifactId>
+  <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
   <version>1.0.0</version>
 </dependency>
 ```

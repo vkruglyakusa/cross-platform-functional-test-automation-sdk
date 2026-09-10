@@ -95,7 +95,7 @@ Then follow `#ado-sync-test` instructions.
 Ask in order:
 1. "What is the URL of the page to crawl?"
 2. "What should the generated page object class be named? (e.g. `LoginPage`)"
-3. "Does the page require login first? If yes, provide username and password."
+3. "Does the page require login first? If yes, prefer a preconfigured account or secret-backed credential flow; avoid pasting raw passwords unless no safer option exists for a one-off local run."
 4. "Which environment? (`stg` / `tst` / `dev`)"
 
 Then confirm:

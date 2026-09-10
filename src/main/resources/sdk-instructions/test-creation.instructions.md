@@ -254,6 +254,9 @@ Review findings from all three before writing any fix. After applying the fix, r
 | Test stuck / browser never closes | Login or locator issue -- debug before marking done |
 
 **7e. If page object locators were changed:**
+Prefer secret-backed credential injection/environment variables for any required
+investigator login. Inline `-Dinv.email` / `-Dinv.password` style overrides are a
+compatibility fallback only and should not be the default or a committed script.
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml `\
          -Denvironment=stg -DbrowserName=chrome `\

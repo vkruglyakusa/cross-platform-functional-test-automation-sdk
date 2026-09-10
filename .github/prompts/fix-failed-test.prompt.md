@@ -160,6 +160,10 @@ mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Dinv.email=${email} -Dinv.password=${password}
 ```
 
+Prefer secret-backed credential injection/environment variables if the crawler
+needs authentication. Inline `-Dinv.email` / `-Dinv.password` style overrides are
+compatibility fallbacks only.
+
 Workflow:
 1. Read the `@FindBy` XPath in the page object.
 2. Re-run the crawler on the affected page.

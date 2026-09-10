@@ -3,7 +3,7 @@
 ## Project Identity
 <!-- UPDATE THESE VALUES FOR YOUR PROJECT -->
 - **Framework**: Selenium WebDriver + TestNG + Page Object Model (POM)
-- **Language**: Java 8 -- no `var`, no lambdas in `driver.findElements`
+- **Language**: Java 20 or newer (`Java >=20`) -- generate code for the Unified SDK minimum supported Java version; do not downlevel to Java 8
 - **Base class**: `com.test.automation.sdk.testbase.TestBase`
 - **Page Objects**: `src/main/java/{your.package}/uiActions/`
 - **Test classes**: `src/test/java/{your.package}/testCases/`

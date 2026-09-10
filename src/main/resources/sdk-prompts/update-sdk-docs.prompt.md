@@ -56,7 +56,7 @@ Describe the change you made (or paste the diff):
 - Do NOT rewrite unrelated sections
 - Do NOT change the section numbering or heading text in `SDK-USER-GUIDE.md`
 - Verify both `SDK-USER-GUIDE.md` files are byte-for-byte identical after the edit
-- All code snippets must be valid Java 8
+- All code snippets must be valid Java 20 or newer (`Java >=20`)
 
 ---
 
@@ -94,6 +94,6 @@ Use this to decide which section to update:
 - [ ] `SDK-USER-GUIDE.md` (root) -- correct table row added/updated/removed
 - [ ] `src/main/resources/SDK-USER-GUIDE.md` -- identical to root
 - [ ] `TESTBASE-API.md` -- correct section entry added/updated/removed
-- [ ] Code examples compile as Java 8
+- [ ] Code examples compile as Java 20 or newer
 - [ ] No unrelated sections modified
 - [ ] Markdown tables render without broken alignment

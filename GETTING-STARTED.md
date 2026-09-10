@@ -99,7 +99,7 @@ install from Step 2):
   <servers>
     <server>
       <id>cross-platform-functional-test-automation-sdk</id>
-      <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+      <username>YOUR_AZURE_ARTIFACTS_USERNAME</username>
       <password>YOUR_PAT_HERE</password> <!-- PAT scope: Packaging -> Read -->
     </server>
   </servers>

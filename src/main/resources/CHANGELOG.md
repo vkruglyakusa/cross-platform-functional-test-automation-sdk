@@ -19,6 +19,15 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **AI generation contract + credential guidance:** authoritative SDK prompts/instructions
+  now enforce a strict 1:1 mapping between Azure Test Case IDs and generated TestNG
+  `@Test` methods, backed by a new regression-guard test suite; active AI guidance was
+  re-verified/aligned with the SDK's Java >=20 requirement; and crawler/auth examples
+  were hardened to prefer environment/secret-backed credential resolution over inline
+  CLI credential overrides, including replacing realistic-looking Azure Artifacts
+  username examples with unmistakable placeholders.
+
 ---
 
 ## [1.1.4] — 2026-09-10

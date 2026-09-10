@@ -32,6 +32,9 @@ Map it back to the `@FindBy` field in the page object.
 If no failure provided, read the page object and list all `@FindBy` fields to be reviewed.
 
 ### Step 2 -- Run the Crawler on the Affected Page
+Prefer secret-backed credential injection/environment variables for any required
+login. Inline `-Dinv.email` / `-Dinv.password` style overrides are a temporary
+compatibility fallback only -- do not treat them as the default recommendation.
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Denvironment=stg -DbrowserName=chrome \
