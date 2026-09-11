@@ -67,9 +67,10 @@ automation project only needs **one** Maven dependency.
 | **ElementSearchEngine** | `sdk.tools.crawler.web.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label text, placeholder, aria-label, visible text, or `@formcontrolname`. Used internally by `DataDrivenCrawler`. |
 | **AbstractLocatorInvestigator** | `sdk.tools.locator.AbstractLocatorInvestigator` | Base class for consumer `LocatorInvestigator` tools. Override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`); all crawl infrastructure (login, role switching, nav helpers, summary) is SDK-owned. |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
-| **Listener** | `sdk.listener.Listener` | Auto-screenshot + DOM dump on failure, data-driven XML test name renaming |
+| **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
+| **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, and evidence references |
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
-| **WebEventListener** | `sdk.listener.WebEventListener` | Logs every browser action for debugging |
+| **WebEventListener** | `sdk.listener.WebEventListener` | Low-level WebDriver debug signal plus accessibility hook; business reporting should use `TestBase.step(...)` |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
 | **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` for advanced SDK settings |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap-report.md / blocker-report.md to the configured output directory |
@@ -1579,10 +1580,11 @@ templates:
 
 ```java
 // -- Registration confirmation link ----------------------------------------
-step("Get confirmation URL from email");
-String confirmUrl = getConfirmationEmailUrl(baseURL, "testuser@mailinator.com");
-driver.get(confirmUrl);
-waitUntillPageLoad();
+step("Get confirmation URL from email", () -> {
+    String confirmUrl = getConfirmationEmailUrl(baseURL, "testuser@mailinator.com");
+    driver.get(confirmUrl);
+    waitUntillPageLoad();
+});
 
 // -- Password reset link ---------------------------------------------------
 String resetUrl = getEmailUrl("passwordReset", baseURL, "testuser@mailinator.com");
@@ -1605,8 +1607,6 @@ Every test class must follow this exact template.
 
 ```java
 package com.yourcompany.automation.testCases;
-
-import static io.qameta.allure.Allure.step;
 
 import com.test.automation.sdk.testbase.TestBase;
 import com.yourcompany.automation.uiActions.LoginPage;
@@ -1639,18 +1639,20 @@ public class Test_Login extends TestBase {
         if ("N".equalsIgnoreCase(runMode))
             throw new SkipException("Skipping: " + testCaseName);
 
-        // 2. Test steps with Allure reporting
-        step("Navigate to application");
-        driver.get(baseURL);
-        waitUntillPageLoad();
-
-        step("Enter credentials and log in");
         LoginPage loginPage = new LoginPage(driver);
-        loginPage.login(email, password);
+        setCurrentTestCaseName(testCaseName);
 
-        step("Assert dashboard is loaded");
-        Assert.assertTrue(loginPage.isDashboardLoaded(),
-            "Dashboard header was not displayed after login");
+        // 2. Test steps with SDK reporting
+        step("Navigate to application", () -> {
+            driver.get(baseURL);
+            waitUntillPageLoad();
+        });
+
+        step("Enter credentials and log in", () -> loginPage.login(email, password));
+
+        step("Assert dashboard is loaded", () ->
+            Assert.assertTrue(loginPage.isDashboardLoaded(),
+                "Dashboard header was not displayed after login"));
     }
 }
 ```
@@ -1659,7 +1661,7 @@ public class Test_Login extends TestBase {
 - Always `extends TestBase`.
 - Always `@DataProvider` backed by an Excel sheet.
 - First line of every `@Test` method: check `runMode` -- skip if `"N"`.
-- Use `step("...")` for every logical step (visible in Allure report).
+- Use inherited SDK `step("...", () -> { ... })` for every logical business step.
 - Use `Assert.assertTrue/assertFalse/assertEquals` -- never an `if` without assertion.
 - Navigate back to the base URL or log out at the end of each test.
 
@@ -1799,7 +1801,8 @@ The SDK generates two report types automatically -- no configuration required.
 mvn allure:serve
 ```
 
-Steps recorded via `step("...")` are visible in the Allure timeline.
+SDK business steps recorded via `step("...", () -> { ... })` are visible in the
+Allure timeline and reuse the same logical story in Extent and SDK logs.
 
 ### Extent Report
 
@@ -2127,11 +2130,11 @@ public void beforeSuite() {
 Manual usage from a test:
 
 ```java
-step("Run full accessibility scan on dashboard");
-runAccessibilityScan("Dashboard");
+step("Run full accessibility scan on dashboard", () ->
+    runAccessibilityScan("Dashboard"));
 
-step("Assert no axe-core accessibility violations on dashboard");
-assertNoAccessibilityViolations("Dashboard");
+step("Assert no axe-core accessibility violations on dashboard", () ->
+    assertNoAccessibilityViolations("Dashboard"));
 ```
 
 ### 14.4 WebEventListener per-element scanning
@@ -2325,9 +2328,9 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
 
 | Listener | What it does |
 |---------|--------------|
-| `Listener` | Takes a screenshot, saves a paired DOM dump, adds a DOM file link to TestNG HTML, and renames data-driven test entries |
+| `Listener` | Emits centralized lifecycle events, captures failure evidence once, publishes it to Allure/Extent/logs, and renames data-driven test entries |
 | `RetryListener` | Automatically retries a failed test once |
-| `WebEventListener` | Logs every driver action (enabled per WebDriverFactory config) |
+| `WebEventListener` | Emits low-level WebDriver debug/a11y signals; it should not replace business steps in reports |
 
 ---
 
@@ -2435,15 +2438,15 @@ public void testLogin(String testCaseName, String email,
     if ("N".equalsIgnoreCase(runMode))
         throw new SkipException("Skipping: " + testCaseName);
 
-    step("Open login page");
-    driver.get(baseURL);
+    setCurrentTestCaseName(testCaseName);
 
-    step("Login with " + email);
     LoginPage page = new LoginPage(driver);
-    page.login(email, password);
+    step("Open login page", () -> driver.get(baseURL));
 
-    step("Verify dashboard title");
-    verifyText("Dashboard", page.getDashboardTitle());
+    step("Login with " + email, () -> page.login(email, password));
+
+    step("Verify dashboard title", () ->
+        verifyText("Dashboard", page.getDashboardTitle()));
 }
 ```
 

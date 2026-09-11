@@ -164,8 +164,10 @@ reporting:
 ### Step 7A -- Write a smoke test
 
 Extend `com.test.automation.sdk.testbase.TestBase` and write one TestNG test
-that navigates to a URL and asserts on the title. See `SDK-USER-GUIDE.md`
-Section 17 for a complete end-to-end example.
+that navigates to a URL and asserts on the title. Use inherited
+`step("...", () -> { ... })` calls for business-readable report steps so the
+same execution story appears in logs, Allure, and Extent. See
+`SDK-USER-GUIDE.md` Section 17 for a complete end-to-end example.
 
 Full reference: **`SDK-USER-GUIDE.md`**.
 

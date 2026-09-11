@@ -22,6 +22,10 @@ For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, se
 
 ---
 
+`MobileTestBase` inherits the same SDK-owned business-step API as the web base:
+prefer `step("...", () -> { ... })` so one mobile execution story flows
+consistently into logs, Allure, Extent, and failure evidence.
+
 ## 2. Writing a Mobile Test
 
 ```java
@@ -30,10 +34,13 @@ public class Test_Login extends MobileTestBase {
     @Test
     public void loginWithValidCredentials() {
         LoginPage login = new LoginPage(driver);
-        login.enterUsername("user@example.com");
-        login.enterPassword("Passw0rd!");
-        login.tapLogin();
-        Assert.assertTrue(new HomePage(driver).isDisplayed());
+        step("Enter valid mobile credentials", () -> {
+            login.enterUsername("user@example.com");
+            login.enterPassword("Passw0rd!");
+        });
+        step("Tap Login", login::tapLogin);
+        step("Verify home page is displayed", () ->
+            Assert.assertTrue(new HomePage(driver).isDisplayed()));
     }
 }
 ```

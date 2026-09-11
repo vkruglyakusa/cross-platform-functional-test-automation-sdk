@@ -98,12 +98,13 @@ public class Test_MyFeature extends TestBase {
     @Test(dataProvider = "myData", priority = 1)
     public void testMyScenario(String testCaseName, ..., String runMode) throws Exception {
         if ("N".equalsIgnoreCase(runMode)) throw new SkipException("Skipping: " + testCaseName);
-        step("Step description");
-        Assert.assertTrue(condition, "Expected result message");
+        step("Step description", () -> {
+            Assert.assertTrue(condition, "Expected result message");
+        });
     }
 }
 ```
-- Always `extends TestBase` * always check `runMode` first * always use `Assert.*` * always use `step()`
+- Always `extends TestBase` * always check `runMode` first * always use `Assert.*` * always use SDK `step("...", () -> { ... })`
 - No raw `Thread.sleep()` -- use `waitForElementPresent()`, `fluentWaitUntilElementToBeClickable()`
 - When implementing from ADO test cases: preserve step order, map every expected result to an assertion
 

@@ -6,12 +6,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.reporter.ExtentHtmlReporter;
 import com.aventstack.extentreports.reporter.configuration.Theme;
 import com.test.automation.sdk.utility.PropertiesReader;
 
 public class ExtentManager {
+	private static final Logger log = LogManager.getLogger(ExtentManager.class);
 	private static String reportDir;
 	private static ExtentReports extent;
 	private static String reportFileName = "Test-Automaton-Report" + ".html";
@@ -24,7 +28,7 @@ public class ExtentManager {
 			try {
 				createInstance();
 			} catch (IOException e) {
-				e.printStackTrace();
+				log.error("Failed to create Extent report instance", e);
 			}
 		return extent;
 	}
@@ -64,10 +68,10 @@ public class ExtentManager {
 			try {
 				Files.createDirectories(filePath.getParent());
 			} catch (IOException e) {
-				e.printStackTrace();
+				log.error("Failed to create Extent report directory {}", filePath.getParent(), e);
 			}
 		} else {
-			System.out.println("Directory already exists: " + path);
+			log.debug("Extent report directory already exists: {}", path);
 		}
 		return reportFileLocation;
 	}

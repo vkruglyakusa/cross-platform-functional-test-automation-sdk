@@ -19,7 +19,12 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Changed
+- **OBS-8 unified execution reporting:** added a lightweight SDK-owned reporting layer (`sdk.reporting.ExecutionReporting`) so one logical test/step/action/evidence event stream now fans out to logs, Allure, and Extent. Business steps use inherited `TestBase.step("...", () -> { ... })`, step duration/status is automatic, failures preserve the original exception, and failure evidence is captured once then reused across reporters.
+- **AI test-generation guidance:** SDK docs/prompts/instructions now teach one Azure Test Case ID -> one `@Test` method with multiple SDK business steps via `step("...", () -> { ... })`, instead of direct vendor-specific Allure step calls.
+
 ### Fixed
+- **Reporting duplication/noise/redaction:** `Listener` no longer captures duplicate failure screenshots for Allure vs. Extent, `WebEventListener` low-level Selenium chatter is demoted to DEBUG, `ExtentTestManager` is thread-local instead of a shared thread-id map, and central secret redaction now protects typed/logged password/token/auth values in the unified reporting flow.
 - **AI generation contract + credential guidance:** authoritative SDK prompts/instructions
   now enforce a strict 1:1 mapping between Azure Test Case IDs and generated TestNG
   `@Test` methods, backed by a new regression-guard test suite; active AI guidance was

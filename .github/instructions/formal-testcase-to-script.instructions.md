@@ -45,7 +45,7 @@ When source is Azure DevOps:
 - Generate code compatible with Java 20 or newer (`Java >=20`). Do not downlevel generated code to Java 8.
 - Use `@DataProvider` backed by Excel if test data varies by row.
 - Always enforce `runMode` skip logic first.
-- **Add `step("...")` for every formal test case step -- 1-to-1 mapping, no merging.**
+- **Add SDK `step("...", () -> { ... })` for every formal test case step -- 1-to-1 mapping, no merging.**
 - **Every formal expected result must have a matching `Assert.*` call -- no expected result may be skipped.**
 - Steps where the expected result is "no error / page loads" require an explicit element-presence or title assertion -- `assertTrue(true)` is never acceptable.
 - No hidden logic branches without assertions.

@@ -169,12 +169,15 @@ public class Test_MobileLogin extends MobileTestBase {
 
     @Parameters({"mobileOS", "deviceName"})
     @Test
-    public void loginWithValidCredentials() {
+    public void loginWithValidCredentials() throws Exception {
         LoginPage login = new LoginPage(driver);
-        login.enterUsername("user@example.com");
-        login.enterPassword("Passw0rd!");
-        login.tapLogin();
-        Assert.assertTrue(new HomePage(driver).isDisplayed());
+        step("Enter valid mobile credentials", () -> {
+            login.enterUsername("user@example.com");
+            login.enterPassword("Passw0rd!");
+        });
+        step("Tap Login", login::tapLogin);
+        step("Verify home page is displayed", () ->
+            Assert.assertTrue(new HomePage(driver).isDisplayed()));
     }
 }
 ```

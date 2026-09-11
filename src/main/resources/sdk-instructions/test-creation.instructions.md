@@ -57,7 +57,6 @@ Then implement each expected result as an assertion in the automated test.
 ```java
 package com.test.automation.testCases;
 
-import static io.qameta.allure.Allure.step;
 import java.io.IOException;
 import org.testng.Assert;
 import org.testng.SkipException;
@@ -93,21 +92,23 @@ public class Test_<FeatureName> extends TestBase {
 
         log.info("=== START: " + testCaseName + " ===");
 
-        step("Navigate to page");
-        driver.get(baseURL);
-        waitUntillPageLoad();
+        step("Navigate to page", () -> {
+            driver.get(baseURL);
+            waitUntillPageLoad();
+        });
 
-        step("Initialize page objects");
-        myPage = new MyPage(driver);
+        step("Initialize page objects", () -> myPage = new MyPage(driver));
 
-        step("Perform action");
-        // call page object methods
+        step("Perform action", () -> {
+            // call page object methods
+        });
 
-        step("Assert expected result");
-        Assert.assertTrue(/* condition */, "Failure message");
+        step("Assert expected result", () ->
+            Assert.assertTrue(/* condition */, "Failure message"));
 
-        step("Clean up");
-        // logout or navigate away
+        step("Clean up", () -> {
+            // logout or navigate away
+        });
 
         log.info("=== END: " + testCaseName + " ===");
     }
@@ -124,7 +125,7 @@ public class Test_<FeatureName> extends TestBase {
 
 #### Full Step Coverage -- Mandatory
 Every formal test case step with an expected result **must** have:
-- A `step("...")` call matching the step description
+- An SDK `step("...", () -> { ... })` call matching the step description
 - An `Assert.*` call covering the expected result
 
 **Steps that say "no error" or "page loads" require an explicit presence assertion --
@@ -196,7 +197,7 @@ Before finalizing a test class:
 - [ ] All `@Test` methods have a `dataProvider`
 - [ ] `runMode` checked before any test logic
 - [ ] `setCurrentTestCaseName(testCaseName)` called after `runMode` check in every data-driven `@Test`
-- [ ] **Every formal step has a `step("...")` call**
+- [ ] **Every formal step has an SDK `step("...", () -> { ... })` call**
 - [ ] **Every expected result has a matching `Assert.*` call**
 - [ ] **Every assertion has a descriptive failure message (not empty string, not omitted)**
 - [ ] **No `assertTrue(true)` used as a placeholder**

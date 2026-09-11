@@ -44,7 +44,8 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 | **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` -- browser, proxy, crawler, reporting settings |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
-| **Listener** | `sdk.listener.Listener` | Auto-screenshot, DOM dump on failure, Extent report integration, XML test-name renaming for data-driven rows |
+| **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
+| **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade: one execution event stream fans out to logs, Allure, Extent, and reusable evidence references |
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
 | **InstructionExtractor** | `sdk.utility.InstructionExtractor` | Extracts Copilot prompts and instructions into consumer projects |
 | **AccessibilityChecker** | `sdk.accessibility.AccessibilityChecker` | Built-in 5-layer accessibility scanner: axe-core (`com.deque.html.axe-core:selenium:4.10.1`, bundled transitively), interaction, WCAG 2.2, structural, and motion analysis -- see [SDK-USER-GUIDE.md §14](SDK-USER-GUIDE.md#14-accessibility-testing) |
@@ -128,6 +129,11 @@ reporting:
 ```
 
 Full reference: [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md)
+
+Use inherited `TestBase.step("...", () -> { ... })` for business-readable test steps.
+The SDK now fans those steps out consistently to file/console logs, Allure,
+Extent, and reusable failure evidence while keeping low-level Selenium chatter at
+DEBUG level.
 
 ## Accessibility Testing
 

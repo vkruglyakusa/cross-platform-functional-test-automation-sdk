@@ -118,6 +118,10 @@ public class MobileTestBase extends TestBase {
         return mobileOsName;
     }
 
+    public String getDeviceName() {
+        return deviceName;
+    }
+
     /**
      * Overrides the inherited web {@link TestBase#setUp(String, String)} as a no-op --
      * mobile test classes must never attempt to launch a Selenium browser session.

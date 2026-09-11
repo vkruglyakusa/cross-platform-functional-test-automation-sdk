@@ -14,6 +14,8 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.events.WebDriverListener;
 import com.test.automation.sdk.accessibility.AccessibilityChecker;
 import com.test.automation.sdk.accessibility.A11ySessionManager;
+import com.test.automation.sdk.reporting.ExecutionReporting;
+import com.test.automation.sdk.reporting.SecretRedactor;
 import com.test.automation.sdk.testbase.TestBase;
 import com.test.automation.sdk.utility.PageContext;
 
@@ -69,13 +71,13 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeClick(WebElement element) {
-        log.info("About to click element: [{}] on page: [{}]",
+        log.debug("About to click element: [{}] on page: [{}]",
                 element.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterClick(WebElement element) {
-        log.info("Clicked element: [{}]", element.toString());
+        log.debug("Clicked element: [{}]", element.toString());
         checkElementAccessibility(element, "click");
     }
 
@@ -85,13 +87,13 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeSendKeys(WebElement element, CharSequence... keysToSend) {
-        log.info("About to send keys to element: [{}] on page: [{}]",
+        log.debug("About to send keys to element: [{}] on page: [{}]",
                 element.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterSendKeys(WebElement element, CharSequence... keysToSend) {
-        log.info("Sent keys to element: [{}]", element.toString());
+        log.debug("Sent keys to element: [{}]", element.toString());
         checkElementAccessibility(element, "sendKeys");
     }
 
@@ -101,13 +103,13 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeClear(WebElement element) {
-        log.info("About to clear element: [{}] on page: [{}]",
+        log.debug("About to clear element: [{}] on page: [{}]",
                 element.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterClear(WebElement element) {
-        log.info("Cleared element: [{}]", element.toString());
+        log.debug("Cleared element: [{}]", element.toString());
         checkElementAccessibility(element, "clear");
     }
 
@@ -117,12 +119,12 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeSubmit(WebElement element) {
-        log.info("About to submit form element on page: [{}]", PageContext.currentPage.get());
+        log.debug("About to submit form element on page: [{}]", PageContext.currentPage.get());
     }
 
     @Override
     public void afterSubmit(WebElement element) {
-        log.info("Submitted form element.");
+        log.debug("Submitted form element.");
         checkElementAccessibility(element, "submit");
     }
 
@@ -132,24 +134,24 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeFindElement(WebDriver driver, By locator) {
-        log.info("About to find element by: [{}] on page: [{}]",
+        log.debug("About to find element by: [{}] on page: [{}]",
                 locator.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterFindElement(WebDriver driver, By locator, WebElement element) {
-        log.info("Found element by: [{}]", locator.toString());
+        log.debug("Found element by: [{}]", locator.toString());
     }
 
     @Override
     public void beforeFindElements(WebDriver driver, By locator) {
-        log.info("About to find elements by: [{}] on page: [{}]",
+        log.debug("About to find elements by: [{}] on page: [{}]",
                 locator.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterFindElements(WebDriver driver, By locator, List<WebElement> result) {
-        log.info("Found [{}] elements by: [{}] on page: [{}]",
+        log.debug("Found [{}] elements by: [{}] on page: [{}]",
                 result.size(), locator, PageContext.currentPage.get());
     }
 
@@ -158,11 +160,11 @@ public class WebEventListener extends TestBase implements WebDriverListener {
     // -------------------------------------------------------------------------
 
     public void beforeNavigateTo(String url, WebDriver driver) {
-        log.info("About to navigate to URL: [{}]", url);
+        log.debug("About to navigate to URL: [{}]", SecretRedactor.redactMessage(url));
     }
 
     public void afterNavigateTo(String url, WebDriver driver) {
-        log.info("Navigation to URL: [{}] completed", url);
+        log.debug("Navigation to URL: [{}] completed", SecretRedactor.redactMessage(url));
     }
 
     // -------------------------------------------------------------------------
@@ -171,32 +173,32 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeAnyWebDriverCall(WebDriver driver, Method method, Object[] args) {
-        log.info("About to call WebDriver method: [{}]", method.getName());
+        log.debug("About to call WebDriver method: [{}]", method.getName());
     }
 
     @Override
     public void afterAnyWebDriverCall(WebDriver driver, Method method, Object[] args, Object result) {
-        log.info("WebDriver method [{}] completed", method.getName());
+        log.debug("WebDriver method [{}] completed", method.getName());
     }
 
     @Override
     public void beforeClose(WebDriver driver) {
-        log.info("About to close WebDriver session: [{}]", driver.toString());
+        log.debug("About to close WebDriver session: [{}]", driver.toString());
     }
 
     @Override
     public void afterClose(WebDriver driver) {
-        log.info("WebDriver session closed");
+        log.debug("WebDriver session closed");
     }
 
     @Override
     public void beforeQuit(WebDriver driver) {
-        log.info("About to quit WebDriver session: [{}]", driver.toString());
+        log.debug("About to quit WebDriver session: [{}]", driver.toString());
     }
 
     @Override
     public void afterQuit(WebDriver driver) {
-        log.info("WebDriver session quit successfully");
+        log.debug("WebDriver session quit successfully");
     }
 
     // -------------------------------------------------------------------------
@@ -205,12 +207,12 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeGetPageSource(WebDriver driver) {
-        log.info("About to get page source for: [{}]", driver.getCurrentUrl());
+        log.debug("About to get page source for: [{}]", driver.getCurrentUrl());
     }
 
     @Override
     public void afterGetPageSource(WebDriver driver, String result) {
-        log.info("Page source retrieved for: [{}]", driver.getCurrentUrl());
+        log.debug("Page source retrieved for: [{}]", driver.getCurrentUrl());
     }
 
     // -------------------------------------------------------------------------
@@ -219,22 +221,22 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeGetWindowHandles(WebDriver driver) {
-        log.info("About to get window handles on page: [{}]", PageContext.currentPage.get());
+        log.debug("About to get window handles on page: [{}]", PageContext.currentPage.get());
     }
 
     @Override
     public void afterGetWindowHandles(WebDriver driver, Set<String> result) {
-        log.info("Retrieved [{}] window handle(s)", result.size());
+        log.debug("Retrieved [{}] window handle(s)", result.size());
     }
 
     @Override
     public void beforeGetWindowHandle(WebDriver driver) {
-        log.info("About to get current window handle on page: [{}]", PageContext.currentPage.get());
+        log.debug("About to get current window handle on page: [{}]", PageContext.currentPage.get());
     }
 
     @Override
     public void afterGetWindowHandle(WebDriver driver, String result) {
-        log.info("Current window handle: [{}]", result);
+        log.debug("Current window handle: [{}]", result);
     }
 
     // -------------------------------------------------------------------------
@@ -243,19 +245,19 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeExecuteScript(WebDriver driver, String script, Object[] args) {
-        log.info("About to execute JavaScript: [{}]", script);
+        log.debug("About to execute JavaScript: [{}]", SecretRedactor.redactMessage(script));
         if (args != null) {
             for (Object arg : args) {
-                log.info("  JS arg: [{}]", arg);
+                log.debug("  JS arg: [{}]", SecretRedactor.redactMessage(String.valueOf(arg)));
             }
         }
     }
 
     @Override
     public void afterExecuteScript(WebDriver driver, String script, Object[] args, Object result) {
-        log.info("JavaScript executed: [{}]", script);
+        log.debug("JavaScript executed: [{}]", SecretRedactor.redactMessage(script));
         if (result != null) {
-            log.info("  JS result: [{}]", result);
+            log.debug("  JS result: [{}]", SecretRedactor.redactMessage(String.valueOf(result)));
         }
     }
 
@@ -265,55 +267,55 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     @Override
     public void beforeGetTagName(WebElement element) {
-        log.info("About to get tag name of element: [{}] on page: [{}]",
+        log.debug("About to get tag name of element: [{}] on page: [{}]",
                 element.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterGetTagName(WebElement element, String result) {
-        log.info("Tag name of element: [{}]", result);
+        log.debug("Tag name of element: [{}]", result);
     }
 
     @Override
     public void beforeGetAttribute(WebElement element, String name) {
-        log.info("About to get attribute [{}] of element: [{}] on page: [{}]",
+        log.debug("About to get attribute [{}] of element: [{}] on page: [{}]",
                 name, element.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterGetAttribute(WebElement element, String name, String result) {
-        log.info("Attribute [{}] = [{}]", name, result);
+        log.debug("Attribute [{}] = [{}]", name, SecretRedactor.redactMessage(result));
     }
 
     @Override
     public void beforeIsSelected(WebElement element) {
-        log.info("About to check isSelected on element: [{}] on page: [{}]",
+        log.debug("About to check isSelected on element: [{}] on page: [{}]",
                 element.toString(), PageContext.currentPage.get());
     }
 
     @Override
     public void afterIsSelected(WebElement element, boolean result) {
-        log.info("Element isSelected: [{}]", result);
+        log.debug("Element isSelected: [{}]", result);
     }
 
     @Override
     public void beforeIsEnabled(WebElement element) {
-        log.info("About to check isEnabled on element.");
+        log.debug("About to check isEnabled on element.");
     }
 
     @Override
     public void afterIsEnabled(WebElement element, boolean result) {
-        log.info("Element isEnabled: [{}]", result);
+        log.debug("Element isEnabled: [{}]", result);
     }
 
     @Override
     public void beforeGetText(WebElement element) {
-        log.info("About to get text from element.");
+        log.debug("About to get text from element.");
     }
 
     @Override
     public void afterGetText(WebElement element, String result) {
-        log.info("Element text: [{}]", result);
+        log.debug("Element text: [{}]", SecretRedactor.redactMessage(result));
     }
 
     // -------------------------------------------------------------------------
@@ -322,6 +324,8 @@ public class WebEventListener extends TestBase implements WebDriverListener {
 
     public void onError(Object target, Method method, Object[] args, InvocationTargetException e) {
         log.error("Error in method [{}]: {}", method.getName(), e.getMessage());
+        Throwable cause = e.getTargetException() == null ? e : e.getTargetException();
+        ExecutionReporting.actionFailed(method.getName(), "", "WebDriver listener observed exception", cause, null);
     }
 
 

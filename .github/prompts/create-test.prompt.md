@@ -95,7 +95,7 @@ Follow `test-creation.instructions.md` exactly:
 - `@DataProvider` backed by Excel sheet `${Excel sheet name}`
 - **Strict 1:1 Test Case Generation Contract**: one Azure Test Case ID MUST produce exactly one `@Test` method. Never split one TC ID's steps, preconditions, validations, cleanup, alternate UI paths, or many assertions across multiple `@Test` methods. This rule has higher priority than granularity, readability, decomposition, or attempts to create smaller independent tests. Helper methods (`login()`, `createRequest()`, `validateRequest()`, etc.) are encouraged for readability, but helper methods must NOT carry `@Test` unless they represent a genuinely separate Azure TC ID. Distinct Azure TC IDs in the input must equal generated `@Test` method count (for example: 3 distinct TC IDs -> exactly 3 `@Test` methods). This contract concerns `@Test` METHOD count, not TestNG runtime invocation count -- one `@Test(dataProvider = "data")` method with 10 rows is still one `@Test` method. Before returning code, self-validate: (1) extract distinct TC IDs, (2) count them, (3) count generated `@Test` annotations, (4) verify counts match, (5) verify each `@Test` maps to exactly one TC ID, (6) verify no TC ID maps to multiple `@Test` methods, and (7) verify helper methods contain no `@Test`. If any check fails, the result is INVALID and must be corrected before returning it. See `formal-testcase-to-script.instructions.md` for full contract and examples.
 - `runMode` check first in every test method
-- **`step("...")` for EVERY formal test case step** -- steps must be 1-to-1 with the source test case; no steps may be skipped or merged without a documented reason
+- **SDK `step("...", () -> { ... })` for EVERY formal test case step** -- steps must be 1-to-1 with the source test case; no steps may be skipped or merged without a documented reason
 - **`Assert.*` for EVERY expected result** -- every formal expected result from the test case must have a matching assertion; a test step with no assertion does not count as covered
 - Cleanup at end of each test
 - ADO traceability comment in class JavaDoc (if ADO source)
@@ -247,7 +247,7 @@ Include in class JavaDoc:
 - [ ] Page object created/updated with `UNIQUE [x]` locators only
 - [ ] Test class created following template
 - [ ] Test Case Generation Contract validated: `@Test` count == distinct TC ID count (1:1, no splitting/merging)
-- [ ] **Every formal step has a `step("...")` call**
+- [ ] **Every formal step has an SDK `step("...", () -> { ... })` call**
 - [ ] **Every expected result has an `Assert.*` call**
 - [ ] Excel column mapping documented
 - [ ] `mvn compile test-compile` passes

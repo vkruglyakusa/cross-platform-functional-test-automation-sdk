@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -49,10 +50,11 @@ import com.test.automation.sdk.utility.QueryExcelFile;
 import com.test.automation.sdk.config.YamlConfigReader;
 import com.test.automation.sdk.execution.ExecutionContext;
 import com.test.automation.sdk.execution.RunMode;
+import com.test.automation.sdk.reporting.ExecutionEvidence;
+import com.test.automation.sdk.reporting.ExecutionReporting;
+import com.test.automation.sdk.reporting.SecretRedactor;
 import com.test.automation.sdk.session.AutomationSession;
 import com.test.automation.sdk.session.AutomationSessionFactory;
-import com.aventstack.extentreports.MediaEntityBuilder;
-import com.aventstack.extentreports.Status;
 import com.test.automation.sdk.utility.reports.ExtentManager;
 import com.test.automation.sdk.utility.reports.ExtentTestManager;
 import com.test.automation.sdk.utility.mailinator.MailinatorEmailReader;
@@ -149,6 +151,24 @@ public class TestBase {
 		return currentTestCaseName.get();
 	}
 
+	/**
+	 * Clears the current data-driven test case name for the running thread.
+	 * Framework-internal cleanup hook used by listener/reporting flows.
+	 */
+	public static void clearCurrentTestCaseName() {
+		currentTestCaseName.remove();
+	}
+
+	@FunctionalInterface
+	public interface StepAction {
+		void run() throws Exception;
+	}
+
+	@FunctionalInterface
+	public interface StepSupplier<T> {
+		T get() throws Exception;
+	}
+
 
 	/**
 	 * Creates a new test base instance and configures Log4j.
@@ -156,6 +176,45 @@ public class TestBase {
     public TestBase() {
         configureLogging();
 	}
+
+    /**
+     * Preferred SDK-owned business-step API. Emits one logical step to all
+     * configured reporting outputs, measures duration automatically, and
+     * rethrows the original exception on failure.
+     *
+     * @param stepName business-readable step name
+     * @param action executable step body
+     * @throws Exception any exception thrown by the step body
+     */
+    protected void step(String stepName, StepAction action) throws Exception {
+    	ExecutionReporting.step(this, stepName, action);
+    }
+
+    /**
+     * Supplier variant of {@link #step(String, StepAction)} for steps that return
+     * a value used later in the test flow.
+     *
+     * @param stepName business-readable step name
+     * @param action executable step body that returns a value
+     * @param <T> step return type
+     * @return value returned by the step body
+     * @throws Exception any exception thrown by the step body
+     */
+    protected <T> T step(String stepName, StepSupplier<T> action) throws Exception {
+    	return ExecutionReporting.step(this, stepName, action);
+    }
+
+    protected void reportInfo(String message) {
+    	ExecutionReporting.info(this, message);
+    }
+
+    protected void reportWarning(String message) {
+    	ExecutionReporting.warning(this, message);
+    }
+
+    protected void reportValidation(String description, String expected, String actual) {
+    	ExecutionReporting.validation(this, description, expected, actual);
+    }
 
 	/**
 	 * Configures Log4j from the SDK logging properties file.
@@ -186,9 +245,20 @@ public class TestBase {
 	 * @param element target element
 	 */
 	public void clickOnElementbyJavaScript(WebElement element) {
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		ExecutionReporting.actionStarted(this, "clickByJavaScript", locator, "Executing JavaScript click");
 		JavascriptExecutor js = (JavascriptExecutor) driver;
-		js.executeScript("arguments[0].click();", element);
-		log.info("Successfully Clicked WebElement: " + element);
+		try {
+			js.executeScript("arguments[0].click();", element);
+			ExecutionReporting.actionCompleted(this, "clickByJavaScript", locator,
+					"JavaScript click completed", System.currentTimeMillis() - startedAt);
+			log.debug("Successfully clicked WebElement via JavaScript: {}", locator);
+		} catch (RuntimeException e) {
+			ExecutionReporting.actionFailed(this, "clickByJavaScript", locator,
+					"JavaScript click failed", e, System.currentTimeMillis() - startedAt);
+			throw e;
+		}
 
 	}
 
@@ -224,10 +294,20 @@ public class TestBase {
 	 * @param url target URL
 	 */
 	public void getUrl(String url) {
-		log.info("navigating to :-" + url);
-		driver.get(url);
-		driver.manage().window().maximize();
-		waitUntillPageLoad();
+		long startedAt = System.currentTimeMillis();
+		ExecutionReporting.actionStarted(this, "navigate", "", "Navigating to " + url);
+		try {
+			log.info("Navigating to: {}", SecretRedactor.redactMessage(url));
+			driver.get(url);
+			driver.manage().window().maximize();
+			waitUntillPageLoad();
+			ExecutionReporting.actionCompleted(this, "navigate", "", "Navigation completed",
+					System.currentTimeMillis() - startedAt);
+		} catch (RuntimeException e) {
+			ExecutionReporting.actionFailed(this, "navigate", "", "Navigation failed",
+					e, System.currentTimeMillis() - startedAt);
+			throw e;
+		}
 	}
 
 	/**
@@ -334,7 +414,7 @@ public class TestBase {
 	 * @param result current test result
 	 */
 	protected void getScreenShot(WebDriver driver, ITestResult result) {
-		captureFailureScreenshot(driver, result, getScreenshotOutputDirectory());
+		captureFailureScreenshot(driver, result, getScreenshotOutputDirectory(), true);
 	}
 
 	/**
@@ -350,22 +430,32 @@ public class TestBase {
 	 */
 	@Deprecated
 	protected void getScreenShot(WebDriver driver, ITestResult result, String folderName) {
-		captureFailureScreenshot(driver, result, getScreenshotOutputDirectory());
+		captureFailureScreenshot(driver, result, getScreenshotOutputDirectory(), true);
 	}
 
-	private void captureFailureScreenshot(WebDriver driver, ITestResult result, File targetDirectory) {
-		if (driver == null) return;
+	public List<ExecutionEvidence> captureFailureEvidence(WebDriver driver, ITestResult result) {
+		List<ExecutionEvidence> evidence = new ArrayList<ExecutionEvidence>();
+		Path screenshotPath = captureFailureScreenshot(driver, result, getScreenshotOutputDirectory(), false);
+		if (screenshotPath != null) {
+			evidence.add(ExecutionEvidence.screenshot("Failure Screenshot", screenshotPath));
+		}
+		Path domPath = saveDomDumpFile(driver, resolveCaptureName(result));
+		if (domPath != null) {
+			evidence.add(ExecutionEvidence.domDump("Failure DOM", domPath));
+		}
+		return evidence;
+	}
+
+	private Path captureFailureScreenshot(WebDriver driver, ITestResult result, File targetDirectory, boolean attachToExtent) {
+		if (driver == null) return null;
 		try { driver.getWindowHandles(); } catch (Exception e) {
 			log.warn("getScreenShot skipped -- session no longer active");
-			return;
+			return null;
 		}
 		Calendar calendar = Calendar.getInstance();
 		SimpleDateFormat formater = new SimpleDateFormat("dd_MM_yyyy_hh_mm_ss");
 
-		String testCaseName = getCurrentTestCaseName();
-		String methodName = (testCaseName != null && !testCaseName.trim().isEmpty())
-				? sanitizeFileName(testCaseName)
-				: result.getName();
+		String methodName = resolveCaptureName(result);
 
 		File scrFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
 		try {
@@ -375,12 +465,18 @@ public class TestBase {
 
 			Reporter.log("<a href='" + destFile.getAbsolutePath() + "'> <img src='" + destFile.getAbsolutePath()
 			+ "' height='100' width='100'/> </a>");
-			String screenshotPath = destFile.getAbsolutePath();
-			ExtentTestManager.getTest().fail("Screenshot",
-					MediaEntityBuilder.createScreenCaptureFromPath(screenshotPath).build());
+			if (attachToExtent && ExtentTestManager.getTest() != null) {
+				try {
+					ExtentTestManager.getTest().addScreenCaptureFromPath(destFile.getAbsolutePath(), "Screenshot");
+				} catch (Exception e) {
+					log.debug("[TestBase] Extent screenshot attachment skipped: {}", e.getMessage());
+				}
+			}
+			return destFile.toPath();
 
 		} catch (IOException e) {
 			log.error("[TestBase] Failed to capture test result screenshot {}", methodName, e);
+			return null;
 		}
 	}
 
@@ -393,7 +489,11 @@ public class TestBase {
 	 * @param testName file name prefix (test case name or method name)
 	 */
 	public void saveDomDump(WebDriver driver, String testName) {
-		if (driver == null) return;
+		saveDomDumpFile(driver, testName);
+	}
+
+	protected Path saveDomDumpFile(WebDriver driver, String testName) {
+		if (driver == null) return null;
 		try {
 			// Try JS outerHTML first -- captures live Angular/React rendered DOM.
 			// Fall back to driver.getPageSource() if JS execution fails.
@@ -434,8 +534,10 @@ public class TestBase {
 			Reporter.log("<a href='file:///" + dumpFile.getAbsolutePath().replace("\\", "/")
 				+ "' target='_blank'>DOM snapshot: " + dumpFile.getName() + "</a>");
 			log.info("[TestBase] DOM dump saved: {}", dumpFile.getAbsolutePath());
+			return dumpFile.toPath();
 		} catch (Exception e) {
 			log.warn("[TestBase] Failed to save DOM dump for {}: {}", testName, e.getMessage());
+			return null;
 		}
 	}
 
@@ -477,15 +579,17 @@ public class TestBase {
 	 * @param result current test result
 	 */
 	protected void getresult(ITestResult result) {
+		if (result == null) {
+			return;
+		}
 		if (result.getStatus() == ITestResult.SUCCESS) {
-			ExtentTestManager.getTest().log(Status.PASS, "Test passed");
+			ExecutionReporting.onTestPassed(result);
 		} else if (result.getStatus() == ITestResult.SKIP) {
-			ExtentTestManager.getTest().log(Status.SKIP,
-					result.getName() + " test is skipped and skip reason is:-" + result.getThrowable());
+			ExecutionReporting.onTestSkipped(result);
 		} else if (result.getStatus() == ITestResult.FAILURE) {
-			ExtentTestManager.getTest().log(Status.FAIL, result.getName() + " test is failed" + result.getThrowable());
+			ExecutionReporting.onTestFailed(result, result.getThrowable(), new ArrayList<ExecutionEvidence>());
 		} else if (result.getStatus() == ITestResult.STARTED) {
-			ExtentTestManager.startTest(result.getMethod().getMethodName() + " test is started");
+			ExecutionReporting.onTestStarted(result);
 		}
 	}
 
@@ -615,7 +719,10 @@ public class TestBase {
 	 * @throws IOException
 	 */
 	public void verifyText(String desiredText, String actualTextFromWebElement) {
-		log.info("Verifying text: expected=[" + desiredText + "] actual=[" + actualTextFromWebElement + "]");
+		log.info("Verifying text: expected=[{}] actual=[{}]",
+				SecretRedactor.redactMessage(desiredText),
+				SecretRedactor.redactMessage(actualTextFromWebElement));
+		ExecutionReporting.validation(this, "Verify text", desiredText, actualTextFromWebElement);
 		Assert.assertEquals(actualTextFromWebElement, desiredText,
 				"Text mismatch: expected [" + desiredText + "] but was [" + actualTextFromWebElement + "]");
 	}
@@ -679,7 +786,7 @@ public class TestBase {
 		int number = random.nextInt(100000);
 		String randoms = String.format("%06d", number);
 		emailAddress = "test" + randoms + "@doitt.nyc.gov";
-		log.info("System has generated password: " + emailAddress);
+		log.info("System has generated email address: {}", emailAddress);
 		return emailAddress;
 	}
 
@@ -1362,18 +1469,28 @@ public class TestBase {
 	 * StaleElementReferenceException.
 	 */
 	public void clearAndType(WebElement element, String text) {
-		log.info("clearAndType on element [" + element.toString() + "] with text [" + text + "]");
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		String redactedText = SecretRedactor.redactTypedValue(locator, text);
+		log.debug("clearAndType on element [{}] with text [{}]", locator, redactedText);
+		ExecutionReporting.actionStarted(this, "type", locator, "Typing value [" + redactedText + "]");
 		int maxAttempts = 3;
 		for (int attempt = 1; attempt <= maxAttempts; attempt++) {
 			try {
 				waitUntilElementToBeClickable(element);
 				element.clear();
 				element.sendKeys(text);
+				ExecutionReporting.actionCompleted(this, "type", locator, "Typed value",
+						System.currentTimeMillis() - startedAt);
 				return;
 			} catch (StaleElementReferenceException | ElementNotInteractableException e) {
 				log.warn("clearAndType attempt " + attempt + "/" + maxAttempts
 						+ " failed on [" + element.toString() + "]: " + e.getMessage());
-				if (attempt == maxAttempts) throw e;
+				if (attempt == maxAttempts) {
+					ExecutionReporting.actionFailed(this, "type", locator, "Typing failed", e,
+							System.currentTimeMillis() - startedAt);
+					throw e;
+				}
 			}
 		}
 	}
@@ -1386,17 +1503,26 @@ public class TestBase {
 	 * @param element the target element
 	 */
 	public void safeClick(WebElement element) {
-		log.info("safeClick on element [" + element.toString() + "]");
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		log.debug("safeClick on element [{}]", locator);
+		ExecutionReporting.actionStarted(this, "click", locator, "Clicking element");
 		int maxAttempts = 3;
 		for (int attempt = 1; attempt <= maxAttempts; attempt++) {
 			try {
 				fluentWaitUntilElementToBeClickable(element);
 				element.click();
+				ExecutionReporting.actionCompleted(this, "click", locator, "Click completed",
+						System.currentTimeMillis() - startedAt);
 				return;
 			} catch (WebDriverException e) {
 				log.warn("safeClick attempt " + attempt + "/" + maxAttempts
 						+ " failed on [" + element.toString() + "]: " + e.getMessage());
-				if (attempt == maxAttempts) throw e;
+				if (attempt == maxAttempts) {
+					ExecutionReporting.actionFailed(this, "click", locator, "Click failed", e,
+							System.currentTimeMillis() - startedAt);
+					throw e;
+				}
 				waitUntillPageLoad();
 			}
 		}
@@ -1411,16 +1537,26 @@ public class TestBase {
 	 * @return the trimmed visible text of the element
 	 */
 	public String safeGetText(WebElement element) {
-		log.info("safeGetText on element [" + element.toString() + "]");
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		log.debug("safeGetText on element [{}]", locator);
+		ExecutionReporting.actionStarted(this, "getText", locator, "Reading text");
 		int maxAttempts = 3;
 		for (int attempt = 1; attempt <= maxAttempts; attempt++) {
 			try {
 				waitForElementPresent(driver, element);
-				return element.getText().trim();
+				String text = element.getText().trim();
+				ExecutionReporting.actionCompleted(this, "getText", locator, "Read text",
+						System.currentTimeMillis() - startedAt);
+				return text;
 			} catch (StaleElementReferenceException e) {
 				log.warn("safeGetText attempt " + attempt + "/" + maxAttempts
 						+ " failed: " + e.getMessage());
-				if (attempt == maxAttempts) throw e;
+				if (attempt == maxAttempts) {
+					ExecutionReporting.actionFailed(this, "getText", locator, "Reading text failed", e,
+							System.currentTimeMillis() - startedAt);
+					throw e;
+				}
 			}
 		}
 		return "";
@@ -1746,9 +1882,20 @@ public class TestBase {
 	 * Sends keys to the current alert/prompt. Waits up to 10 seconds for it.
 	 */
 	public void sendKeysToAlert(String text) {
-		log.info("Sending keys [" + text + "] to alert");
+		long startedAt = System.currentTimeMillis();
+		String redactedText = SecretRedactor.redactTypedValue("alert", text);
+		log.debug("Sending keys [{}] to alert", redactedText);
+		ExecutionReporting.actionStarted(this, "alertType", "alert", "Typing alert value [" + redactedText + "]");
 		Alert alert = waitForAlert(10);
-		alert.sendKeys(text);
+		try {
+			alert.sendKeys(text);
+			ExecutionReporting.actionCompleted(this, "alertType", "alert", "Alert text entered",
+					System.currentTimeMillis() - startedAt);
+		} catch (RuntimeException e) {
+			ExecutionReporting.actionFailed(this, "alertType", "alert", "Alert text entry failed", e,
+					System.currentTimeMillis() - startedAt);
+			throw e;
+		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -1812,8 +1959,20 @@ public class TestBase {
 	 * Selects a dropdown option by its value attribute.
 	 */
 	public void selectByValue(WebElement element, String value) {
-		log.info("Selecting option with value [" + value + "] in dropdown: " + element.toString());
-		new Select(element).selectByValue(value);
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		String redactedValue = SecretRedactor.redactTypedValue(locator, value);
+		log.debug("Selecting option with value [{}] in dropdown: {}", redactedValue, locator);
+		ExecutionReporting.actionStarted(this, "selectByValue", locator, "Selecting [" + redactedValue + "]");
+		try {
+			new Select(element).selectByValue(value);
+			ExecutionReporting.actionCompleted(this, "selectByValue", locator, "Selection completed",
+					System.currentTimeMillis() - startedAt);
+		} catch (RuntimeException e) {
+			ExecutionReporting.actionFailed(this, "selectByValue", locator, "Selection failed", e,
+					System.currentTimeMillis() - startedAt);
+			throw e;
+		}
 	}
 
 	/**
@@ -1826,12 +1985,25 @@ public class TestBase {
 	 * @param value   the option value to select
 	 */
 	public void selectByValueAngular(WebElement element, String value) {
-		log.info("selectByValueAngular: setting value [" + value + "]");
-		((org.openqa.selenium.JavascriptExecutor) driver).executeScript(
-			"arguments[0].value = arguments[1];" +
-			"arguments[0].dispatchEvent(new Event('input',  {bubbles:true}));" +
-			"arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
-			element, value);
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		String redactedValue = SecretRedactor.redactTypedValue(locator, value);
+		log.debug("selectByValueAngular: setting value [{}]", redactedValue);
+		ExecutionReporting.actionStarted(this, "selectByValueAngular", locator,
+				"Selecting angular value [" + redactedValue + "]");
+		try {
+			((org.openqa.selenium.JavascriptExecutor) driver).executeScript(
+				"arguments[0].value = arguments[1];" +
+				"arguments[0].dispatchEvent(new Event('input',  {bubbles:true}));" +
+				"arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+				element, value);
+			ExecutionReporting.actionCompleted(this, "selectByValueAngular", locator, "Angular selection completed",
+					System.currentTimeMillis() - startedAt);
+		} catch (RuntimeException e) {
+			ExecutionReporting.actionFailed(this, "selectByValueAngular", locator, "Angular selection failed", e,
+					System.currentTimeMillis() - startedAt);
+			throw e;
+		}
 	}
 
 	/**
@@ -1844,7 +2016,11 @@ public class TestBase {
 	 * @param text    the value to type
 	 */
 	public void clearAndTypeAngular(WebElement element, String text) {
-		log.info("clearAndTypeAngular on element [" + element.toString() + "] with text [" + text + "]");
+		long startedAt = System.currentTimeMillis();
+		String locator = describeElement(element);
+		String redactedText = SecretRedactor.redactTypedValue(locator, text);
+		log.debug("clearAndTypeAngular on element [{}] with text [{}]", locator, redactedText);
+		ExecutionReporting.actionStarted(this, "typeAngular", locator, "Typing angular value [" + redactedText + "]");
 		int maxAttempts = 3;
 		for (int attempt = 1; attempt <= maxAttempts; attempt++) {
 			try {
@@ -1856,10 +2032,16 @@ public class TestBase {
 					"arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
 					element);
 				element.sendKeys(org.openqa.selenium.Keys.TAB);
+				ExecutionReporting.actionCompleted(this, "typeAngular", locator, "Angular typing completed",
+						System.currentTimeMillis() - startedAt);
 				return;
 			} catch (StaleElementReferenceException | ElementNotInteractableException e) {
 				log.warn("clearAndTypeAngular attempt " + attempt + "/3 failed: " + e.getMessage());
-				if (attempt == maxAttempts) throw e;
+				if (attempt == maxAttempts) {
+					ExecutionReporting.actionFailed(this, "typeAngular", locator, "Angular typing failed", e,
+							System.currentTimeMillis() - startedAt);
+					throw e;
+				}
 			}
 		}
 	}
@@ -2693,6 +2875,21 @@ public class TestBase {
 	private static String sanitizeFileName(String name) {
 		if (name == null) return "unknown";
 		return name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+	}
+
+	private String resolveCaptureName(ITestResult result) {
+		String testCaseName = getCurrentTestCaseName();
+		if (testCaseName != null && !testCaseName.trim().isEmpty()) {
+			return sanitizeFileName(testCaseName);
+		}
+		if (result != null && result.getName() != null && !result.getName().trim().isEmpty()) {
+			return sanitizeFileName(result.getName());
+		}
+		return "unknown";
+	}
+
+	private String describeElement(WebElement element) {
+		return element == null ? "null-element" : SecretRedactor.redactMessage(String.valueOf(element));
 	}
 
 	/**

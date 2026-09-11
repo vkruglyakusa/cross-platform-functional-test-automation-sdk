@@ -1,14 +1,11 @@
 package com.test.automation.sdk.listener;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.List;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.openqa.selenium.OutputType;
-import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.testng.IInvokedMethod;
 import org.testng.IInvokedMethodListener;
@@ -20,12 +17,10 @@ import org.testng.ITestResult;
 import org.testng.Reporter;
 import org.testng.internal.BaseTestMethod;
 
-import com.aventstack.extentreports.Status;
-
-
 import io.qameta.allure.Allure;
-import io.qameta.allure.Attachment;
 
+import com.test.automation.sdk.reporting.ExecutionEvidence;
+import com.test.automation.sdk.reporting.ExecutionReporting;
 import com.test.automation.sdk.testbase.*;
 import com.test.automation.sdk.utility.reports.ExtentManager;
 import com.test.automation.sdk.utility.reports.ExtentTestManager;
@@ -48,7 +43,6 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 	}
 
 	public void onStart(ITestContext context) {
-		ExtentTestManager.startTest(context.getName());
 		Reporter.log("\n ========About to begin executing Test " + context.getName() + "========= \n", true);
 	}
 
@@ -60,7 +54,6 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 	@Override
 	public void onTestFailure(ITestResult result) {
 		printTestResults(result);
-		ExtentTestManager.getTest().log(Status.FAIL, "Test Failed");
 
 		// Phase 4 fix: TestBase.driver is now an instance field (was static), so it
 		// can no longer be read via the class-qualified TestBase.driver. Listener is
@@ -73,6 +66,7 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 		if (testInstance instanceof TestBase) {
 			driver = ((TestBase) testInstance).driver;
 		}
+		List<ExecutionEvidence> evidence = null;
 		if (driver != null) {
 			try {
 				// Guard: check session is still alive before taking screenshot
@@ -80,31 +74,35 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 				String testCaseName = TestBase.getCurrentTestCaseName();
 				String captureName = (testCaseName != null && !testCaseName.trim().isEmpty())
 						? testCaseName : getTestMethodName(result);
-				getScreenShot(driver, result);
-				saveDomDump(driver, captureName);
+				if (testInstance instanceof TestBase) {
+					evidence = ((TestBase) testInstance).captureFailureEvidence(driver, result);
+				}
 				log.info("Screenshot and DOM dump captured for: {}", captureName);
-				takeScreenshot(driver);
 			} catch (Exception e) {
 				log.warn("Screenshot/DOM dump skipped -- driver session no longer active: " + e.getMessage());
 			}
 		}
+		ExecutionReporting.onTestFailed(result, result.getThrowable(), evidence);
 		saveTextLog(getTestMethodName(result) + " failed and screenshot taken!");
+		TestBase.clearCurrentTestCaseName();
 	}
 
 	public void onTestSkipped(ITestResult result) {
 		Reporter.log("Test is skipped:" + result.getMethod().getMethodName());
-		ExtentTestManager.getTest().log(Status.SKIP, " test is skipped and skip reason is:-" + result.getThrowable());
+		ExecutionReporting.onTestSkipped(result);
+		TestBase.clearCurrentTestCaseName();
 	}
 
 	public void onTestStart(ITestResult result) {
 		testMethodParameters = getTestInputArguments(result);
 		setTestNameInXml(result);
-		ExtentTestManager.startTest(StringUtils.substringAfterLast(result.getTestClass().getName(), ".") + "." + result.getMethod().getMethodName());
+		ExecutionReporting.onTestStarted(result);
 	}
 
 	public void onTestSuccess(ITestResult result) {
 		printTestResults(result);
-		ExtentTestManager.getTest().log(Status.PASS, "Test passed");
+		ExecutionReporting.onTestPassed(result);
+		TestBase.clearCurrentTestCaseName();
 	}
 
 	private void printTestResults(ITestResult result) {
@@ -205,16 +203,9 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 		}
 	}
 	
-	@Attachment(value = "Page screenshot", type = "image/png")
-	private void takeScreenshot(WebDriver webDriver) throws IOException {
-		  File screenshotAs = ((TakesScreenshot) webDriver).getScreenshotAs(OutputType.FILE);
-		  Allure.addAttachment("Screenshot", FileUtils.openInputStream(screenshotAs));
-		 }
-		
-
 	// Text attachments for Allure
-	@Attachment(value = "{0}", type = "text/plain")
 	public static String saveTextLog(String message) {
+		Allure.addAttachment(message, "text/plain", message);
 		return message;
 	}
 	

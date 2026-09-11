@@ -338,7 +338,9 @@ public void scrollAndVerify() {
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `getScreenShot` | `getScreenShot(String name)` | Captures a screenshot to the output directory with a timestamp. |
-| `getScreenShot` | `getScreenShot(WebDriver driver, ITestResult result)` | Standard failure-capture API -- writes directly to `reporting.screenshotsDir` (paired with the DOM dump) and attaches it to the Extent report. |
+| `step` | `step(String stepName, StepAction action)` | Preferred SDK-owned business-step API. Publishes one logical step to logs, Allure, and Extent; measures duration automatically; and rethrows the original exception on failure. |
+| `step` | `<T> step(String stepName, StepSupplier<T> action)` | Supplier variant for steps that need to return a value for later assertions or flow control. |
+| `getScreenShot` | `getScreenShot(WebDriver driver, ITestResult result)` | Standard failure-capture API -- writes directly to `reporting.screenshotsDir`; when called directly it can still attach to Extent, while the automatic listener path captures once and reuses the evidence across reporters. |
 | `getScreenShot` *(deprecated)* | `getScreenShot(WebDriver driver, ITestResult result, String folderName)` | Deprecated: `folderName` is now ignored (previously nested a hidden extra subfolder under `reporting.screenshotsDir`). Use the 2-arg overload. |
 | `captureScreen` | `captureScreen(String fileName)` | Captures a screenshot and returns the absolute file path. |
 | `saveDomDump` | `saveDomDump(WebDriver driver, String testName)` | Saves a DOM dump HTML file to `screenshots.outputDir`, paired with the screenshot artifact when used on failure. |
@@ -369,8 +371,9 @@ start of the `@Test` method. Listener reads that value and:
 - Names the DOM dump with the same base name plus `_DOM.html`
 - Logs a clickable `file:///` link to the DOM dump into the TestNG HTML report
 
-On failure, `Listener.onTestFailure()` automatically captures both artifacts with
-matching base names in `test-output/screenshots/`:
+On failure, `Listener.onTestFailure()` automatically captures both artifacts once,
+publishes shared evidence references to Allure/Extent/logs, and keeps matching
+base names in `test-output/screenshots/`:
 
 1. Screenshot PNG
 2. DOM dump HTML
@@ -394,8 +397,9 @@ Call `setCurrentTestCaseName(testCaseName)` at the start of every data-driven `@
 public void testLogin(String testCaseName, String email, String password, String runMode) {
     if ("N".equalsIgnoreCase(runMode)) throw new SkipException("Skipping: " + testCaseName);
     setCurrentTestCaseName(testCaseName);   // add this line
-    step("Open login page");
-    // ... rest of test
+    step("Open login page", () -> {
+        // ... rest of test
+    });
 }
 ```
 
@@ -566,26 +570,30 @@ templates:
 
 ```java
 // -- URL extraction -- navigate to a confirmation link ---------------------
-step("Get confirmation URL from email");
-String confirmUrl = getConfirmationEmailUrl(baseURL, "testuser@mailinator.com");
-driver.get(confirmUrl);
-waitUntillPageLoad();
+step("Get confirmation URL from email", () -> {
+    String confirmUrl = getConfirmationEmailUrl(baseURL, "testuser@mailinator.com");
+    driver.get(confirmUrl);
+    waitUntillPageLoad();
+});
 
 // -- URL extraction -- custom template -------------------------------------
-step("Get password reset link");
-String resetUrl = getEmailUrl("passwordReset", baseURL, "testuser@mailinator.com");
-driver.get(resetUrl);
+step("Get password reset link", () -> {
+    String resetUrl = getEmailUrl("passwordReset", baseURL, "testuser@mailinator.com");
+    driver.get(resetUrl);
+});
 
 // -- Text extraction -- OTP code --------------------------------------------
-step("Get OTP code from email");
-String otp = getEmailText("otpCode", "testuser@mailinator.com");
-Assert.assertNotNull(otp, "OTP code was not received in email");
-myPage.enterOtp(otp);
+step("Get OTP code from email", () -> {
+    String otp = getEmailText("otpCode", "testuser@mailinator.com");
+    Assert.assertNotNull(otp, "OTP code was not received in email");
+    myPage.enterOtp(otp);
+});
 
 // -- Text extraction -- account number -------------------------------------
-step("Get account number from welcome email");
-String accountId = getEmailText("accountId", "testuser@mailinator.com");
-verifyText(expectedAccountId, accountId);
+step("Get account number from welcome email", () -> {
+    String accountId = getEmailText("accountId", "testuser@mailinator.com");
+    verifyText(expectedAccountId, accountId);
+});
 
 // -- Manual delete -- when you need to clean up without reading -------------
 // (auto-delete already happens after getEmailUrl / getEmailText)
@@ -650,14 +658,14 @@ public class Test_MyFeature extends TestBase {
     public void testScenario(String testCaseName, String inputField, String runMode) throws Exception {
         if ("N".equalsIgnoreCase(runMode)) throw new SkipException("Skipping: " + testCaseName);
 
-        step("Open the form page");
         MyPage page = new MyPage(driver);
-        page.enterValue(inputField);
+        step("Open the form page", () -> page.enterValue(inputField));
 
-        step("Submit and verify result");
-        page.clickSubmit();
-        String result = safeGetText(page.resultLabel);
-        verifyText("Success", result);
+        step("Submit and verify result", () -> {
+            page.clickSubmit();
+            String result = safeGetText(page.resultLabel);
+            verifyText("Success", result);
+        });
     }
 }
 ```
@@ -890,4 +898,3 @@ discovered or traversed by any script or WebDriver command -- an intentional
 browser security boundary with no workaround.
 
 *API Reference updated for SDK v1.9.0*
-

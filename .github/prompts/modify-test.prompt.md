@@ -74,7 +74,7 @@ Follow the appropriate instruction file:
 - Never use raw `element.getText()` -- use `safeGetText(element)`
 - Never add a `@Test` method without a `@DataProvider`
 - Never remove the `runMode` skip check
-- **Every new step in the test case must have a `step("...")` call**
+- **Every new step in the test case must have an SDK `step("...", () -> { ... })` call**
 - **Every expected result must have a matching `Assert.*` call**
 
 ### Step 4 -- Update Excel Data (if needed)
@@ -143,7 +143,7 @@ After `mvn test` passes, output:
 - [ ] Existing code read before any change was made
 - [ ] Crawler re-run if any locator was modified
 - [ ] Change applied following correct instruction file
-- [ ] **Every new step has a `step("...")` call**
+- [ ] **Every new step has an SDK `step("...", () -> { ... })` call**
 - [ ] **Every expected result has an `Assert.*` call**
 - [ ] Excel data updated if new scenario added
 - [ ] `mvn compile test-compile` passes

@@ -34,13 +34,13 @@ Extract and list:
 ### Step 2 -- Read the Current Automation Script
 Read the full content of `${Test class name}.java`.
 
-Map each `step("...")` and `Assert.*` call to the corresponding ADO step + expected result.
+Map each SDK `step("...", () -> { ... })` and `Assert.*` call to the corresponding ADO step + expected result.
 
 Build a comparison table:
 ```
-| ADO Step | ADO Expected Result | Automated step("...") | Assertion | Match? |
+| ADO Step | ADO Expected Result | Automated SDK step(...) | Assertion | Match? |
 |---|---|---|---|---|
-| 1. Enter credentials | Login successful | step("Enter credentials") | assertTrue(dashboard.isVisible()) | ? |
+| 1. Enter credentials | Login successful | step("Enter credentials", () -> { ... }) | assertTrue(dashboard.isVisible()) | ? |
 | 2. Click logout | Session ended | ? NOT FOUND | ? NOT FOUND | ? DRIFT |
 ```
 
@@ -50,7 +50,7 @@ Drift conditions that require a test update:
 
 | Drift Type | Condition | Required Action |
 |---|---|---|
-| **Missing step** | ADO step has no matching `step("...")` in test | Add the missing step + assertion |
+| **Missing step** | ADO step has no matching SDK `step(...)` in test | Add the missing step + assertion |
 | **Missing assertion** | ADO expected result has no matching `Assert.*` | Add assertion for that expected result |
 | **Changed expected result** | ADO expected result text differs from assertion logic | Update assertion to match ADO intent |
 | **Extra step in test** | Test has `step()` with no ADO counterpart | Review -- may be setup/teardown, may be stale |
