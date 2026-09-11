@@ -19,6 +19,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.2.0] — 2026-09-11
+
 ### Changed
 - **OBS-8 unified execution reporting:** added a lightweight SDK-owned reporting layer (`sdk.reporting.ExecutionReporting`) so one logical test/step/action/evidence event stream now fans out to logs, Allure, and Extent. Business steps use inherited `TestBase.step("...", () -> { ... })`, step duration/status is automatic, failures preserve the original exception, and failure evidence is captured once then reused across reporters.
 - **AI test-generation guidance:** SDK docs/prompts/instructions now teach one Azure Test Case ID -> one `@Test` method with multiple SDK business steps via `step("...", () -> { ... })`, instead of direct vendor-specific Allure step calls.

@@ -1,9 +1,9 @@
 # Framework Automation SDK
 
-![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.1.4-blue)
+![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.2.0-blue)
 
 > **Reusable Selenium + TestNG framework layer for OTI QA Automation**  
-> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.4`
+> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.2.0`
 
 This SDK is a single JAR that consumer automation projects depend on.
 It provides TestBase, WebDriverFactory, ElementCrawler, listeners, utilities,
@@ -82,7 +82,7 @@ The template already has the SDK dependency, suite XMLs, config files, and folde
 <dependency>
   <groupId>com.test.automation</groupId>
   <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-<version>1.1.4</version>
+<version>1.2.0</version>
 </dependency>
 ```
 
@@ -349,4 +349,4 @@ cross-platform-functional-test-automation-sdk/
 ---
 
 *Maintained by OTI QA Automation Team*  
-*SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.1.4`*
+*SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.2.0`*
