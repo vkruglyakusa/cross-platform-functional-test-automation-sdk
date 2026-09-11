@@ -794,8 +794,39 @@ public class PageObjectGenerator {
                     sb.append(Character.toUpperCase(words[i].charAt(0)))
                       .append(words[i].substring(1).toLowerCase());
             }
-            return sb.length() > 0 ? sb.toString() : "element";
+            String name = sb.length() > 0 ? sb.toString() : "element";
+            return sanitizeIdentifier(name);
         }
+
+        /**
+         * Guarantees the returned name is a legal Java identifier and not a
+         * reserved keyword, since generated field names come directly from
+         * page text/attributes (e.g. "311" or "Public Safety" would otherwise
+         * produce the illegal field declarations "311" or "public").
+         */
+        private String sanitizeIdentifier(String name) {
+            if (name.isEmpty() || Character.isDigit(name.charAt(0))) {
+                name = "el" + name;
+            }
+            if (JAVA_KEYWORDS.contains(name) || RESERVED_FIELD_NAMES.contains(name)) {
+                name = name + "Field";
+            }
+            return name;
+        }
+
+        // Names already used by the generated class's own boilerplate
+        // (static logger field, constructor's WebDriver parameter) -- a
+        // scraped field must never collide with these.
+        private static final java.util.Set<String> RESERVED_FIELD_NAMES = new java.util.HashSet<>(
+                java.util.Arrays.asList("log", "driver"));
+
+        private static final java.util.Set<String> JAVA_KEYWORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+                "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const",
+                "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float",
+                "for", "goto", "if", "implements", "import", "instanceof", "int", "interface", "long", "native",
+                "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp",
+                "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void",
+                "volatile", "while", "true", "false", "null", "var", "yield", "record", "sealed", "permits"));
     }
 
     // -------------------------------------------------------------------------

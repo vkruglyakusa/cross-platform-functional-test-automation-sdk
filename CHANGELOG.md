@@ -21,6 +21,13 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.2.1] — 2026-09-11
+
+### Fixed
+- **PageObjectGenerator illegal field names:** generated field names are now sanitized before being written into a page object -- names starting with a digit (e.g. scraped text `"311"`) are prefixed (`el311`), and names that collide with a Java reserved keyword (e.g. scraped text `"Public"` -> `public`) or with the generated class's own boilerplate fields (`log`, `driver`) are suffixed (`publicField`), preventing generated `.java` files from failing to compile.
+
+---
+
 ## [1.2.0] — 2026-09-11
 
 ### Changed
