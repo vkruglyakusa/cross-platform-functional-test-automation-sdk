@@ -23,7 +23,8 @@ class MobileSessionFactoryMetadataTest {
     void androidBrowserStack_reportsCorrectMetadata() {
         AndroidBrowserStackSessionFactory factory = new AndroidBrowserStackSessionFactory();
         assertEquals(Platform.ANDROID, factory.getPlatform());
-        assertEquals(RunMode.BROWSERSTACK, factory.getRunMode());
+        assertEquals(RunMode.REMOTE, factory.getRunMode());
+        assertEquals("browserstack", factory.getProviderId().value());
         assertTrue(factory.isRemote());
     }
 
@@ -39,7 +40,8 @@ class MobileSessionFactoryMetadataTest {
     void iosBrowserStack_reportsCorrectMetadata() {
         IosBrowserStackSessionFactory factory = new IosBrowserStackSessionFactory();
         assertEquals(Platform.IOS, factory.getPlatform());
-        assertEquals(RunMode.BROWSERSTACK, factory.getRunMode());
+        assertEquals(RunMode.REMOTE, factory.getRunMode());
+        assertEquals("browserstack", factory.getProviderId().value());
         assertTrue(factory.isRemote());
     }
 }

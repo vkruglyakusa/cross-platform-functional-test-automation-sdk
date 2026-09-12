@@ -50,12 +50,12 @@ class AutomationSessionFactoryTest {
 
     @AfterEach
     void restoreRealFactories() {
-        SessionFactoryRegistry.register(new WebLocalSessionFactory());
-        SessionFactoryRegistry.register(new WebBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new AndroidLocalSessionFactory());
-        SessionFactoryRegistry.register(new AndroidBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new IosLocalSessionFactory());
-        SessionFactoryRegistry.register(new IosBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosBrowserStackSessionFactory());
     }
 
     private static SessionFactory fakeFactory(Platform platform, RunMode runMode, WebDriver toReturn) {
@@ -81,7 +81,7 @@ class AutomationSessionFactoryTest {
     @DisplayName("create() for a WEB context returns a SeleniumSession wrapping the resolved driver")
     void create_web_returnsSeleniumSession() {
         WebDriver mockDriver = mock(WebDriver.class);
-        SessionFactoryRegistry.register(fakeFactory(Platform.WEB, RunMode.LOCAL, mockDriver));
+        SessionFactoryRegistry.registerOrReplace(fakeFactory(Platform.WEB, RunMode.LOCAL, mockDriver));
 
         ExecutionContext context = ExecutionContext.forWeb("chrome", RunMode.LOCAL);
         AutomationSession session = AutomationSessionFactory.create(context);
@@ -94,7 +94,7 @@ class AutomationSessionFactoryTest {
     @DisplayName("create() for an ANDROID context returns an AppiumSession wrapping the resolved driver")
     void create_android_returnsAppiumSession() {
         AppiumDriver mockDriver = mock(AppiumDriver.class);
-        SessionFactoryRegistry.register(fakeFactory(Platform.ANDROID, RunMode.LOCAL, mockDriver));
+        SessionFactoryRegistry.registerOrReplace(fakeFactory(Platform.ANDROID, RunMode.LOCAL, mockDriver));
 
         ExecutionContext context = ExecutionContext.forMobile(Platform.ANDROID, "Pixel_6", RunMode.LOCAL);
         AutomationSession session = AutomationSessionFactory.create(context);
@@ -107,7 +107,7 @@ class AutomationSessionFactoryTest {
     @DisplayName("create() for an IOS context returns an AppiumSession wrapping the resolved driver")
     void create_ios_returnsAppiumSession() {
         AppiumDriver mockDriver = mock(AppiumDriver.class);
-        SessionFactoryRegistry.register(fakeFactory(Platform.IOS, RunMode.BROWSERSTACK, mockDriver));
+        SessionFactoryRegistry.registerOrReplace(fakeFactory(Platform.IOS, RunMode.BROWSERSTACK, mockDriver));
 
         ExecutionContext context = ExecutionContext.forMobile(Platform.IOS, "iPhone_15", RunMode.BROWSERSTACK);
         AutomationSession session = AutomationSessionFactory.create(context);

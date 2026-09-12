@@ -119,20 +119,20 @@ class MixedWebMobileIsolationTest {
     @BeforeEach
     void registerFakeFactories() throws ClassNotFoundException {
         Class.forName("com.test.automation.sdk.driver.DriverManager");
-        SessionFactoryRegistry.register(fakeWebFactory());
-        SessionFactoryRegistry.register(fakeAndroidFactory());
+        SessionFactoryRegistry.registerOrReplace(fakeWebFactory());
+        SessionFactoryRegistry.registerOrReplace(fakeAndroidFactory());
         System.setProperty("run.mode", "LOCAL");
     }
 
     @AfterEach
     void restoreRealFactories() {
         System.clearProperty("run.mode");
-        SessionFactoryRegistry.register(new WebLocalSessionFactory());
-        SessionFactoryRegistry.register(new WebBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new AndroidLocalSessionFactory());
-        SessionFactoryRegistry.register(new AndroidBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new IosLocalSessionFactory());
-        SessionFactoryRegistry.register(new IosBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosBrowserStackSessionFactory());
     }
 
     private static WebDriver newWebMock() {

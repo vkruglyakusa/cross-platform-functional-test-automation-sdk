@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -50,6 +52,7 @@ public final class MobilePageObjectGenerator {
 
     /** Renders the page object source as a string (unit-testable, no filesystem access). */
     public static String generate(String className, MobileScreenSnapshot snapshot) {
+        className = JavaIdentifier.requireTypeName(className, "className");
         String packageName = resolvePackage();
         StringBuilder sb = new StringBuilder();
         sb.append("package ").append(packageName).append(";\n\n");
@@ -74,6 +77,7 @@ public final class MobilePageObjectGenerator {
         sb.append("    }\n\n");
 
         int unresolvedCount = 0;
+        Map<String, Integer> fieldCounts = new LinkedHashMap<>();
         for (MobileElementInfo info : snapshot.getNativeElements()) {
             MobileLocatorCandidate best = info.getBestUniqueCandidate();
             if (best == null) {
@@ -91,7 +95,11 @@ public final class MobilePageObjectGenerator {
             }
             sb.append("    @CacheLookup\n");
             sb.append("    ").append(toFindByAnnotation(info.getPlatform(), best)).append('\n');
-            sb.append("    public WebElement ").append(info.getSuggestedFieldName()).append(";\n\n");
+            String baseName = JavaIdentifier.toFieldName(info.getSuggestedFieldName());
+            int occurrence = fieldCounts.getOrDefault(baseName, 0) + 1;
+            fieldCounts.put(baseName, occurrence);
+            String fieldName = occurrence == 1 ? baseName : baseName + occurrence;
+            sb.append("    public WebElement ").append(fieldName).append(";\n\n");
         }
 
         if (snapshot.hasWebViewContent()) {

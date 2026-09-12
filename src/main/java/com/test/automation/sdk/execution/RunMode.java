@@ -1,5 +1,7 @@
 package com.test.automation.sdk.execution;
 
+import com.test.automation.sdk.config.ConfigurationManager;
+
 /**
  * The execution target a test run is configured for -- local device/browser
  * vs. a remote cloud provider. This is the second of the two axes (the first
@@ -15,8 +17,16 @@ public enum RunMode {
     /** Local Selenium/Appium server (localhost browser, real device/emulator/simulator). */
     LOCAL,
 
-    /** BrowserStack (Automate for web, App Automate for mobile), via the official BrowserStack Java SDK/javaagent. */
-    BROWSERSTACK;
+    /** @deprecated Use {@link #REMOTE} with provider ID {@code browserstack}. */
+    @Deprecated
+    BROWSERSTACK,
+
+    /** @deprecated Use {@link #REMOTE} with an appropriate remote Appium provider ID. */
+    @Deprecated
+    REMOTE_APPIUM,
+
+    /** Generic remote execution mode; requires a provider identifier (e.g., "browserstack", "appium") */
+    REMOTE;
 
     // Future: GRID, SAUCE_LABS, LAMBDATEST, PERFECTO -- add here + a matching
     // SessionFactory implementation per Platform when a concrete need arises.
@@ -25,7 +35,7 @@ public enum RunMode {
      * Resolves which run mode the current test run is configured for.
      *
      * Resolution order:
-     *  1. {@code -Drun.mode=LOCAL|BROWSERSTACK} (canonical, platform-neutral; this is
+     *  1. {@code -Drun.mode=LOCAL|BROWSERSTACK|REMOTE_APPIUM|REMOTE} (canonical, platform-neutral; this is
      *     what new code and future provider profiles should set).
      *  2. Legacy mobile-only {@code -Dmobile.execution.target=LOCAL|BROWSERSTACK}
      *     (kept for backward compatibility with existing mobile Maven profiles).
@@ -51,6 +61,11 @@ public enum RunMode {
         String legacyFlag = System.getProperty("testInBrowserstack");
         if (legacyFlag != null && !legacyFlag.trim().isEmpty()) {
             return Boolean.parseBoolean(legacyFlag) ? BROWSERSTACK : LOCAL;
+        }
+
+        String configured = ConfigurationManager.resolve("execution.runMode", "");
+        if (configured != null && !configured.trim().isEmpty()) {
+            return parse("execution.runMode", configured);
         }
 
         return LOCAL;

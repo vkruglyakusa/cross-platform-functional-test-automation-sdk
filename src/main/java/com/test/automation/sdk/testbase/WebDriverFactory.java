@@ -1,6 +1,8 @@
 package com.test.automation.sdk.testbase;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
@@ -16,6 +18,7 @@ import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.events.EventFiringDecorator;
 import com.test.automation.sdk.listener.WebEventListener;
 import com.test.automation.sdk.config.YamlConfigReader;
@@ -74,6 +77,64 @@ public class WebDriverFactory {
                 return getFirefoxDriver();
             case "edge":
                 return getEdgeDriver();
+            default:
+                throw new IllegalArgumentException("[WebDriverFactory] Unsupported browser: " + browserName);
+        }
+    }
+
+    /** Creates a Selenium session on a remote Grid-compatible endpoint. */
+    public static WebDriver getRemoteWebDriver(String browserName, URI hubUri) {
+        if (hubUri == null) {
+            throw new IllegalArgumentException("hubUri must not be null");
+        }
+        configureJvmProxy();
+        Capabilities capabilities = remoteCapabilities(browserName);
+        try {
+            log.info("[WebDriverFactory] Launching remote {} session at {}://{}{}",
+                    browserName, hubUri.getScheme(), hubUri.getHost(),
+                    hubUri.getPort() < 0 ? "" : ":" + hubUri.getPort());
+            return wrapWithEventListener(new RemoteWebDriver(hubUri.toURL(), capabilities));
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException("Invalid Selenium Grid URL: " + hubUri, e);
+        }
+    }
+
+    /** Builds remote-safe browser capabilities without creating a session. */
+    static Capabilities remoteCapabilities(String browserName) {
+        if (browserName == null || browserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("browserName must not be null/empty");
+        }
+        boolean headless = YamlConfigReader.getBoolean("browser.headless", false);
+        String windowSize = YamlConfigReader.get("browser.windowSize", "1920x1080");
+        switch (browserName.trim().toLowerCase()) {
+            case "chrome": {
+                ChromeOptions options = new ChromeOptions();
+                options.setAcceptInsecureCerts(true);
+                options.addArguments("--window-size=" + windowSize.replace("x", ","));
+                if (headless) {
+                    options.addArguments("--headless=new");
+                }
+                configureChromeProxy(options);
+                return options;
+            }
+            case "firefox": {
+                FirefoxOptions options = new FirefoxOptions();
+                options.setAcceptInsecureCerts(true);
+                options.addArguments("--width=1920", "--height=1080");
+                if (headless) {
+                    options.addArguments("--headless");
+                }
+                return options;
+            }
+            case "edge": {
+                EdgeOptions options = new EdgeOptions();
+                options.setAcceptInsecureCerts(true);
+                options.addArguments("--window-size=" + windowSize.replace("x", ","));
+                if (headless) {
+                    options.addArguments("--headless=new");
+                }
+                return options;
+            }
             default:
                 throw new IllegalArgumentException("[WebDriverFactory] Unsupported browser: " + browserName);
         }

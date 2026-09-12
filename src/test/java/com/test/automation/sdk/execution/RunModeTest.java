@@ -14,6 +14,7 @@ class RunModeTest {
         System.clearProperty("run.mode");
         System.clearProperty("mobile.execution.target");
         System.clearProperty("testInBrowserstack");
+        System.clearProperty("execution.runMode");
     }
 
     @Test
@@ -31,6 +32,27 @@ class RunModeTest {
     void resolve_usesCanonicalRunModeProperty_whenSet() {
         System.setProperty("run.mode", "local");
         assertEquals(RunMode.LOCAL, RunMode.resolve());
+    }
+
+    @Test
+    void resolve_acceptsRemoteAppiumFromCanonicalAndLegacyProperties() {
+        System.setProperty("run.mode", "REMOTE_APPIUM");
+        assertEquals(RunMode.REMOTE_APPIUM, RunMode.resolve());
+        System.clearProperty("run.mode");
+        System.setProperty("mobile.execution.target", "remote_appium");
+        assertEquals(RunMode.REMOTE_APPIUM, RunMode.resolve());
+    }
+
+    @Test
+    void resolve_acceptsCanonicalRemoteMode() {
+        System.setProperty("run.mode", "remote");
+        assertEquals(RunMode.REMOTE, RunMode.resolve());
+    }
+
+    @Test
+    void resolve_acceptsConfiguredExecutionRunMode() {
+        System.setProperty("execution.runMode", "remote");
+        assertEquals(RunMode.REMOTE, RunMode.resolve());
     }
 
     @Test

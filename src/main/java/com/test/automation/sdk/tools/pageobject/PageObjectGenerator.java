@@ -285,6 +285,8 @@ public class PageObjectGenerator {
                                     String sourceUrl,
                                     List<ElementInfo> elements) {
 
+        className = JavaIdentifier.requireTypeName(className, "className");
+
         String timestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
@@ -782,19 +784,7 @@ public class PageObjectGenerator {
             else if (!el.text.isEmpty())       raw = el.text.split("\\s")[0];
             else raw = el.tag + fallback;
 
-            return toCamelCase(raw);
-        }
-
-        private String toCamelCase(String s) {
-            String[] words = s.replaceAll("[^a-zA-Z0-9 ]", " ").trim().split("\\s+");
-            if (words.length == 0 || words[0].isEmpty()) return "element";
-            StringBuilder sb = new StringBuilder(words[0].toLowerCase());
-            for (int i = 1; i < words.length; i++) {
-                if (!words[i].isEmpty())
-                    sb.append(Character.toUpperCase(words[i].charAt(0)))
-                      .append(words[i].substring(1).toLowerCase());
-            }
-            return sb.length() > 0 ? sb.toString() : "element";
+            return JavaIdentifier.toFieldName(raw);
         }
     }
 

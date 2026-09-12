@@ -97,4 +97,35 @@ class ExecutionContextTest {
                 AutomationTechnology.APPIUM);
         assertEquals(AutomationTechnology.APPIUM, ctx.getAutomationTechnology());
     }
+
+    @Test
+    void remoteContext_requiresAndRetainsProvider() {
+        ProviderId provider = new ProviderId("BrowserStack");
+        ExecutionContext ctx = ExecutionContext.forWebWithProvider("chrome", RunMode.REMOTE, provider);
+
+        assertEquals(new ProviderId("browserstack"), ctx.getProviderId());
+        assertEquals(RunMode.REMOTE, ctx.getRunMode());
+    }
+
+    @Test
+    void remoteContext_rejectsMissingProvider() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ExecutionContext.forWeb("chrome", RunMode.REMOTE));
+    }
+
+    @Test
+    void localContext_rejectsProvider() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ExecutionContext.forWebWithProvider("chrome", RunMode.LOCAL, new ProviderId("custom")));
+    }
+
+    @Test
+    void legacyProviderModes_remainUsableWithoutProviderDuringMigration() {
+        ExecutionContext browserStack = ExecutionContext.forWeb("chrome", RunMode.BROWSERSTACK);
+        ExecutionContext remoteAppium = ExecutionContext.forMobile(
+                Platform.ANDROID, "Pixel_6", RunMode.REMOTE_APPIUM);
+
+        assertEquals(null, browserStack.getProviderId());
+        assertEquals(null, remoteAppium.getProviderId());
+    }
 }

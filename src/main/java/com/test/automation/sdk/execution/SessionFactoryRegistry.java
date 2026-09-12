@@ -19,21 +19,36 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class SessionFactoryRegistry {
 
-    private static final Map<String, SessionFactory> FACTORIES = new ConcurrentHashMap<>();
+    private static final ProviderId BROWSERSTACK = new ProviderId("browserstack");
+    private static final ProviderId CUSTOM = new ProviderId("custom");
+    private static final Map<FactoryKey, SessionFactory> FACTORIES = new ConcurrentHashMap<>();
 
     private SessionFactoryRegistry() {}
 
     /**
      * Registers a factory for its own {@link SessionFactory#getPlatform()}/
      * {@link SessionFactory#getRunMode()}/
-     * {@link SessionFactory#getAutomationTechnology()}. Last registration for
-     * a given key wins.
+     * {@link SessionFactory#getAutomationTechnology()}/
+     * {@link SessionFactory#getProviderId()}.
+     *
+     * @throws IllegalArgumentException if the factory's provider ID is not compatible with its run mode
      */
     public static void register(SessionFactory factory) {
-        if (factory == null) {
-            throw new IllegalArgumentException("factory must not be null");
+        FactoryKey key = registrationKey(factory);
+        SessionFactory existing = FACTORIES.putIfAbsent(key, factory);
+        if (existing != null) {
+            throw new IllegalStateException("A SessionFactory is already registered for " + key);
         }
-        FACTORIES.put(key(factory.getPlatform(), factory.getRunMode(), factory.getAutomationTechnology()), factory);
+    }
+
+    /**
+     * Explicitly replaces an existing registration. This is intentionally
+     * separate from {@link #register(SessionFactory)} so production bootstrap
+     * detects accidental collisions while test fixtures and deliberate runtime
+     * reconfiguration remain possible.
+     */
+    public static void registerOrReplace(SessionFactory factory) {
+        FACTORIES.put(registrationKey(factory), factory);
     }
 
     /**
@@ -55,21 +70,32 @@ public final class SessionFactoryRegistry {
      * {@code null} defaults to the platform-implied technology.
      */
     public static SessionFactory resolve(Platform platform, RunMode runMode, AutomationTechnology technology) {
+        return resolve(platform, runMode, technology, null);
+    }
+
+    /** Resolves a factory using the complete provider-aware execution key. */
+    public static SessionFactory resolve(Platform platform, RunMode runMode,
+            AutomationTechnology technology, ProviderId providerId) {
         AutomationTechnology resolvedTechnology = technology == null
                 ? (platform == Platform.WEB ? AutomationTechnology.SELENIUM : AutomationTechnology.APPIUM)
                 : technology;
-        SessionFactory factory = FACTORIES.get(key(platform, runMode, resolvedTechnology));
+        FactoryKey key = canonicalKey(platform, runMode, resolvedTechnology, providerId);
+        SessionFactory factory = FACTORIES.get(key);
         if (factory == null) {
             throw new IllegalStateException(
                     "No SessionFactory registered for platform=" + platform + ", runMode=" + runMode
-                            + ", automationTechnology=" + resolvedTechnology);
+                            + ", automationTechnology=" + resolvedTechnology + ", providerId=" + providerId);
         }
         return factory;
     }
 
     /** Resolves the factory for the context's (platform, runMode, automationTechnology). */
     public static SessionFactory resolve(ExecutionContext context) {
-        return resolve(context.getPlatform(), context.getRunMode(), context.getAutomationTechnology());
+        if (context == null) {
+            throw new IllegalArgumentException("context must not be null");
+        }
+        return resolve(context.getPlatform(), context.getRunMode(), context.getAutomationTechnology(),
+                context.getProviderId());
     }
 
     /** Removes all registrations. Package-visible test hook only; not for production use. */
@@ -77,7 +103,46 @@ public final class SessionFactoryRegistry {
         FACTORIES.clear();
     }
 
-    private static String key(Platform platform, RunMode runMode, AutomationTechnology technology) {
-        return platform + "::" + runMode + "::" + technology;
+    private static void validateProvider(RunMode runMode, ProviderId providerId) {
+        if (runMode == RunMode.REMOTE && providerId == null) {
+            throw new IllegalArgumentException("providerId must not be null when runMode is REMOTE");
+        }
+        if (runMode != RunMode.REMOTE && providerId != null) {
+            throw new IllegalArgumentException("providerId is supported only when runMode is REMOTE");
+        }
     }
+
+    private static FactoryKey registrationKey(SessionFactory factory) {
+        if (factory == null) {
+            throw new IllegalArgumentException("factory must not be null");
+        }
+        return canonicalKey(factory.getPlatform(), factory.getRunMode(),
+                factory.getAutomationTechnology(), factory.getProviderId());
+    }
+
+    private static FactoryKey canonicalKey(Platform platform, RunMode runMode,
+            AutomationTechnology technology, ProviderId providerId) {
+        RunMode canonicalMode = runMode;
+        ProviderId canonicalProvider = providerId;
+        if (runMode == RunMode.BROWSERSTACK) {
+            canonicalMode = RunMode.REMOTE;
+            canonicalProvider = BROWSERSTACK;
+        } else if (runMode == RunMode.REMOTE_APPIUM) {
+            canonicalMode = RunMode.REMOTE;
+            canonicalProvider = CUSTOM;
+        }
+        validateProvider(canonicalMode, canonicalProvider);
+        return key(platform, canonicalMode, technology, canonicalProvider);
+    }
+
+    private static FactoryKey key(Platform platform, RunMode runMode,
+            AutomationTechnology technology, ProviderId providerId) {
+        if (platform == null || runMode == null || technology == null) {
+            throw new IllegalArgumentException("platform, runMode, and automationTechnology must not be null");
+        }
+        return new FactoryKey(platform, runMode, technology, providerId);
+    }
+
+    private record FactoryKey(Platform platform, RunMode runMode,
+            AutomationTechnology technology, ProviderId providerId) {}
 }

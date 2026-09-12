@@ -1,6 +1,7 @@
 package com.test.automation.sdk.execution;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebDriver;
 
@@ -11,12 +12,22 @@ import static org.mockito.Mockito.mock;
 
 class SessionFactoryRegistryTest {
 
+    @BeforeEach
+    void startWithEmptyRegistry() {
+        SessionFactoryRegistry.clear();
+    }
+
     @AfterEach
     void clearRegistry() {
         SessionFactoryRegistry.clear();
     }
 
     private static SessionFactory fakeFactory(Platform platform, RunMode runMode, WebDriver toReturn) {
+        return fakeFactory(platform, runMode, null, toReturn);
+    }
+
+    private static SessionFactory fakeFactory(Platform platform, RunMode runMode,
+            ProviderId providerId, WebDriver toReturn) {
         return new SessionFactory() {
             @Override
             public Platform getPlatform() {
@@ -26,6 +37,11 @@ class SessionFactoryRegistryTest {
             @Override
             public RunMode getRunMode() {
                 return runMode;
+            }
+
+            @Override
+            public ProviderId getProviderId() {
+                return providerId;
             }
 
             @Override
@@ -61,13 +77,13 @@ class SessionFactoryRegistryTest {
     }
 
     @Test
-    void register_twiceForSameKey_lastOneWins() {
+    void register_twiceForSameKey_isRejected() {
         SessionFactory first = fakeFactory(Platform.IOS, RunMode.LOCAL, mock(WebDriver.class));
         SessionFactory second = fakeFactory(Platform.IOS, RunMode.LOCAL, mock(WebDriver.class));
         SessionFactoryRegistry.register(first);
-        SessionFactoryRegistry.register(second);
 
-        assertSame(second, SessionFactoryRegistry.resolve(Platform.IOS, RunMode.LOCAL));
+        assertThrows(IllegalStateException.class, () -> SessionFactoryRegistry.register(second));
+        assertSame(first, SessionFactoryRegistry.resolve(Platform.IOS, RunMode.LOCAL));
     }
 
     @Test
@@ -139,5 +155,41 @@ class SessionFactoryRegistryTest {
         // technology must not silently fall back to the SELENIUM registration.
         assertThrows(IllegalStateException.class,
                 () -> SessionFactoryRegistry.resolve(Platform.WEB, RunMode.LOCAL, AutomationTechnology.APPIUM));
+    }
+
+    @Test
+    void providerAwareFactories_resolveIndependently() {
+        ProviderId browserStack = new ProviderId("browserstack");
+        ProviderId sauceLabs = new ProviderId("saucelabs");
+        SessionFactory browserStackFactory = fakeFactory(
+                Platform.WEB, RunMode.REMOTE, browserStack, mock(WebDriver.class));
+        SessionFactory sauceLabsFactory = fakeFactory(
+                Platform.WEB, RunMode.REMOTE, sauceLabs, mock(WebDriver.class));
+        SessionFactoryRegistry.register(browserStackFactory);
+        SessionFactoryRegistry.register(sauceLabsFactory);
+
+        assertSame(browserStackFactory, SessionFactoryRegistry.resolve(
+                Platform.WEB, RunMode.REMOTE, AutomationTechnology.SELENIUM, browserStack));
+        assertSame(sauceLabsFactory, SessionFactoryRegistry.resolve(
+                Platform.WEB, RunMode.REMOTE, AutomationTechnology.SELENIUM, sauceLabs));
+    }
+
+    @Test
+    void resolveByContext_includesProviderDimension() {
+        ProviderId provider = new ProviderId("custom-grid");
+        SessionFactory factory = fakeFactory(
+                Platform.WEB, RunMode.REMOTE, provider, mock(WebDriver.class));
+        SessionFactoryRegistry.register(factory);
+
+        ExecutionContext context = ExecutionContext.forWebWithProvider("firefox", RunMode.REMOTE, provider);
+        assertSame(factory, SessionFactoryRegistry.resolve(context));
+    }
+
+    @Test
+    void remoteFactory_requiresProviderAndLocalFactoryRejectsProvider() {
+        assertThrows(IllegalArgumentException.class, () -> SessionFactoryRegistry.register(
+                fakeFactory(Platform.WEB, RunMode.REMOTE, mock(WebDriver.class))));
+        assertThrows(IllegalArgumentException.class, () -> SessionFactoryRegistry.register(
+                fakeFactory(Platform.WEB, RunMode.LOCAL, new ProviderId("custom"), mock(WebDriver.class))));
     }
 }

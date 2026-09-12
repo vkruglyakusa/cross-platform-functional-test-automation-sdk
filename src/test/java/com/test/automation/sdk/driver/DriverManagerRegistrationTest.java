@@ -4,10 +4,14 @@ import org.junit.jupiter.api.Test;
 
 import com.test.automation.sdk.driver.mobile.AndroidBrowserStackSessionFactory;
 import com.test.automation.sdk.driver.mobile.AndroidLocalSessionFactory;
+import com.test.automation.sdk.driver.mobile.AndroidRemoteAppiumSessionFactory;
 import com.test.automation.sdk.driver.mobile.IosBrowserStackSessionFactory;
 import com.test.automation.sdk.driver.mobile.IosLocalSessionFactory;
+import com.test.automation.sdk.driver.mobile.IosRemoteAppiumSessionFactory;
 import com.test.automation.sdk.driver.web.WebBrowserStackSessionFactory;
 import com.test.automation.sdk.driver.web.WebLocalSessionFactory;
+import com.test.automation.sdk.driver.web.WebRemoteSeleniumSessionFactory;
+import com.test.automation.sdk.execution.ProviderId;
 import com.test.automation.sdk.execution.Platform;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.execution.SessionFactory;
@@ -76,14 +80,35 @@ class DriverManagerRegistrationTest {
         assertInstanceOf(IosBrowserStackSessionFactory.class, factory);
     }
 
+    @Test
+    void customRemoteWeb_resolvesToSeleniumGridFactory() {
+        touchDriverManager();
+        assertInstanceOf(WebRemoteSeleniumSessionFactory.class,
+                SessionFactoryRegistry.resolve(Platform.WEB, RunMode.REMOTE,
+                        com.test.automation.sdk.execution.AutomationTechnology.SELENIUM,
+                        new ProviderId("custom")));
+    }
+
+    @Test
+    void remoteAppiumFactoriesResolveForBothMobilePlatforms() {
+        touchDriverManager();
+        assertInstanceOf(AndroidRemoteAppiumSessionFactory.class,
+                SessionFactoryRegistry.resolve(Platform.ANDROID, RunMode.REMOTE_APPIUM));
+        assertInstanceOf(IosRemoteAppiumSessionFactory.class,
+                SessionFactoryRegistry.resolve(Platform.IOS, RunMode.REMOTE_APPIUM));
+    }
+
     private static void touchDriverManager() {
         // Forces DriverManager's static initializer to run (idempotent: registration
         // is re-applied even if a prior test cleared the shared registry).
-        SessionFactoryRegistry.register(new WebLocalSessionFactory());
-        SessionFactoryRegistry.register(new WebBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new AndroidLocalSessionFactory());
-        SessionFactoryRegistry.register(new AndroidBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new IosLocalSessionFactory());
-        SessionFactoryRegistry.register(new IosBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebRemoteSeleniumSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidRemoteAppiumSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosRemoteAppiumSessionFactory());
     }
 }

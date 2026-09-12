@@ -16,6 +16,7 @@ import io.appium.java_client.ios.IOSDriver;
 import io.appium.java_client.ios.options.XCUITestOptions;
 
 import com.browserstack.BrowserStackSdk;
+import com.test.automation.sdk.config.ConfigurationManager;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.mobile.config.MobileConfigReader;
 
@@ -56,9 +57,14 @@ public final class MobileDriverFactory {
      *                   (the cloud device matrix comes from browserstack.yml instead)
      */
     public static AppiumDriver getDriver(String mobileOS, String deviceName) {
-        return RunMode.resolve() == RunMode.BROWSERSTACK
-                ? getBrowserStackDriver(mobileOS, deviceName)
-                : getLocalDriver(mobileOS, deviceName);
+        RunMode runMode = RunMode.resolve();
+        if (runMode == RunMode.BROWSERSTACK) {
+            return getBrowserStackDriver(mobileOS, deviceName);
+        }
+        if (runMode == RunMode.REMOTE_APPIUM) {
+            return getRemoteAppiumDriver(mobileOS, deviceName);
+        }
+        return getLocalDriver(mobileOS, deviceName);
     }
 
     /**
@@ -73,14 +79,26 @@ public final class MobileDriverFactory {
      * docs/proposals/mobile-automation-strategy.md, sections 3a and 6a).
      */
     public static AppiumDriver getLocalDriver(String mobileOS, String deviceName) {
-        switch (mobileOS.toLowerCase()) {
+        switch (normalizeMobileOs(mobileOS)) {
             case "android":
                 return createLocalAndroidDriver(deviceName);
             case "ios":
                 return createLocalIosDriver(deviceName);
             default:
-                throw new IllegalArgumentException("Unsupported mobile OS: " + mobileOS
-                        + " (expected \"android\" or \"ios\")");
+                throw unsupportedMobileOs(mobileOS);
+        }
+    }
+
+    /** Connects directly to a user-managed remote Appium server. */
+    public static AppiumDriver getRemoteAppiumDriver(String mobileOS, String deviceName) {
+        URL serverUrl = appiumUrl(true);
+        switch (normalizeMobileOs(mobileOS)) {
+            case "android":
+                return new AndroidDriver(serverUrl, androidOptions(deviceName, true));
+            case "ios":
+                return new IOSDriver(serverUrl, iosOptions(deviceName, true));
+            default:
+                throw unsupportedMobileOs(mobileOS);
         }
     }
 
@@ -103,16 +121,15 @@ public final class MobileDriverFactory {
         verifyBrowserStackSdkActive();
 
         AppiumDriver driver;
-        switch (mobileOS.toLowerCase()) {
+        switch (normalizeMobileOs(mobileOS)) {
             case "android":
-                driver = new AndroidDriver(localAppiumUrl(), new UiAutomator2Options());
+                driver = new AndroidDriver(appiumUrl(false), new UiAutomator2Options());
                 break;
             case "ios":
-                driver = new IOSDriver(localAppiumUrl(), new XCUITestOptions());
+                driver = new IOSDriver(appiumUrl(false), new XCUITestOptions());
                 break;
             default:
-                throw new IllegalArgumentException("Unsupported mobile OS: " + mobileOS
-                        + " (expected \"android\" or \"ios\")");
+                throw unsupportedMobileOs(mobileOS);
         }
         log.info("BrowserStack driver session started: {}", driver.getSessionId());
         return driver;
@@ -139,17 +156,7 @@ public final class MobileDriverFactory {
     private static AppiumDriver createLocalAndroidDriver(String deviceName) {
         log.info("Initializing local Android driver (device: {})", deviceName);
 
-        UiAutomator2Options options = new UiAutomator2Options();
-        String appPath = MobileConfigReader.get("android.appPath", null);
-        if (appPath != null) {
-            options.setCapability("app", resolveAppPath(appPath));
-        }
-        options.setCapability("deviceName", deviceName);
-        options.setCapability("automationName",
-                MobileConfigReader.get("android.automationName", "UiAutomator2"));
-        options.setCapability("platformName", "Android");
-
-        AppiumDriver driver = new AndroidDriver(localAppiumUrl(), options);
+        AppiumDriver driver = new AndroidDriver(appiumUrl(false), androidOptions(deviceName, false));
         log.info("Local Android driver session started: {}", driver.getSessionId());
         return driver;
     }
@@ -157,17 +164,7 @@ public final class MobileDriverFactory {
     private static AppiumDriver createLocalIosDriver(String deviceName) {
         log.info("Initializing local iOS driver (device: {})", deviceName);
 
-        XCUITestOptions options = new XCUITestOptions();
-        String appPath = MobileConfigReader.get("ios.appPath", null);
-        if (appPath != null) {
-            options.setCapability("app", resolveAppPath(appPath));
-        }
-        options.setCapability("deviceName", deviceName);
-        options.setCapability("automationName",
-                MobileConfigReader.get("ios.automationName", "XCUITest"));
-        options.setCapability("platformName", "iOS");
-
-        AppiumDriver driver = new IOSDriver(localAppiumUrl(), options);
+        AppiumDriver driver = new IOSDriver(appiumUrl(false), iosOptions(deviceName, false));
         log.info("Local iOS driver session started: {}", driver.getSessionId());
         return driver;
     }
@@ -178,19 +175,81 @@ public final class MobileDriverFactory {
                 : new File(System.getProperty("user.dir"), configuredPath).getAbsolutePath();
     }
 
-    /**
-     * Every driver (local or cloud) connects to this same local Appium URL.
-     * For {@link RunMode#BROWSERSTACK}, the BrowserStack Java SDK javaagent
-     * transparently intercepts this call and reroutes the session to App
-     * Automate using browserstack.yml -- callers do not need to know or care
-     * that this happens.
-     */
-    private static URL localAppiumUrl() {
-        String urlString = MobileConfigReader.get("appium.localUrl", "http://127.0.0.1:4723/");
+    static UiAutomator2Options androidOptions(String deviceName, boolean remote) {
+        UiAutomator2Options options = new UiAutomator2Options();
+        String appPath = mobileProperty("mobile.android.appPath", "android.appPath");
+        if (appPath != null && !appPath.trim().isEmpty()) {
+            options.setCapability("app", remote ? appPath : resolveAppPath(appPath));
+        }
+        options.setCapability("deviceName", requireDeviceName(deviceName));
+        options.setCapability("automationName", MobileConfigReader.get("android.automationName", "UiAutomator2"));
+        options.setCapability("platformName", "Android");
+        return options;
+    }
+
+    static XCUITestOptions iosOptions(String deviceName, boolean remote) {
+        XCUITestOptions options = new XCUITestOptions();
+        String appPath = mobileProperty("mobile.ios.appPath", "ios.appPath");
+        if (appPath != null && !appPath.trim().isEmpty()) {
+            options.setCapability("app", remote ? appPath : resolveAppPath(appPath));
+        }
+        options.setCapability("deviceName", requireDeviceName(deviceName));
+        options.setCapability("automationName", MobileConfigReader.get("ios.automationName", "XCUITest"));
+        options.setCapability("platformName", "iOS");
+        return options;
+    }
+
+    private static String mobileProperty(String studioKey, String sdkKey) {
+        String studioValue = System.getProperty(studioKey);
+        return studioValue != null && !studioValue.trim().isEmpty()
+                ? studioValue.trim() : MobileConfigReader.get(sdkKey, null);
+    }
+
+    private static String requireDeviceName(String deviceName) {
+        if (deviceName == null || deviceName.trim().isEmpty()) {
+            throw new IllegalArgumentException("deviceName must not be blank");
+        }
+        return deviceName.trim();
+    }
+
+    private static String normalizeMobileOs(String mobileOS) {
+        return mobileOS == null ? "" : mobileOS.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static IllegalArgumentException unsupportedMobileOs(String mobileOS) {
+        return new IllegalArgumentException("Unsupported mobile OS: " + mobileOS
+                + " (expected \"android\" or \"ios\")");
+    }
+
+    /** Resolves and validates the local or user-managed remote Appium endpoint. */
+    static URL appiumUrl(boolean remote) {
+        String property = remote ? "mobile.appium.url" : "appium.localUrl";
+        String urlString = MobileConfigReader.get(
+                property, remote ? "" : "http://127.0.0.1:4723/");
+        if (urlString == null || urlString.trim().isEmpty()) {
+            throw new IllegalStateException("Missing required remote Appium setting: " + property);
+        }
         try {
-            return new URI(urlString).toURL();
+            URI uri = new URI(urlString.trim());
+            String scheme = uri.getScheme();
+            if (uri.getHost() == null || scheme == null
+                    || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                throw new IllegalStateException("Appium URL must be an absolute HTTP(S) URL with a host: " + urlString);
+            }
+            if (uri.getUserInfo() != null) {
+                throw new IllegalStateException(property + " must not contain credentials; use environment variables");
+            }
+            if (uri.getQuery() != null || uri.getFragment() != null) {
+                throw new IllegalStateException(property + " must not contain a query or fragment");
+            }
+            if (remote && "http".equalsIgnoreCase(scheme)
+                    && !ConfigurationManager.resolveBoolean("mobile.appium.allowInsecureHttp", false)) {
+                throw new IllegalStateException(property
+                        + " uses HTTP; set mobile.appium.allowInsecureHttp=true only for a trusted Appium server");
+            }
+            return uri.toURL();
         } catch (URISyntaxException | MalformedURLException e) {
-            throw new IllegalStateException("Invalid appium.localUrl in mobile-config.yaml: " + urlString, e);
+            throw new IllegalStateException("Invalid " + property + ": " + urlString, e);
         }
     }
 }

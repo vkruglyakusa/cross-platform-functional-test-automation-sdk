@@ -12,10 +12,9 @@ import org.openqa.selenium.WebDriver;
  *
  * Tests and page objects never see this interface directly -- they only call
  * {@code TestBase}/{@code DriverManager}, which resolve and delegate to the
- * factory matching the current {@link ExecutionContext}. Adding a new
- * platform or provider means adding one new {@link Platform}/{@link RunMode}
- * value plus one new implementation of this interface, with no changes to
- * test code.
+ * factory matching the current {@link ExecutionContext}. Adding a provider
+ * means registering a provider ID and a new implementation of this interface;
+ * it does not require another {@link RunMode} value or changes to test code.
  */
 public interface SessionFactory {
 
@@ -37,6 +36,15 @@ public interface SessionFactory {
      */
     default AutomationTechnology getAutomationTechnology() {
         return getPlatform() == Platform.WEB ? AutomationTechnology.SELENIUM : AutomationTechnology.APPIUM;
+    }
+
+    /**
+     * The provider identifier for this factory. Defaults to null, indicating a
+     * provider-agnostic factory (e.g., local Selenium/Appium). For cloud providers,
+     * this should return the canonical name of the provider (e.g., "browserstack", "appium").
+     */
+    default ProviderId getProviderId() {
+        return null;
     }
 
     /** Creates and returns a ready-to-use driver session for the given context. */

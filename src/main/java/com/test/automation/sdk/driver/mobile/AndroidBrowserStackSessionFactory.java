@@ -4,12 +4,13 @@ import org.openqa.selenium.WebDriver;
 
 import com.test.automation.sdk.execution.ExecutionContext;
 import com.test.automation.sdk.execution.Platform;
+import com.test.automation.sdk.execution.ProviderId;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.execution.SessionFactory;
 import com.test.automation.sdk.mobile.driver.MobileDriverFactory;
 
 /**
- * {@link SessionFactory} for {@link Platform#ANDROID} + {@link RunMode#BROWSERSTACK}.
+ * BrowserStack provider factory for Android Appium remote execution.
  * Delegates to the existing, already-tested
  * {@link MobileDriverFactory#getBrowserStackDriver(String, String)}. See
  * {@link AndroidLocalSessionFactory} for the delegation rationale.
@@ -23,7 +24,12 @@ public final class AndroidBrowserStackSessionFactory implements SessionFactory {
 
     @Override
     public RunMode getRunMode() {
-        return RunMode.BROWSERSTACK;
+        return RunMode.REMOTE;
+    }
+
+    @Override
+    public ProviderId getProviderId() {
+        return new ProviderId("browserstack");
     }
 
     @Override

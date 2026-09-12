@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Verifies Priority 2 of the Unified SDK Implementation Review
@@ -27,6 +28,8 @@ class ConfigurationManagerTest {
     @AfterEach
     void clearSystemProperty() {
         System.clearProperty(TEST_KEY);
+        System.clearProperty("providers.custom.hubUrl");
+        System.clearProperty("providers.custom.allowInsecureHttp");
     }
 
     @Test
@@ -89,5 +92,38 @@ class ConfigurationManagerTest {
         assertEquals("INFO", commonConfig.loggingLevel());
         assertEquals("test-output/screenshots", commonConfig.screenshotsDir());
         assertEquals("test-output/logs", commonConfig.logsDir());
+    }
+
+    @Test
+    void remoteProviderConfig_acceptsHttpsEndpoint() {
+        System.setProperty("providers.custom.hubUrl", "https://grid.example.test/wd/hub");
+
+        assertEquals("https://grid.example.test/wd/hub",
+                ConfigurationManager.getRemoteProviderConfig("custom").hubUri().toString());
+    }
+
+    @Test
+    void remoteProviderConfig_rejectsMissingEndpoint() {
+        assertThrows(IllegalStateException.class,
+                () -> ConfigurationManager.getRemoteProviderConfig("custom").hubUri());
+    }
+
+    @Test
+    void remoteProviderConfig_requiresExplicitOptInForHttp() {
+        System.setProperty("providers.custom.hubUrl", "http://127.0.0.1:4444/wd/hub");
+        assertThrows(IllegalStateException.class,
+                () -> ConfigurationManager.getRemoteProviderConfig("custom").hubUri());
+
+        System.setProperty("providers.custom.allowInsecureHttp", "true");
+        assertEquals("http://127.0.0.1:4444/wd/hub",
+                ConfigurationManager.getRemoteProviderConfig("custom").hubUri().toString());
+    }
+
+    @Test
+    void remoteProviderConfig_rejectsCredentialsInUrl() {
+        System.setProperty("providers.custom.hubUrl", "https://user:secret@grid.example.test/wd/hub");
+
+        assertThrows(IllegalStateException.class,
+                () -> ConfigurationManager.getRemoteProviderConfig("custom").hubUri());
     }
 }

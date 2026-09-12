@@ -17,6 +17,7 @@ import io.appium.java_client.AppiumDriver;
 
 import com.browserstack.BrowserStackSdk;
 import com.test.automation.sdk.execution.ExecutionContext;
+import com.test.automation.sdk.execution.ExecutionContextResolver;
 import com.test.automation.sdk.execution.Platform;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.mobile.actions.MobileActions;
@@ -83,7 +84,7 @@ public class MobileTestBase extends TestBase {
      * {@code TestBase.isTestInBrowserstack()} from the 311 prior art.
      */
     public static boolean isRunningInCloud() {
-        if (RunMode.resolve() != RunMode.BROWSERSTACK) {
+        if (!ExecutionContextResolver.isBrowserStackConfigured()) {
             return false;
         }
         try {
@@ -139,7 +140,7 @@ public class MobileTestBase extends TestBase {
     public void setUpDriver(@Optional("android") String mobileOS, @Optional("") String device) {
         mobileOsName = mobileOS;
         deviceName = device;
-        ExecutionContext context = ExecutionContext.forMobile(resolvePlatform(mobileOS), device, RunMode.resolve());
+        ExecutionContext context = ExecutionContextResolver.forMobile(resolvePlatform(mobileOS), device);
         automationSession = AutomationSessionFactory.create(context);
         driver = automationSession.unwrap(AppiumDriver.class);
     }
@@ -171,7 +172,7 @@ public class MobileTestBase extends TestBase {
                     log.warn("Error quitting mobile driver before retry", e);
                 }
             }
-            ExecutionContext context = ExecutionContext.forMobile(resolvePlatform(mobileOsName), deviceName, RunMode.resolve());
+            ExecutionContext context = ExecutionContextResolver.forMobile(resolvePlatform(mobileOsName), deviceName);
             automationSession = AutomationSessionFactory.create(context);
             driver = automationSession.unwrap(AppiumDriver.class);
         }

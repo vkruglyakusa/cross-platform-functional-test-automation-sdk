@@ -16,7 +16,8 @@ class WebBrowserStackSessionFactoryTest {
     void reportsWebPlatformAndBrowserstackRunMode() {
         WebBrowserStackSessionFactory factory = new WebBrowserStackSessionFactory();
         assertEquals(Platform.WEB, factory.getPlatform());
-        assertEquals(RunMode.BROWSERSTACK, factory.getRunMode());
+        assertEquals(RunMode.REMOTE, factory.getRunMode());
+        assertEquals("browserstack", factory.getProviderId().value());
     }
 
     @Test

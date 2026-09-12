@@ -23,6 +23,22 @@ browser:
                                     # example: "C:/tools/chromedriver/chromedriver.exe"
 
 # ------------------------------------------------------------
+# Execution Destination / Remote Providers
+# Canonical remote selection uses RunMode.REMOTE plus a provider ID.
+# The custom provider supports Selenium Grid (Web) and Appium (mobile).
+# Environment overrides use PROVIDERS_CUSTOM_HUBURL and
+# PROVIDERS_CUSTOM_ALLOWINSECUREHTTP.
+# ------------------------------------------------------------
+execution:
+  runMode: local                    # local | remote
+  provider: ""                      # required for remote; browserstack | custom
+
+providers:
+  custom:
+    hubUrl: ""                      # e.g. https://grid.company.test/wd/hub
+    allowInsecureHttp: false        # true only for a trusted local/private HTTP grid
+
+# ------------------------------------------------------------
 # Proxy Settings
 # ------------------------------------------------------------
 proxy:
@@ -86,6 +102,11 @@ crawler:
 # ------------------------------------------------------------
 appium:
   localUrl: "http://127.0.0.1:4723/"   # local Appium server URL (-Dappium.localUrl)
+
+mobile:
+  appium:
+    url: ""                             # required remote Appium endpoint (-Dmobile.appium.url)
+    allowInsecureHttp: false            # true only for a trusted private HTTP Appium server
 
 android:
   appPath: ""                          # absolute/relative path to the .apk under test (-Dandroid.appPath)

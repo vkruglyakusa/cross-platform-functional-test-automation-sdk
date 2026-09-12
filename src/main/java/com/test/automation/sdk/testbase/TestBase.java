@@ -49,6 +49,7 @@ import com.test.automation.sdk.utility.Excel_Reader;
 import com.test.automation.sdk.utility.QueryExcelFile;
 import com.test.automation.sdk.config.YamlConfigReader;
 import com.test.automation.sdk.execution.ExecutionContext;
+import com.test.automation.sdk.execution.ExecutionContextResolver;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.reporting.ExecutionEvidence;
 import com.test.automation.sdk.reporting.ExecutionReporting;
@@ -276,7 +277,7 @@ public class TestBase {
 		configureLogging();
 		String resolvedBrowser = browser.isEmpty() ? Prop.getProperty("browser") : browser;
 		String resolvedUrl = baseUrl.isEmpty() ? Prop.getProperty("tst_base_url") : baseUrl;
-		ExecutionContext context = ExecutionContext.forWeb(resolvedBrowser, RunMode.resolve());
+		ExecutionContext context = ExecutionContextResolver.forWeb(resolvedBrowser);
 		automationSession = AutomationSessionFactory.create(context);
 		driver = automationSession.unwrap(WebDriver.class);
 		this.baseURL = resolvedUrl;

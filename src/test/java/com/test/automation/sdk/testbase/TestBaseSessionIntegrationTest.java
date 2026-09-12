@@ -118,19 +118,19 @@ class TestBaseSessionIntegrationTest {
                         .defaultAnswer(Mockito.RETURNS_DEEP_STUBS));
         Mockito.when(((JavascriptExecutor) mockDriver).executeScript("return document.readyState"))
                 .thenReturn("complete");
-        SessionFactoryRegistry.register(fakeWebFactory(mockDriver));
+        SessionFactoryRegistry.registerOrReplace(fakeWebFactory(mockDriver));
         System.setProperty("run.mode", "LOCAL");
     }
 
     @AfterEach
     void restoreRealFactories() {
         System.clearProperty("run.mode");
-        SessionFactoryRegistry.register(new WebLocalSessionFactory());
-        SessionFactoryRegistry.register(new WebBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new AndroidLocalSessionFactory());
-        SessionFactoryRegistry.register(new AndroidBrowserStackSessionFactory());
-        SessionFactoryRegistry.register(new IosLocalSessionFactory());
-        SessionFactoryRegistry.register(new IosBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new WebBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new AndroidBrowserStackSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosLocalSessionFactory());
+        SessionFactoryRegistry.registerOrReplace(new IosBrowserStackSessionFactory());
     }
 
     private static SessionFactory fakeWebFactory(WebDriver toReturn) {

@@ -18,20 +18,32 @@ public final class ExecutionContext {
     private final AutomationTechnology automationTechnology;
     private final String browserName;
     private final String deviceName;
+    private final ProviderId providerId;
 
     private ExecutionContext(Platform platform, RunMode runMode, AutomationTechnology automationTechnology,
-            String browserName, String deviceName) {
+            String browserName, String deviceName, ProviderId providerId) {
         if (platform == null) {
             throw new IllegalArgumentException("platform must not be null");
         }
         if (runMode == null) {
             throw new IllegalArgumentException("runMode must not be null");
         }
+        validateProvider(runMode, providerId);
         this.platform = platform;
         this.runMode = runMode;
         this.automationTechnology = automationTechnology == null ? defaultTechnologyFor(platform) : automationTechnology;
         this.browserName = browserName == null ? "" : browserName;
         this.deviceName = deviceName == null ? "" : deviceName;
+        this.providerId = providerId;
+    }
+
+    private static void validateProvider(RunMode runMode, ProviderId providerId) {
+        if (runMode == RunMode.REMOTE && providerId == null) {
+            throw new IllegalArgumentException("providerId must not be null when runMode is REMOTE");
+        }
+        if (runMode != RunMode.REMOTE && providerId != null) {
+            throw new IllegalArgumentException("providerId is supported only when runMode is REMOTE");
+        }
     }
 
     /**
@@ -64,7 +76,7 @@ public final class ExecutionContext {
             throw new IllegalArgumentException("browserName must not be null/empty");
         }
         return new ExecutionContext(Platform.WEB, runMode == null ? RunMode.resolve() : runMode,
-                technology, browserName, null);
+                technology, browserName, null, null);
     }
 
     /** Creates a context for {@link Platform#ANDROID} or {@link Platform#IOS}. {@code runMode} defaults to {@link RunMode#resolve()} when null. Technology defaults to {@link AutomationTechnology#APPIUM}. */
@@ -85,7 +97,48 @@ public final class ExecutionContext {
             throw new IllegalArgumentException("platform must be ANDROID or IOS for a mobile context, was: " + platform);
         }
         return new ExecutionContext(platform, runMode == null ? RunMode.resolve() : runMode,
-                technology, null, deviceName);
+                technology, null, deviceName, null);
+    }
+
+    /**
+     * Creates a context for {@link Platform#WEB} with an explicit provider.
+     */
+    public static ExecutionContext forWebWithProvider(String browserName, RunMode runMode, ProviderId providerId) {
+        return forWebWithProvider(browserName, runMode, null, providerId);
+    }
+
+    /**
+     * Creates a context for {@link Platform#WEB} with an explicit provider and automation technology.
+     */
+    public static ExecutionContext forWebWithProvider(String browserName, RunMode runMode,
+            AutomationTechnology technology, ProviderId providerId) {
+        if (browserName == null || browserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("browserName must not be null/empty");
+        }
+        return new ExecutionContext(Platform.WEB, runMode == null ? RunMode.resolve() : runMode,
+                technology, browserName, null, providerId);
+    }
+
+    /**
+     * Creates a context for {@link Platform#ANDROID} or {@link Platform#IOS}
+     * with an explicit provider.
+     */
+    public static ExecutionContext forMobileWithProvider(Platform platform, String deviceName, RunMode runMode,
+            ProviderId providerId) {
+        return forMobileWithProvider(platform, deviceName, runMode, null, providerId);
+    }
+
+    /**
+     * Creates a context for {@link Platform#ANDROID} or {@link Platform#IOS}
+     * with an explicit provider and automation technology.
+     */
+    public static ExecutionContext forMobileWithProvider(Platform platform, String deviceName, RunMode runMode,
+            AutomationTechnology technology, ProviderId providerId) {
+        if (platform != Platform.ANDROID && platform != Platform.IOS) {
+            throw new IllegalArgumentException("platform must be ANDROID or IOS for a mobile context, was: " + platform);
+        }
+        return new ExecutionContext(platform, runMode == null ? RunMode.resolve() : runMode,
+                technology, null, deviceName, providerId);
     }
 
     public Platform getPlatform() {
@@ -96,25 +149,26 @@ public final class ExecutionContext {
         return runMode;
     }
 
-    /** The {@link AutomationTechnology} this context resolves to (see Unified SDK Review Priority 5). */
     public AutomationTechnology getAutomationTechnology() {
         return automationTechnology;
     }
 
-    /** Browser name ("chrome"/"firefox"/"edge"); empty for mobile contexts. */
     public String getBrowserName() {
         return browserName;
     }
 
-    /** Local device/emulator/simulator name; empty for web contexts, and ignored by remote strategies. */
     public String getDeviceName() {
         return deviceName;
     }
 
+    public ProviderId getProviderId() {
+        return providerId;
+    }
+
     @Override
     public String toString() {
-        return "ExecutionContext{platform=" + platform + ", runMode=" + runMode
-                + ", automationTechnology=" + automationTechnology
-                + ", browserName='" + browserName + "', deviceName='" + deviceName + "'}";
+        return "ExecutionContext{platform=" + platform + ", runMode=" + runMode + ", technology="
+                + automationTechnology + ", browserName=" + browserName + ", deviceName=" + deviceName
+                + ", providerId=" + providerId + '}';
     }
 }

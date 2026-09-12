@@ -5,12 +5,13 @@ import org.openqa.selenium.WebDriver;
 import com.test.automation.sdk.driver.BrowserStackSupport;
 import com.test.automation.sdk.execution.ExecutionContext;
 import com.test.automation.sdk.execution.Platform;
+import com.test.automation.sdk.execution.ProviderId;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.execution.SessionFactory;
 import com.test.automation.sdk.testbase.WebDriverFactory;
 
 /**
- * {@link SessionFactory} for {@link Platform#WEB} + {@link RunMode#BROWSERSTACK}.
+ * BrowserStack provider factory for Web Selenium remote execution.
  *
  * NEW capability -- prior to this, the SDK had no first-class "run this
  * Selenium suite on BrowserStack Automate" concept at all (see
@@ -32,7 +33,12 @@ public final class WebBrowserStackSessionFactory implements SessionFactory {
 
     @Override
     public RunMode getRunMode() {
-        return RunMode.BROWSERSTACK;
+        return RunMode.REMOTE;
+    }
+
+    @Override
+    public ProviderId getProviderId() {
+        return new ProviderId("browserstack");
     }
 
     @Override

@@ -1,5 +1,8 @@
 package com.test.automation.sdk.config;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 /**
  * Single configuration-resolution engine for the SDK.
  *
@@ -103,6 +106,11 @@ public final class ConfigurationManager {
         return new WebConfig();
     }
 
+    /** Typed view over one remote execution provider's configuration. */
+    public static RemoteProviderConfig getRemoteProviderConfig(String providerId) {
+        return new RemoteProviderConfig(providerId);
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -136,6 +144,51 @@ public final class ConfigurationManager {
 
         public int pageLoadTimeoutSeconds() {
             return resolveInt("browser.pageLoadTimeoutSeconds", 30);
+        }
+    }
+
+    /** Typed, read-only configuration for {@code providers.<id>}. */
+    public static final class RemoteProviderConfig {
+        private final String providerId;
+
+        private RemoteProviderConfig(String providerId) {
+            if (providerId == null || !providerId.matches("[a-z0-9]+(?:-[a-z0-9]+)*")) {
+                throw new IllegalArgumentException("providerId must be a canonical lower-case identifier");
+            }
+            this.providerId = providerId;
+        }
+
+        public URI hubUri() {
+            String key = "providers." + providerId + ".hubUrl";
+            String rawValue = resolve(key, "");
+            if (rawValue == null || rawValue.trim().isEmpty()) {
+                throw new IllegalStateException("Missing required remote provider setting: " + key);
+            }
+
+            final URI uri;
+            try {
+                uri = new URI(rawValue.trim());
+            } catch (URISyntaxException e) {
+                throw new IllegalStateException("Invalid remote provider URL in " + key, e);
+            }
+
+            String scheme = uri.getScheme();
+            if (scheme == null || uri.getHost() == null
+                    || !("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))) {
+                throw new IllegalStateException(key + " must be an absolute HTTP(S) URL with a host");
+            }
+            if (uri.getUserInfo() != null) {
+                throw new IllegalStateException(key + " must not contain credentials; use environment variables");
+            }
+            if (uri.getQuery() != null || uri.getFragment() != null) {
+                throw new IllegalStateException(key + " must not contain a query or fragment");
+            }
+            if ("http".equalsIgnoreCase(scheme)
+                    && !resolveBoolean("providers." + providerId + ".allowInsecureHttp", false)) {
+                throw new IllegalStateException(key
+                        + " uses HTTP; set providers." + providerId + ".allowInsecureHttp=true only for a trusted grid");
+            }
+            return uri;
         }
     }
 }
