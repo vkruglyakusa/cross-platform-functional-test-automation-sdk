@@ -2,7 +2,7 @@
 
 ## Overview
 
-`functional-test-automation-sdk` is the reusable framework layer providing:
+`cross-platform-functional-test-automation-sdk` is the reusable framework layer providing:
 - `testbase/` -- TestBase, WebDriverFactory, SdkConfig
 - `utility/` -- ElementCrawler, PageObjectGenerator, Excel/CSV/Mailinator utils
 - `listener/` -- Listener, RetryListener, WebEventListener, Retry
@@ -14,25 +14,28 @@ Consumer projects declare a single Maven dependency and write only their own `ui
 ## 1. Build Locally
 
 ```bash
-cd C:\Users\vkruglyak\IdeaProjects\functional-test-automation-sdk
+cd cross-platform-functional-test-automation-sdk
 mvn clean install -DskipTests
 ```
 
 Produces in `~/.m2`:
-- `functional-test-automation-sdk-1.4.6.jar`
-- `functional-test-automation-sdk-1.4.6-sources.jar`
-- `functional-test-automation-sdk-1.4.6-javadoc.jar`
+- `cross-platform-functional-test-automation-sdk-1.2.0.jar`
+- `cross-platform-functional-test-automation-sdk-1.2.0-sources.jar`
+- `cross-platform-functional-test-automation-sdk-1.2.0-javadoc.jar`
 
 ---
 
-## 2. Azure Artifacts Feed
+## 2. GitHub Packages Feed
 
-Feed URL (Azure DevOps):
+Feed URL (GitHub):
 ```
-https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1
+https://maven.pkg.github.com/vkruglyakusa/cross-platform-functional-test-automation-sdk
 ```
 
 The `<distributionManagement>` block in `pom.xml` already points to this feed.
+
+> [!NOTE]
+> Azure Artifacts is not the default publishing destination. It remains available as an optional integration for CI/CD pipelines that require it, but GitHub Packages is now canonical.
 
 ---
 
@@ -51,9 +54,9 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
 
   <servers>
     <server>
-      <id>functional-test-automation-sdk</id>
-      <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
-      <password>YOUR_PAT_HERE</password>  <!-- PAT scope: Packaging Read+Write -->
+      <id>github</id>
+      <username>${env.GITHUB_USERNAME}</username>
+      <password>${env.GITHUB_TOKEN}</password>  <!-- Token scope: packages write -->
     </server>
   </servers>
 
@@ -76,15 +79,15 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
       <protocol>http</protocol>
       <host>bcpxy.nycnet</host>
       <port>8080</port>
-      <nonProxyHosts>10.*|192.168.*|172.16.*|*.nycnet|localhost|*.visualstudio.com|*.pkgs.visualstudio.com|*.dev.azure.com</nonProxyHosts>
+      <nonProxyHosts>10.*|192.168.*|172.16.*|*.nycnet|localhost|github.com|*.github.com|maven.pkg.github.com</nonProxyHosts>
     </proxy>
   </proxies>
 
   <servers>
     <server>
-      <id>functional-test-automation-sdk</id>
-      <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
-      <password>YOUR_PAT_HERE</password>  <!-- PAT scope: Packaging Read+Write -->
+      <id>github</id>
+      <username>${env.GITHUB_USERNAME}</username>
+      <password>${env.GITHUB_TOKEN}</password>  <!-- Token scope: packages write -->
       <configuration>
         <httpConfiguration>
           <all>
@@ -99,10 +102,9 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
 ```
 
 > **Rules:**
-> - `<id>` must match `<distributionManagement>` -> `<id>` in `pom.xml` -- currently `functional-test-automation-sdk`
-> - `<username>` must be the org GUID: `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
-> - Deploy PAT needs **Packaging Read+Write** scope; consumer PAT needs **Packaging Read** only
-> - `*.pkgs.visualstudio.com` must be in `nonProxyHosts` if behind a corporate proxy
+> - `<id>` must match `<distributionManagement>` -> `<id>` in `pom.xml` -- currently `github`
+> - For publishing, the GitHub token requires **packages write** scope; for consumption, it needs **packages read** only
+> - `maven.pkg.github.com` must be in `nonProxyHosts` if behind a corporate proxy
 > - Never commit `settings.xml` -- it lives outside the project in `~/.m2/`
 
 ---

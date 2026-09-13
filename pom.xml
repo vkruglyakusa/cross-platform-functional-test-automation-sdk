@@ -38,8 +38,8 @@
 
     <distributionManagement>
       <repository>
-        <id>cross-platform-functional-test-automation-sdk</id>
-        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/vkruglyakusa/cross-platform-functional-test-automation-sdk</url>
       </repository>
     </distributionManagement>
 
@@ -167,7 +167,7 @@
 
     <build>
         <extensions>
-            <!-- Enables preemptive HTTPS authentication for Azure Artifacts deploy -->
+            <!-- Provides HTTP transport support for authenticated Maven package deployment. -->
             <extension>
                 <groupId>org.apache.maven.wagon</groupId>
                 <artifactId>wagon-http</artifactId>
