@@ -216,7 +216,7 @@ class TestBaseUnitTest extends TestBase {
     void saveDomDump_writesHtmlFile() throws Exception {
         String originalUserDir = System.getProperty("user.dir");
         String originalConfigDir = System.getProperty("sdk.config.dir");
-        File workDir = new File("target\\test-work\\saveDomDump");
+        File workDir = new File(new File("target", "test-work"), "saveDomDump");
         if (!workDir.exists()) {
             assertTrue(workDir.mkdirs() || workDir.exists(), "Failed to create work directory");
         }
@@ -276,7 +276,7 @@ class TestBaseUnitTest extends TestBase {
     void getScreenShot_writesDirectlyToConfiguredDirectory_noDoubleNesting() throws Exception {
         String originalUserDir = System.getProperty("user.dir");
         String originalConfigDir = System.getProperty("sdk.config.dir");
-        File workDir = new File("target\\test-work\\getScreenShot");
+        File workDir = new File(new File("target", "test-work"), "getScreenShot");
         if (!workDir.exists()) {
             assertTrue(workDir.mkdirs() || workDir.exists(), "Failed to create work directory");
         }

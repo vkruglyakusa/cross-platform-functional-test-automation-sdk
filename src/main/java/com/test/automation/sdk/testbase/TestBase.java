@@ -699,15 +699,19 @@ public class TestBase {
 		try {
 			ExtentTestManager.endTest();
 			ExtentManager.getInstance().flush();
-			if (automationSession != null) {
-				automationSession.quit();
-			} else if (driver != null) {
-				driver.quit();
-			}
-
-			log.info("browser is closed");
 		} catch (Exception e) {
-			log.error("Caught message " + e.getMessage(), e);
+			log.error("Reporting cleanup failed while closing browser: " + e.getMessage(), e);
+		} finally {
+			try {
+				if (automationSession != null) {
+					automationSession.quit();
+				} else if (driver != null) {
+					driver.quit();
+				}
+				log.info("browser is closed");
+			} catch (Exception e) {
+				log.error("Browser session cleanup failed: " + e.getMessage(), e);
+			}
 		}
 
 	}
