@@ -19,9 +19,9 @@ mvn clean install -DskipTests
 ```
 
 Produces in `~/.m2`:
-- `cross-platform-functional-test-automation-sdk-1.2.0.jar`
-- `cross-platform-functional-test-automation-sdk-1.2.0-sources.jar`
-- `cross-platform-functional-test-automation-sdk-1.2.0-javadoc.jar`
+- `cross-platform-functional-test-automation-sdk-1.2.1.jar`
+- `cross-platform-functional-test-automation-sdk-1.2.1-sources.jar`
+- `cross-platform-functional-test-automation-sdk-1.2.1-javadoc.jar`
 
 ---
 

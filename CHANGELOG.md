@@ -21,6 +21,13 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.2.1] — 2026-09-13
+
+### Fixed
+- Pinned the BrowserStack Java SDK dependency to `1.74.1` so Maven resolves the same tested provider adapter version in local builds, CI, and downstream consumer templates.
+
+---
+
 ## [1.2.0] — 2026-09-11
 
 ### Changed
