@@ -312,7 +312,8 @@ class TestBaseUnitTest extends TestBase {
             ITestResult mockedResult = Mockito.mock(ITestResult.class);
             Mockito.when(mockedResult.getName()).thenReturn("someFailingTest");
 
-            com.test.automation.sdk.utility.reports.ExtentTestManager.startTest("someFailingTest");
+            // Screenshot capture must not depend on another test having initialized
+            // the optional Extent report singleton (test order differs by platform).
             getScreenShot(mockedDriver, mockedResult);
 
             File nestedScreenshotsFolder = new File(screenshotsDir, "screenshots");
