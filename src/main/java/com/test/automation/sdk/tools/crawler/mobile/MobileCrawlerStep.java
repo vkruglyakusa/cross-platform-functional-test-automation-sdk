@@ -10,22 +10,31 @@ package com.test.automation.sdk.tools.crawler.mobile;
 public final class MobileCrawlerStep {
 
     /** What kind of interaction this step performs. */
-    public enum Action { TAP, TYPE }
+    public enum Action { TAP, TYPE, SWIPE }
 
     /** Which attribute to locate the target element by. */
     public enum By { RESOURCE_ID, ACCESSIBILITY_ID, TEXT, XPATH }
+
+    /** Swipe direction, used only when {@link #action} is {@link Action#SWIPE}. */
+    public enum SwipeDirection { UP, DOWN }
 
     private final Action action;
     private final By by;
     private final String selector;
     private final String inputValue;
+    private final SwipeDirection swipeDirection;
     private String description = "";
 
     private MobileCrawlerStep(Action action, By by, String selector, String inputValue) {
+        this(action, by, selector, inputValue, null);
+    }
+
+    private MobileCrawlerStep(Action action, By by, String selector, String inputValue, SwipeDirection swipeDirection) {
         this.action = action;
         this.by = by;
         this.selector = selector;
         this.inputValue = inputValue;
+        this.swipeDirection = swipeDirection;
     }
 
     public static MobileCrawlerStep tapByResourceId(String resourceId) {
@@ -50,6 +59,20 @@ public final class MobileCrawlerStep {
 
     public static MobileCrawlerStep typeByAccessibilityId(String accessibilityId, String value) {
         return new MobileCrawlerStep(Action.TYPE, By.ACCESSIBILITY_ID, accessibilityId, value);
+    }
+
+    /** Full-screen swipe-down (content moves up), used to reveal further items in a long/lazy-loaded scrollable list. */
+    public static MobileCrawlerStep swipeDown() {
+        return new MobileCrawlerStep(Action.SWIPE, null, null, null, SwipeDirection.DOWN);
+    }
+
+    /** Full-screen swipe-up (content moves down). */
+    public static MobileCrawlerStep swipeUp() {
+        return new MobileCrawlerStep(Action.SWIPE, null, null, null, SwipeDirection.UP);
+    }
+
+    public SwipeDirection getSwipeDirection() {
+        return swipeDirection;
     }
 
     public MobileCrawlerStep describe(String description) {

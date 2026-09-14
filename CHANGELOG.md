@@ -21,6 +21,26 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.3.0] — 2026-09-14
+
+### Added
+- `MobileElementCrawler`: pre-crawl wait for loading indicators (Android `ProgressBar` /
+  iOS `ActivityIndicator`, plus configurable extra classes) to disappear before snapshotting,
+  bounded by a configurable timeout (`-Dpog.mobile.loadingWaitTimeoutSeconds` /
+  `mobile-config.yaml` `crawler.loadingWaitTimeoutSeconds`, default 15s). Fixes the crawler
+  silently snapshotting a still-spinning screen for slow/lazily-populated agency lists
+  (found via live investigation of 311-Automation-SDK's "New Service Request" menu).
+- `MobileCrawlerStep`: new `Action.SWIPE` with `swipeDown()`/`swipeUp()` factories.
+- `MobileDataDrivenCrawler`: new `crawlWithScrollDiscovery(SwipeDirection, int maxSwipeAttempts)`
+  that repeatedly swipes + re-crawls + merges elements until no new elements appear or the
+  attempt cap is hit, so items positioned below the fold of a long scrollable list (e.g. TLC's
+  "Driver Complaint"/"Lost Property" menu items) are actually discovered instead of silently
+  missing from the crawl report. State-fingerprint dedup is disabled for the duration of scroll
+  discovery, since it deliberately ignores plain-text-only elements and would otherwise abort
+  merging after the first swipe on text-only list screens.
+
+---
+
 ## [1.2.1] — 2026-09-11
 
 ### Fixed
