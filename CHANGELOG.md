@@ -21,6 +21,31 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.4.7] — 2026-09-16
+<!-- Add entries here during development; move to a version heading on release -->
+
+### Added
+- **OBS-9: automatic Allure HTML report generation after test execution.**
+  Consumers previously had to manually run
+  `allure generate .\allure-results --clean -o .\allure-report` /
+  `allure open .\allure-report` after every run. The SDK now does this
+  automatically at the end of the whole execution (`Listener.onFinish(ISuite)`,
+  guarded to run exactly once even with multiple `<suite>` blocks or parallel
+  test threads), via the new internal `AllureReportGenerator` service.
+  Configured entirely through the existing `sdk-config.yaml` /
+  `ConfigurationManager` precedence chain (system property > env var > YAML >
+  default) under a new `reporting.allure.*` section: `enabled`,
+  `generateAfterExecution`, `openAfterGeneration` (**defaults to `false` --
+  opening a browser is never automatic**, matching CI/service/headless-safe
+  behavior out of the box), `resultsDirectory`, `reportDirectory`,
+  `generationTimeoutSeconds`. Requires the Allure commandline to be installed
+  separately; if it isn't found, generation is skipped with a clear log
+  message and test execution is completely unaffected either way -- report
+  generation success/failure is always independent from the underlying
+  TestNG/Maven test result. See `SDK-USER-GUIDE.md`, "Allure Reporting".
+
+---
+
 ## [1.4.2] — 2026-09-16
 <!-- Add entries here during development; move to a version heading on release -->
 

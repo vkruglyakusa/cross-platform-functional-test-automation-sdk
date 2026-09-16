@@ -1,7 +1,7 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 1.4.2
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.2`
+**Version:** 1.4.7
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the **single document** a QA engineer needs to start a new Selenium
@@ -485,7 +485,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.4.2
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7
 ```
 
 Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.2.0.jar` downloaded.
@@ -1812,12 +1812,63 @@ artifact type is configured from the unified `reporting:` section in
 | `reporting.crawlerDir` | `test-output/crawler` | `-Dreporting.crawlerDir` | Locator crawler and PageObjectGenerator reports |
 | `reporting.accessibilityDir` | `test-output/accessibility` | `-Dreporting.accessibilityDir` | Accessibility JSON, Excel, and HTML reports |
 | `reporting.gapOutputDir` | `docs/test-case-gaps` | `-Dreporting.gapOutputDir` | Gap and blocker markdown reports |
+| `reporting.allure.enabled` | `true` | `-Dreporting.allure.enabled` | Master on/off switch for automatic Allure report generation |
+| `reporting.allure.generateAfterExecution` | `true` | `-Dreporting.allure.generateAfterExecution` | Runs `allure generate` once the whole test execution finishes |
+| `reporting.allure.openAfterGeneration` | `false` | `-Dreporting.allure.openAfterGeneration` | Opens the generated report locally after a successful generation |
+| `reporting.allure.resultsDirectory` | `allure-results` | `-Dreporting.allure.resultsDirectory` | Where `allure-testng` writes raw result files during the run |
+| `reporting.allure.reportDirectory` | `allure-report` | `-Dreporting.allure.reportDirectory` | Destination directory for the generated static HTML report |
+| `reporting.allure.generationTimeoutSeconds` | `120` | `-Dreporting.allure.generationTimeoutSeconds` | Max time to wait for `allure generate` before giving up |
 
 Backward-compatible aliases remain supported for older projects: `screenshots.outputDir`, `screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `reporting.gapOutputDir`.
 
 The SDK generates two report types automatically -- no configuration required.
 
 ### Allure Report
+
+**Prerequisite:** the [Allure commandline](https://allurereport.org/docs/install/)
+must be installed and on `PATH` (e.g. `npm install -g allure-commandline`,
+Scoop, Homebrew, or the manual zip install). This is an external tool
+requirement, not something the SDK ships -- the SDK only automates *invoking*
+it.
+
+By default, once the whole test execution finishes (all suites/threads done),
+the SDK automatically runs the equivalent of:
+
+```bash
+allure generate ./allure-results --clean -o ./allure-report
+```
+
+so a consumer running a plain `mvn test` gets a ready-to-view
+`allure-report/index.html` with no extra script, listener, or manual step of
+their own. This is implemented by the internal `AllureReportGenerator`
+service and wired into the existing `Listener.onFinish(ISuite)` lifecycle
+hook (see `com.test.automation.sdk.reporting.AllureReportGenerator`) -- it
+runs exactly once per execution even with multiple `<suite>` blocks or
+parallel test threads.
+
+Behavior:
+- If `reporting.allure.enabled` or `reporting.allure.generateAfterExecution`
+  is `false`, generation is skipped entirely (no process is launched).
+- If the Allure commandline isn't found on the machine, generation is skipped
+  with a clear log line explaining why -- **test execution itself always
+  passes/fails purely on its own TestNG result**, independent of whether the
+  HTML report could be generated afterward.
+- `--clean` only ever applies to the generated **report** directory; your
+  `allure-results` (the raw execution evidence) is never deleted or modified.
+- `reporting.allure.openAfterGeneration` **defaults to `false`** and must stay
+  that way for CI/service/headless execution (Azure DevOps agents, Windows
+  services, etc.) -- opening a browser automatically is never appropriate
+  there. Set it to `true` only for your own local developer runs, e.g.:
+  ```bash
+  mvn test -Dreporting.allure.openAfterGeneration=true
+  ```
+  When enabled, the report is opened via a detached, non-blocking `allure
+  open` process -- since that command starts a small local web server that
+  runs until manually stopped, the SDK launches it and returns immediately
+  rather than waiting on it (which would otherwise hang the Maven build).
+
+Manual/on-demand generation still works exactly as before if you prefer to
+control it yourself instead of (or in addition to) the automatic behavior:
 
 ```bash
 # Generate and open Allure report after test run
@@ -2506,5 +2557,5 @@ BUILD SUCCESS
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.2`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7`*  
 *Maintained by OTI QA Automation Team*
