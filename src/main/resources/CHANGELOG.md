@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.4.2] — 2026-09-16
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Fixed
 - **`MobileDriverFactory` had no way to pin an exact device/simulator when
   more than one is attached at once.** `deviceName` is a descriptive
