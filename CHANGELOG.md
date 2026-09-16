@@ -21,6 +21,39 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.4.0] — 2026-09-16
+
+### Added
+- `MobileDriverFactory` (local Android sessions): new optional `android.httpProxy`
+  ("host:port") config key. When set, applies the W3C `proxy` capability so UiAutomator2
+  automatically runs `adb shell settings put global http_proxy ...` on the emulator/device at
+  session start. This is needed when the host machine itself requires a corporate/network
+  proxy for internet access -- without it, the emulator has no outbound HTTP(S) egress at all,
+  and the app under test shows a generic "network connectivity issue" that is easy to
+  misdiagnose as an app/locator/test defect rather than an environment/network configuration
+  gap. Root-caused and validated live against the 311 NYC app in `311-Automation-SDK`: setting
+  the device's global `http_proxy` to match the host's corporate proxy took the app from a
+  persistent "Network connectivity issue" error banner to fully loading real API-backed content.
+  Left unset by default (opt-in) since most networks have direct internet access.
+
+---
+
+## [1.3.1] — 2026-09-14
+
+### Fixed
+- `MobileDriverFactory` (local Android/iOS sessions): now explicitly sets `noReset=true` /
+  `fullReset=false` by default (configurable via `android.noReset`/`android.fullReset` and
+  `ios.noReset`/`ios.fullReset`). Previously, since an `app` capability (`appPath`) was always
+  supplied but `noReset` was never set, Appium's own default caused every local test run to
+  reinstall the APK/IPA and wipe app data before each session -- forcing a cold start on every
+  run. This produced materially different behavior than a manually-driven session on the same
+  device (different cache/auth state, slower/lazier remote-content loading), and was the actual
+  root cause of a "TLC New Service Request list never loads" failure in 311-Automation-SDK that
+  reproduced 100% of the time under automation but never manually -- confirming an app-state
+  difference, not a genuine content/timing bug.
+
+---
+
 ## [1.3.0] — 2026-09-14
 
 ### Added

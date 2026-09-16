@@ -5,6 +5,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -148,6 +150,34 @@ public final class MobileDriverFactory {
         options.setCapability("automationName",
                 MobileConfigReader.get("android.automationName", "UiAutomator2"));
         options.setCapability("platformName", "Android");
+        // Default noReset=true / fullReset=false: preserve the app's existing install +
+        // data/cache between local runs, matching how a developer/tester manually reuses an
+        // already-installed, already-warmed-up app on the same emulator/device. Without this,
+        // Appium's own default (noReset=false when an "app" capability/appPath is supplied)
+        // reinstalls the APK and wipes app data before every session -- forcing a cold start
+        // that can behave very differently (slower/lazier remote-content loading, different
+        // cache/auth state) than a manually-driven session on the same device. Configurable via
+        // android.noReset / android.fullReset for consumers that specifically need a clean-slate
+        // install per run.
+        options.setCapability("noReset",
+                Boolean.parseBoolean(MobileConfigReader.get("android.noReset", "true")));
+        options.setCapability("fullReset",
+                Boolean.parseBoolean(MobileConfigReader.get("android.fullReset", "false")));
+        // Optional device-level HTTP(S) proxy (e.g. "host:port" of a corporate proxy that the
+        // host machine itself sits behind). When set, UiAutomator2 applies it via
+        // `adb shell settings put global http_proxy ...` at session start, so app HTTP(S)
+        // traffic on the emulator/device is proxied the same way the host machine is. Without
+        // this, a host machine that requires a corporate proxy for real internet access leaves
+        // the emulator with no egress at all (device shows generic "network connectivity issue"
+        // errors, distinct from -- and easy to misdiagnose as -- an app/locator/test bug).
+        String androidHttpProxy = MobileConfigReader.get("android.httpProxy", null);
+        if (androidHttpProxy != null && !androidHttpProxy.isEmpty()) {
+            Map<String, Object> proxyCapability = new HashMap<>();
+            proxyCapability.put("proxyType", "manual");
+            proxyCapability.put("httpProxy", androidHttpProxy);
+            proxyCapability.put("sslProxy", androidHttpProxy);
+            options.setCapability("proxy", proxyCapability);
+        }
 
         AppiumDriver driver = new AndroidDriver(localAppiumUrl(), options);
         log.info("Local Android driver session started: {}", driver.getSessionId());
@@ -166,6 +196,13 @@ public final class MobileDriverFactory {
         options.setCapability("automationName",
                 MobileConfigReader.get("ios.automationName", "XCUITest"));
         options.setCapability("platformName", "iOS");
+        // See createLocalAndroidDriver() above for rationale: default to preserving app
+        // install/data between local runs (noReset=true) rather than Appium's own default
+        // reset-per-session behavior.
+        options.setCapability("noReset",
+                Boolean.parseBoolean(MobileConfigReader.get("ios.noReset", "true")));
+        options.setCapability("fullReset",
+                Boolean.parseBoolean(MobileConfigReader.get("ios.fullReset", "false")));
 
         AppiumDriver driver = new IOSDriver(localAppiumUrl(), options);
         log.info("Local iOS driver session started: {}", driver.getSessionId());

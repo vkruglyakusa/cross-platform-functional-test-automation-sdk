@@ -29,6 +29,24 @@ android:
   # Local emulator/device name (e.g. "Pixel_6_API_34" or a USB-attached device's ADB id).
   deviceName: ""
   automationName: "UiAutomator2"
+  # noReset (default true): keep the app's existing install + data/cache between local runs,
+  # matching how a developer manually reuses an already-installed, already-warmed-up app on the
+  # same emulator/device. Set to "false" if your tests need a guaranteed clean-slate app state
+  # every run (e.g. onboarding-flow tests) -- be aware this also forces a cold start that may
+  # load remote content noticeably slower/differently than a manually-driven session.
+  noReset: "true"
+  # fullReset (default false): uninstall + reinstall the app before the session. Rarely needed;
+  # noReset=false is usually sufficient for a clean data reset without the reinstall overhead.
+  fullReset: "false"
+  # httpProxy (optional, unset by default): "host:port" of an HTTP(S) proxy to apply to the
+  # emulator/device at session start (UiAutomator2 runs
+  # `adb shell settings put global http_proxy ...` automatically when this is set). Needed when
+  # the host machine itself sits behind a corporate proxy for internet access -- without it the
+  # emulator has no outbound HTTP(S) egress at all, and the app under test will show a generic
+  # "network connectivity issue" that is easy to misdiagnose as an app/locator/test bug rather
+  # than an environment/network configuration gap. Leave unset on networks with direct internet
+  # access.
+  # httpProxy: "proxy.example.com:8080"
 
 ios:
   # Path to the .ipa/.app under test, relative to the project root, used only for local runs.
@@ -36,3 +54,6 @@ ios:
   # Local simulator/device name (e.g. "iPhone 15").
   deviceName: ""
   automationName: "XCUITest"
+  # See android.noReset / android.fullReset above for rationale.
+  noReset: "true"
+  fullReset: "false"
