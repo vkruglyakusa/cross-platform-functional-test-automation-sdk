@@ -1,6 +1,6 @@
 # Framework Automation SDK
 
-![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.4.0-blue)
+![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.4.7-blue)
 
 > **Reusable Selenium + TestNG framework layer for OTI QA Automation**  
 > Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7`
