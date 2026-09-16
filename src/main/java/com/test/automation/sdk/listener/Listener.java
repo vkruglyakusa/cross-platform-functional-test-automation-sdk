@@ -19,6 +19,7 @@ import org.testng.internal.BaseTestMethod;
 
 import io.qameta.allure.Allure;
 
+import com.test.automation.sdk.reporting.AllureReportGenerator;
 import com.test.automation.sdk.reporting.ExecutionEvidence;
 import com.test.automation.sdk.reporting.ExecutionReporting;
 import com.test.automation.sdk.testbase.*;
@@ -177,6 +178,10 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 
 	public void onFinish(ISuite suite) {
 		Reporter.log("==========About to end executing Suite " + suite.getName() + "==============", true);
+		// OBS-9: automatic Allure HTML report generation. Runs once for the whole
+		// execution regardless of how many <suite> blocks or parallel test threads
+		// were involved -- see AllureReportGenerator's own once-per-run guard.
+		AllureReportGenerator.runPostExecutionLifecycle();
 	}
 	
 	private void setTestNameInXml(ITestResult result) {

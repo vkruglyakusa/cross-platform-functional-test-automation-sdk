@@ -195,6 +195,15 @@ public final class YamlConfigReader {
         flatMap.put("appium.localUrl", "http://127.0.0.1:4723/");
         flatMap.put("android.automationName", "UiAutomator2");
         flatMap.put("ios.automationName", "XCUITest");
+        // OBS-9: automatic Allure HTML report generation after test execution.
+        // See ConfigurationManager.AllureReportConfig / AllureReportGenerator.
+        flatMap.put("reporting.allure.enabled", "true");
+        flatMap.put("reporting.allure.generateAfterExecution", "true");
+        // Never default to opening a browser automatically -- must stay opt-in.
+        flatMap.put("reporting.allure.openAfterGeneration", "false");
+        flatMap.put("reporting.allure.resultsDirectory", "allure-results");
+        flatMap.put("reporting.allure.reportDirectory", "allure-report");
+        flatMap.put("reporting.allure.generationTimeoutSeconds", "120");
     }
 
     /**

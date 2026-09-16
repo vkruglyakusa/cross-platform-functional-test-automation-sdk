@@ -93,7 +93,7 @@ public final class ConfigurationManager {
         return key.toUpperCase().replace('.', '_').replace('-', '_');
     }
 
-    /** Typed view over the handful of platform-neutral keys used today. */
+    /** Typed view over platform-neutral (common) configuration. */
     public static CommonConfig getCommonConfig() {
         return new CommonConfig();
     }
@@ -101,6 +101,17 @@ public final class ConfigurationManager {
     /** Typed view over the handful of Web-specific keys used today. */
     public static WebConfig getWebConfig() {
         return new WebConfig();
+    }
+
+    /**
+     * Typed view over the automatic Allure HTML report generation feature
+     * (OBS-9). Resolved through the same system property &gt; environment
+     * variable &gt; project YAML &gt; default precedence chain as every other
+     * SDK setting -- see {@link com.test.automation.sdk.reporting.AllureReportGenerator}
+     * for how these values drive the post-execution lifecycle.
+     */
+    public static AllureReportConfig getAllureReportConfig() {
+        return new AllureReportConfig();
     }
 
     /** Typed, read-only view over platform-neutral (common) configuration. */
@@ -136,6 +147,49 @@ public final class ConfigurationManager {
 
         public int pageLoadTimeoutSeconds() {
             return resolveInt("browser.pageLoadTimeoutSeconds", 30);
+        }
+    }
+
+    /**
+     * Typed, read-only view over the OBS-9 automatic Allure report
+     * generation configuration.
+     */
+    public static final class AllureReportConfig {
+        private AllureReportConfig() {
+        }
+
+        /** Master on/off switch for the whole feature. */
+        public boolean enabled() {
+            return resolveBoolean("reporting.allure.enabled", true);
+        }
+
+        /** Whether to run {@code allure generate} after execution completes. */
+        public boolean generateAfterExecution() {
+            return resolveBoolean("reporting.allure.generateAfterExecution", true);
+        }
+
+        /**
+         * Whether to open the generated report after a successful generation.
+         * Deliberately defaults to {@code false} -- opening a browser must
+         * never happen automatically on a CI/service/headless agent.
+         */
+        public boolean openAfterGeneration() {
+            return resolveBoolean("reporting.allure.openAfterGeneration", false);
+        }
+
+        /** Directory Allure result files are written to during the run. */
+        public String resultsDirectory() {
+            return resolve("reporting.allure.resultsDirectory", "allure-results");
+        }
+
+        /** Destination directory for the generated static HTML report. */
+        public String reportDirectory() {
+            return resolve("reporting.allure.reportDirectory", "allure-report");
+        }
+
+        /** Maximum time to wait for {@code allure generate} to finish. */
+        public int generationTimeoutSeconds() {
+            return resolveInt("reporting.allure.generationTimeoutSeconds", 120);
         }
     }
 }

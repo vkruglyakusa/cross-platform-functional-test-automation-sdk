@@ -108,6 +108,24 @@ reporting:
   accessibilityDir: "test-output/accessibility"  # a11y JSON / Excel / HTML        (-Dreporting.accessibilityDir)
   gapOutputDir:   "docs/test-case-gaps"          # gap-report.md / blocker-report.md (-Dreporting.gapOutputDir)
 
+  # ------------------------------------------------------------
+  # OBS-9: Automatic Allure HTML report generation after execution.
+  # Prerequisite: the Allure commandline must be installed and on PATH
+  # (https://allurereport.org/docs/install/). If it isn't found, generation
+  # is skipped with a clear log message -- test execution itself is never
+  # affected either way (report generation and test pass/fail are separate
+  # concerns). See SDK-USER-GUIDE.md, "Allure Reporting", for details.
+  # ------------------------------------------------------------
+  allure:
+    enabled: true                    # master on/off switch                        (-Dreporting.allure.enabled)
+    generateAfterExecution: true     # run `allure generate` once execution ends   (-Dreporting.allure.generateAfterExecution)
+    # NEVER default this to true -- opening a browser must always be opt-in,
+    # especially on Azure DevOps agents / Windows services / headless hosts.
+    openAfterGeneration: false       # open the generated report locally after success (-Dreporting.allure.openAfterGeneration)
+    resultsDirectory: "allure-results"  # where allure-testng writes raw results   (-Dreporting.allure.resultsDirectory)
+    reportDirectory: "allure-report"    # where the generated static HTML site goes (-Dreporting.allure.reportDirectory)
+    generationTimeoutSeconds: 120    # max time to wait for `allure generate`      (-Dreporting.allure.generationTimeoutSeconds)
+
 # ------------------------------------------------------------
 # Accessibility Testing (axe-core + WCAG checks)
 # Powered by the SDK's built-in accessibility engine.
