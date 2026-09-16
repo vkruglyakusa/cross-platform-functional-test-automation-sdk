@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.4.1] — 2026-09-16
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Fixed
 - **`ElementCrawler.collectFromShadowRoots()` produced unusable locators for
   shadow-in-shadow (nested) web components**, e.g. Coveo Atomic's
