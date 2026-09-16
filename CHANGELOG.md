@@ -19,6 +19,23 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **`MobileDriverFactory` had no way to pin an exact device/simulator when
+  more than one is attached at once.** `deviceName` is a descriptive
+  capability only -- it does not select which device UiAutomator2/XCUITest
+  actually uses. With, e.g., an emulator AND a physical device attached
+  simultaneously, an unpinned local session could silently land on whichever
+  device Appium happened to pick (observed to vary run-to-run), producing
+  intermittent failures that looked like a session-startup defect
+  (`SessionNotCreatedException` during `MainActivity` startup) or a locator/
+  page-object defect ("OS propagation failure"), when the real cause was the
+  session simply running against a different, unintended device/OS state than
+  the test config assumed. Added optional `android.udid` / `ios.udid` config
+  keys (exact `adb devices` serial, or simulator UDID) that set the `udid`
+  capability when present; unset by default for the common single-device
+  case. Root-caused while revalidating TLC test scenarios in
+  311-Automation-SDK with both an emulator and a physical device connected.
+
 ---
 
 ## [1.4.1] — 2026-09-16

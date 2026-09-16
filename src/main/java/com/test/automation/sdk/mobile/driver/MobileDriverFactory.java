@@ -150,6 +150,21 @@ public final class MobileDriverFactory {
         options.setCapability("automationName",
                 MobileConfigReader.get("android.automationName", "UiAutomator2"));
         options.setCapability("platformName", "Android");
+        // Optional explicit device serial (adb "-s <udid>" target, e.g. "emulator-5554" or a
+        // physical device's serial like "R38MA0KYJTT"). Without this, UiAutomator2 has no
+        // deterministic way to choose among MULTIPLE attached devices/emulators -- "deviceName"
+        // is a descriptive capability only, not a selector. Root-caused via 311-Automation-SDK:
+        // with an emulator AND a physical device both attached, an unpinned session silently
+        // started on whichever device UiAutomator2 happened to pick (observed to vary run to
+        // run), producing behavior that looked like "SessionNotCreatedException for MainActivity
+        // startup" / "OS propagation failure in page-object instances" on some runs -- actually a
+        // session landing on a device in a different state (locked, different OS/app version)
+        // than the one the test config assumed, not a genuine locator or session-startup defect.
+        // Leave unset (default) for the common single-device/single-emulator case.
+        String androidUdid = MobileConfigReader.get("android.udid", null);
+        if (androidUdid != null && !androidUdid.isEmpty()) {
+            options.setCapability("udid", androidUdid);
+        }
         // Default noReset=true / fullReset=false: preserve the app's existing install +
         // data/cache between local runs, matching how a developer/tester manually reuses an
         // already-installed, already-warmed-up app on the same emulator/device. Without this,
@@ -196,6 +211,13 @@ public final class MobileDriverFactory {
         options.setCapability("automationName",
                 MobileConfigReader.get("ios.automationName", "XCUITest"));
         options.setCapability("platformName", "iOS");
+        // See createLocalAndroidDriver() above for rationale: pins the exact simulator/device
+        // when more than one is attached/booted, instead of relying on the non-selecting
+        // "deviceName" capability alone.
+        String iosUdid = MobileConfigReader.get("ios.udid", null);
+        if (iosUdid != null && !iosUdid.isEmpty()) {
+            options.setCapability("udid", iosUdid);
+        }
         // See createLocalAndroidDriver() above for rationale: default to preserving app
         // install/data between local runs (noReset=true) rather than Appium's own default
         // reset-per-session behavior.

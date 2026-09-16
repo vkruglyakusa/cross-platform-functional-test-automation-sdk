@@ -47,6 +47,14 @@ android:
   # than an environment/network configuration gap. Leave unset on networks with direct internet
   # access.
   # httpProxy: "proxy.example.com:8080"
+  # udid (optional, unset by default): exact adb device serial to target (e.g. "emulator-5554"
+  # or a physical device's serial such as "R38MA0KYJTT" -- run `adb devices` to list them).
+  # "deviceName" above is descriptive only and does NOT select which device Appium uses --
+  # with more than one device/emulator attached at once, an unpinned session can silently land
+  # on an unintended device (observed to vary run-to-run), which can look like a session-startup
+  # or locator failure (wrong app/OS state) when it is actually just the wrong device. Always
+  # set this when more than one device/emulator may be attached simultaneously.
+  # udid: "emulator-5554"
 
 ios:
   # Path to the .ipa/.app under test, relative to the project root, used only for local runs.
@@ -57,3 +65,5 @@ ios:
   # See android.noReset / android.fullReset above for rationale.
   noReset: "true"
   fullReset: "false"
+  # See android.udid above for rationale -- pins the exact simulator/device UDID.
+  # udid: "00008030-001A2B3C4D5E6F7G"
