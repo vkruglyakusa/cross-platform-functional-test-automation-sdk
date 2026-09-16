@@ -1753,6 +1753,35 @@ public class TestBase {
 		return host.getShadowRoot().findElement(By.cssSelector(cssSelector));
 	}
 
+	/**
+	 * Resolves an element nested <em>two or more</em> shadow-root levels deep
+	 * (shadow-in-shadow), e.g. a Coveo Atomic-style {@code <custom-search-box>}
+	 * whose own shadow root contains another shadow host {@code <atomic-search-box>}.
+	 * Mirrors {@code ElementInfo.shadowHostXpath} + {@code shadowIntermediateCss}
+	 * + {@code shadowRelativeCss} as emitted by {@code ElementCrawler} for nested
+	 * shadow hosts.
+	 * <p>
+	 * All hops after the first must be relative CSS selectors (shadow roots only
+	 * support CSS, never XPath) resolved against the previous hop's shadow root.
+	 * The final entry in {@code intermediateAndFinalCss} is the target element's
+	 * own selector inside the innermost shadow root.
+	 *
+	 * @param hostLocator locates the outermost shadow-root host element in the light DOM
+	 * @param intermediateAndFinalCss one or more CSS selectors: every entry except the
+	 *                                last resolves an intermediate nested shadow host;
+	 *                                the last entry resolves the target element itself
+	 */
+	public WebElement findInNestedShadowDom(By hostLocator, String... intermediateAndFinalCss) {
+		if (intermediateAndFinalCss == null || intermediateAndFinalCss.length == 0) {
+			throw new IllegalArgumentException("findInNestedShadowDom requires at least one CSS selector");
+		}
+		org.openqa.selenium.SearchContext context = driver.findElement(hostLocator).getShadowRoot();
+		for (int i = 0; i < intermediateAndFinalCss.length - 1; i++) {
+			context = context.findElement(By.cssSelector(intermediateAndFinalCss[i])).getShadowRoot();
+		}
+		return context.findElement(By.cssSelector(intermediateAndFinalCss[intermediateAndFinalCss.length - 1]));
+	}
+
 	// -------------------------------------------------------------------------
 	// Window / Tab Management
 	// -------------------------------------------------------------------------

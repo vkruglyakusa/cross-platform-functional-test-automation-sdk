@@ -479,6 +479,65 @@ class ElementCrawlerTest {
         assertTrue(s.contains("button#submit"));
     }
 
+    // --- Nested shadow-in-shadow support (new) ------------------------------
+
+    @Test
+    @DisplayName("ElementInfo has shadowIntermediateCss field defaulting to an empty list")
+    void elementInfoHasShadowIntermediateCssField() throws NoSuchFieldException {
+        java.lang.reflect.Field f = ElementCrawler.ElementInfo.class.getField("shadowIntermediateCss");
+        assertEquals(java.util.List.class, f.getType());
+        ElementCrawler.ElementInfo info = new ElementCrawler.ElementInfo();
+        assertNotNull(info.shadowIntermediateCss);
+        assertTrue(info.shadowIntermediateCss.isEmpty(),
+            "shadowIntermediateCss must default to empty -- the common single-level shadow case");
+    }
+
+    @Test
+    @DisplayName("describeShadowResolution returns empty string when not in shadow DOM")
+    void describeShadowResolutionEmptyWhenNotInShadowDom() {
+        ElementCrawler.ElementInfo info = new ElementCrawler.ElementInfo();
+        assertEquals("", info.describeShadowResolution());
+    }
+
+    @Test
+    @DisplayName("describeShadowResolution builds a single getShadowRoot() hop for single-level shadow DOM")
+    void describeShadowResolutionSingleLevel() {
+        ElementCrawler.ElementInfo info = new ElementCrawler.ElementInfo();
+        info.inShadowDom = true;
+        info.shadowHostXpath = "//my-form-component";
+        info.shadowRelativeCss = "button#submit";
+        String resolution = info.describeShadowResolution();
+        assertTrue(resolution.contains("By.xpath(\"//my-form-component\")"));
+        assertEquals(1, countOccurrences(resolution, "getShadowRoot()"),
+            "single-level shadow element must produce exactly one getShadowRoot() hop");
+        assertTrue(resolution.contains("By.cssSelector(\"button#submit\")"));
+    }
+
+    @Test
+    @DisplayName("describeShadowResolution chains multiple getShadowRoot() hops for nested shadow-in-shadow elements")
+    void describeShadowResolutionNestedLevels() {
+        ElementCrawler.ElementInfo info = new ElementCrawler.ElementInfo();
+        info.inShadowDom = true;
+        info.shadowHostXpath = "//custom-search-box";
+        info.shadowIntermediateCss = java.util.Arrays.asList("atomic-search-box");
+        info.shadowRelativeCss = "textarea[part='textarea']";
+        String resolution = info.describeShadowResolution();
+        assertTrue(resolution.contains("By.xpath(\"//custom-search-box\")"));
+        assertTrue(resolution.contains("By.cssSelector(\"atomic-search-box\")"));
+        assertTrue(resolution.contains("By.cssSelector(\"textarea[part='textarea']\")"));
+        assertEquals(2, countOccurrences(resolution, "getShadowRoot()"),
+            "one nested hop plus the target lookup must produce exactly two getShadowRoot() hops");
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0, idx = 0;
+        while ((idx = haystack.indexOf(needle, idx)) != -1) {
+            count++;
+            idx += needle.length();
+        }
+        return count;
+    }
+
     // --- safeClick (new) -----------------------------------------------------
 
     @Test

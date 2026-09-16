@@ -880,18 +880,33 @@ if (pin != null) {
 
 ## 32. Shadow DOM (Web Components / Lit / Stencil / Salesforce Lightning-LWC)
 
-Convenience wrapper for resolving elements inside an **open** shadow root, where
+Convenience wrappers for resolving elements inside an **open** shadow root, where
 a single XPath cannot express the lookup (see SDK-USER-GUIDE.md section 7.2 for
 background on why XPath cannot cross a shadow boundary).
 
 | Method | Signature | Description |
 |---|---|---|
 | `findInShadowDom` | `WebElement findInShadowDom(By hostLocator, String cssSelector)` | Finds the shadow-root HOST element via `hostLocator` in the light DOM, then resolves `cssSelector` inside `host.getShadowRoot()`. Only CSS selectors are supported inside a shadow root -- never XPath. |
+| `findInNestedShadowDom` | `WebElement findInNestedShadowDom(By hostLocator, String... intermediateAndFinalCss)` | For shadow-in-shadow nesting (e.g. Coveo Atomic's `<custom-search-box>` containing another shadow host `<atomic-search-box>`). Resolves the outermost host via `hostLocator`, then chains a `getShadowRoot().findElement(By.cssSelector(...))` call per entry in `intermediateAndFinalCss` -- every entry except the last resolves an intermediate nested shadow host; the last entry resolves the target element itself. |
 
 ```java
 WebElement submit = findInShadowDom(By.xpath("//my-form-component"), "button#submit");
 submit.click();
+
+// Shadow-in-shadow nesting:
+WebElement textarea = findInNestedShadowDom(
+    By.cssSelector("custom-search-box"),
+    "atomic-search-box",           // intermediate nested shadow host
+    "textarea[part='textarea']");  // target element, innermost shadow root
 ```
+
+**Hydration timing:** Web Components frequently attach an empty open shadow root
+synchronously and populate it asynchronously after hydration. A lookup called
+immediately after a click that reveals the component (e.g. opening a modal) can
+race ahead of hydration and transiently return `null`/throw. If so, wrap the
+lookup in a short `FluentWait` poll rather than assuming the locator is wrong --
+`ElementCrawler` itself now does exactly this (`waitForShadowRootHydration`,
+bounded at 8s) before enumerating a shadow root's contents.
 
 **Limitation:** *closed* shadow roots (`attachShadow({mode: 'closed'})`) cannot be
 discovered or traversed by any script or WebDriver command -- an intentional

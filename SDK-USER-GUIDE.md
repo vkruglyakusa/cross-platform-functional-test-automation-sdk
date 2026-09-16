@@ -1205,10 +1205,11 @@ encapsulation does **not** use real shadow roots, so it needs no special handlin
 | Field | Meaning |
 |---|---|
 | `inShadowDom` | `true` if the element lives inside an open shadow root |
-| `shadowHostXpath` | Light-DOM XPath to the shadow-root HOST element |
-| `shadowRelativeCss` | CSS selector for the element, resolved via `host.getShadowRoot()` (shadow roots only support CSS lookups, never XPath) |
+| `shadowHostXpath` | Light-DOM XPath to the **outermost** shadow-root HOST element |
+| `shadowIntermediateCss` | `List<String>` -- one CSS hop per *nested* shadow host between the outermost host and the shadow root that directly contains the element (shadow-in-shadow, e.g. Coveo Atomic's `<custom-search-box>` containing `<atomic-search-box>`). Empty for the common single-level case. |
+| `shadowRelativeCss` | CSS selector for the element, resolved via the innermost shadow root (shadow roots only support CSS lookups, never XPath) |
 
-Because a single XPath can't express this two-step lookup, `PageObjectGenerator`
+Because a single XPath can't express this multi-step lookup, `PageObjectGenerator`
 emits a **method** instead of a `@FindBy` field for these elements:
 
 ```java
@@ -1224,6 +1225,28 @@ Or use it directly via the `TestBase` convenience wrapper:
 WebElement submit = findInShadowDom(By.xpath("//my-form-component"), "button#submit");
 submit.click();
 ```
+
+For shadow-in-shadow nesting, use `findInNestedShadowDom` instead, passing one
+CSS selector per nesting level (the last argument resolves the target element):
+
+```java
+WebElement textarea = findInNestedShadowDom(
+    By.cssSelector("custom-search-box"),
+    "atomic-search-box",           // intermediate nested shadow host
+    "textarea[part='textarea']");  // target element, innermost shadow root
+```
+
+`ElementInfo.describeShadowResolution()` prints the exact Java resolution chain
+for a discovered shadow-DOM element (single-level or nested), ready to paste
+into a Page Object method.
+
+**Hydration timing:** many Web Components attach an *empty* open shadow root
+synchronously and populate it asynchronously after `connectedCallback`/hydration.
+`ElementCrawler` polls for a stable child count (bounded at 8s) before
+enumerating a shadow root's contents, but a hand-written lookup called
+immediately after a click that reveals the component (e.g. opening a search
+modal) can still race ahead of hydration -- if so, wrap it in a short
+`FluentWait` poll rather than assuming the locator itself is wrong.
 
 **Limitation (not solvable):** *closed* shadow roots (`element.shadowRoot ===
 null` from any external script) are undiscoverable by design -- an intentional

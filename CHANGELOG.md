@@ -19,6 +19,38 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **`ElementCrawler.collectFromShadowRoots()` produced unusable locators for
+  shadow-in-shadow (nested) web components**, e.g. Coveo Atomic's
+  `<custom-search-box>` whose own shadow root contains another shadow host
+  `<atomic-search-box>`. The single `shadowHostXpath` field previously held a
+  light-DOM XPath computed for the *inner* host too, but an inner host lives
+  inside a shadow root and is not reachable via XPath from `document` at all --
+  the generated locator would never resolve. `ElementInfo` now carries a real
+  hop chain: `shadowHostXpath` (outermost light-DOM host) + new
+  `shadowIntermediateCss` (`List<String>`, one CSS hop per nested shadow host)
+  + `shadowRelativeCss` (final level), with a new `describeShadowResolution()`
+  helper that prints the exact `driver.findElement(...).getShadowRoot()...`
+  chain. Existing single-level shadow-DOM behavior (the common case,
+  `shadowIntermediateCss` empty) is unchanged -- root-caused while automating
+  ADO-238436 in the `Opendata_SDK` consumer project (NYC Open Data global
+  header search).
+- **Shadow-root enumeration raced ahead of Web Component hydration**, causing
+  a transient `null`/empty read immediately after a shadow host was
+  discovered (e.g. right after opening a modal containing a lazily-hydrated
+  custom element). Added a bounded poll (`waitForShadowRootHydration`, max 8s,
+  250ms interval, 2 consecutive stable child-count reads) before enumerating
+  each shadow root's interactive elements. Falls back to whatever is present
+  after the timeout so a legitimately empty or unusually slow widget never
+  hangs the crawler.
+
+### Added
+- **`TestBase.findInNestedShadowDom(By hostLocator, String... intermediateAndFinalCss)`**
+  -- companion to the existing `findInShadowDom` for shadow-in-shadow nesting;
+  resolves a chain of CSS hops through successive `getShadowRoot()` calls, one
+  per nested shadow host, ending at the target element. Mirrors the new
+  `ElementInfo.shadowIntermediateCss` chain emitted by `ElementCrawler`.
+
 ---
 
 ## [1.4.0] — 2026-09-16
