@@ -27,7 +27,8 @@ public final class ExecutionReporting {
     private static volatile ExecutionReporter reporter = new CompositeExecutionReporter(
             new ExecutionLogReporter(),
             new AllureExecutionReporter(),
-            new ExtentExecutionReporter());
+            new ExtentExecutionReporter(),
+            new AnalyticsExecutionReporter());
 
     private static final ThreadLocal<ExecutionState> state =
             ThreadLocal.withInitial(ExecutionState::new);

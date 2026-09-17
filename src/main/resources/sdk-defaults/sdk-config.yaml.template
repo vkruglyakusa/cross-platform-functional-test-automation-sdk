@@ -126,6 +126,19 @@ reporting:
     reportDirectory: "allure-report"    # where the generated static HTML site goes (-Dreporting.allure.reportDirectory)
     generationTimeoutSeconds: 120    # max time to wait for `allure generate`      (-Dreporting.allure.generationTimeoutSeconds)
 
+  # ------------------------------------------------------------
+  # Cross-run analytics event store: every execution event (test outcomes,
+  # runtime self-healing heals/exhaustions, etc.) is appended as one JSON
+  # line per run under analytics.directory. Powers pass-rate trend, flaky-test,
+  # and healed-locator-frequency analysis across many runs via
+  # com.test.automation.sdk.reporting.AnalyticsTrendReport -- something no
+  # single-run Allure/Extent report can answer on its own. Write failures
+  # never affect test execution (this reporter simply disables itself).
+  # ------------------------------------------------------------
+  analytics:
+    enabled: true                    # master on/off switch                        (-Dreporting.analytics.enabled)
+    directory: "test-output/analytics"  # one *.jsonl file written per run          (-Dreporting.analytics.directory)
+
 # ------------------------------------------------------------
 # Accessibility Testing (axe-core + WCAG checks)
 # Powered by the SDK's built-in accessibility engine.

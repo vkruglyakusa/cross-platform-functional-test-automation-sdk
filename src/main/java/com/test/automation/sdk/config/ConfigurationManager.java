@@ -114,6 +114,19 @@ public final class ConfigurationManager {
         return new AllureReportConfig();
     }
 
+    /**
+     * Typed view over the cross-run analytics event store
+     * ({@link com.test.automation.sdk.reporting.AnalyticsExecutionReporter}):
+     * every {@code ExecutionEvent} is appended as one JSON line to a per-run
+     * file, enabling trend analysis (pass-rate history, flaky-test detection,
+     * healed-locator frequency) across many executions -- something no
+     * single-run Allure/Extent report can answer on its own. See
+     * {@link com.test.automation.sdk.reporting.AnalyticsTrendReport}.
+     */
+    public static AnalyticsConfig getAnalyticsConfig() {
+        return new AnalyticsConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -190,6 +203,25 @@ public final class ConfigurationManager {
         /** Maximum time to wait for {@code allure generate} to finish. */
         public int generationTimeoutSeconds() {
             return resolveInt("reporting.allure.generationTimeoutSeconds", 120);
+        }
+    }
+
+    /**
+     * Typed, read-only view over the cross-run analytics event store
+     * configuration.
+     */
+    public static final class AnalyticsConfig {
+        private AnalyticsConfig() {
+        }
+
+        /** Master on/off switch for the whole feature. Defaults to enabled -- write failures never fail a test. */
+        public boolean enabled() {
+            return resolveBoolean("reporting.analytics.enabled", true);
+        }
+
+        /** Directory one JSON-lines file per run is written to. */
+        public String directory() {
+            return resolve("reporting.analytics.directory", "test-output/analytics");
         }
     }
 }

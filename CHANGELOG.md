@@ -35,6 +35,27 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   rather than a silent side effect. Existing page objects that keep calling
   `PageFactory.initElements(driver, this)` directly are completely unaffected.
   17 new unit tests (`LocatorRelaxationEngineTest`, `HealingElementLocatorTest`).
+- **Cross-run analytics event store (`com.test.automation.sdk.reporting`).**
+  A new `AnalyticsExecutionReporter` is now wired into the default
+  `CompositeExecutionReporter` chain alongside the existing log/Allure/Extent
+  reporters, so every `ExecutionEvent` (test start/pass/fail/skip, step
+  events, healed-locator actions, etc.) is additionally appended as one JSON
+  line to a per-JVM-run file under `test-output/analytics/` (default;
+  configurable via `reporting.analytics.enabled` / `reporting.analytics.directory`
+  in `sdk-config.yaml`, an environment variable, or a `-D` system property,
+  following the SDK's usual config-precedence rules). Because runs accumulate
+  as separate files in that directory, a new `AnalyticsTrendReport` utility can
+  read the whole directory back and aggregate: `summarizeTestOutcomes(Path)`
+  returns pass/fail/skip counts per test (keyed by
+  `ClassName.methodName[testCaseName]`) and flags tests that both passed and
+  failed across runs as flaky (`TestOutcome#isFlaky()`); `summarizeHealing(Path)`
+  aggregates `LOCATOR_HEALED` events per locator into healed-vs-exhausted
+  counts, surfacing which locators are healing frequently (a signal that the
+  underlying page object should be fixed rather than relying on healing
+  indefinitely). The reporter never affects test execution: it disables itself
+  permanently on any write failure, and the aggregator silently skips
+  malformed lines/files instead of aborting. 13 new unit tests
+  (`AnalyticsExecutionReporterTest`, `AnalyticsTrendReportTest`).
 
 ---
 

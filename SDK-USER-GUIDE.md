@@ -1931,6 +1931,69 @@ String path = captureScreen("my-file");   // saves and returns the path
 saveDomDump(driver, "my-dom-dump");       // saves to reporting.domDumpsDir
 ```
 
+### Analytics Event Store -- Cross-Run Trends & Flaky-Test Detection
+
+Every `mvn test` run also appends one JSON line per `ExecutionEvent` (test
+start/pass/fail/skip, step events, `LOCATOR_HEALED` actions from the
+self-healing locators feature, etc.) to a per-run file under
+`test-output/analytics/`, e.g. `execution-events-20260214T091533Z.jsonl`. This
+happens automatically -- `AnalyticsExecutionReporter` is wired into the same
+default reporter chain as the log/Allure/Extent reporters, and it never
+affects test execution: it silently disables itself for the rest of the JVM
+run if a write ever fails.
+
+Because every `mvn test` invocation writes its own file, the directory
+naturally accumulates a history across many runs (CI or local). Use
+`AnalyticsTrendReport` to read that whole directory back and aggregate:
+
+```java
+import com.test.automation.sdk.reporting.AnalyticsTrendReport;
+import java.nio.file.Paths;
+import java.util.Map;
+
+Map<String, AnalyticsTrendReport.TestOutcome> outcomes =
+        AnalyticsTrendReport.summarizeTestOutcomes(Paths.get("test-output/analytics"));
+
+outcomes.forEach((testKey, outcome) -> {
+    if (outcome.isFlaky()) {
+        System.out.println(testKey + " is FLAKY: "
+                + outcome.getPassCount() + " pass / " + outcome.getFailCount() + " fail"
+                + " across " + outcome.getTotalRuns() + " runs");
+    }
+});
+
+Map<String, AnalyticsTrendReport.HealStats> healing =
+        AnalyticsTrendReport.summarizeHealing(Paths.get("test-output/analytics"));
+
+healing.forEach((locator, stats) -> {
+    if (stats.getExhaustedCount() > 0 || stats.getHealedCount() > 2) {
+        System.out.println(locator + " healed " + stats.getHealedCount()
+                + " time(s), exhausted " + stats.getExhaustedCount()
+                + " time(s) -- consider fixing the page object.");
+    }
+});
+```
+
+- `TestOutcome` -- pass/fail/skip counts per test, keyed by
+  `ClassName.methodName` (or `ClassName.methodName[testCaseName]` for
+  data-driven rows); `isFlaky()` is `true` whenever a test has both passed and
+  failed across the aggregated runs.
+- `HealStats` -- healed vs. exhausted counts per locator string, aggregated
+  across every `LOCATOR_HEALED` event found. A locator that heals frequently
+  is a signal the underlying `@FindBy` should be fixed rather than relying on
+  healing indefinitely; a locator that exhausts is a signal healing could not
+  find any relaxed candidate and the element is genuinely missing/changed.
+
+Configure the analytics store in `sdk-config.yaml` (same precedence rules as
+every other SDK setting -- system property > env var > YAML > default):
+
+```yaml
+reporting:
+  analytics:
+    enabled: true                      # set false to disable entirely
+    directory: "test-output/analytics" # where per-run .jsonl files are written
+```
+
 ---
 
 ## 13.1 Gap & Blocker Reports -- Configurable Output
