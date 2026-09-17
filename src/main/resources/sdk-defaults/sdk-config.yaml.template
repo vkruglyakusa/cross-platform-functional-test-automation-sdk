@@ -140,6 +140,26 @@ reporting:
     directory: "test-output/analytics"  # one *.jsonl file written per run          (-Dreporting.analytics.directory)
 
 # ------------------------------------------------------------
+# Zero-config visual regression testing: TestBase.assertVisualMatch(checkpointName)
+# captures a screenshot and compares it against a stored baseline using a
+# tolerant pixel diff (com.test.automation.sdk.visual.ImageDiffEngine) -- no
+# external visual-testing service required. The first check for a given
+# checkpoint name saves the screenshot as the accepted baseline; baselines
+# live under visual.baselineDirectory (default inside src/test/resources so
+# they can be committed and code-reviewed like any other test asset).
+# ------------------------------------------------------------
+visual:
+  enabled: true                              # master on/off switch                (-Dvisual.enabled)
+  baselineDirectory: "src/test/resources/visual-baselines"  # accepted baselines   (-Dvisual.baselineDirectory)
+  outputDirectory: "test-output/visual"       # actual/diff images from this run    (-Dvisual.outputDirectory)
+  mismatchThresholdPercent: 0.1               # max acceptable mismatch % (0-100)   (-Dvisual.mismatchThresholdPercent)
+  pixelColorTolerance: 12                     # per-channel (0-255) anti-aliasing tolerance (-Dvisual.pixelColorTolerance)
+  # Set true only for a deliberate one-off re-baselining run after an
+  # intentional UI change -- every checkpoint's baseline gets overwritten.
+  updateBaselines: false                      # (-Dvisual.updateBaselines)
+  failOnMismatch: true                        # throw AssertionError on mismatch    (-Dvisual.failOnMismatch)
+
+# ------------------------------------------------------------
 # Accessibility Testing (axe-core + WCAG checks)
 # Powered by the SDK's built-in accessibility engine.
 # Set enabled: true to activate scans automatically after

@@ -20,6 +20,27 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Zero-config visual regression testing (`com.test.automation.sdk.visual`).**
+  New `TestBase.assertVisualMatch(checkpointName)` captures the current page
+  screenshot and compares it against a stored PNG baseline for that
+  checkpoint using a tolerant pixel diff (`ImageDiffEngine`: per-channel
+  color tolerance absorbs anti-aliasing/compression noise; a mismatch
+  percentage above `visual.mismatchThresholdPercent` fails the check). The
+  first check for a given checkpoint name saves the screenshot as the
+  accepted baseline -- no separate "record baseline" step, and no external
+  visual-testing service required. Baselines live under
+  `visual.baselineDirectory` (default `src/test/resources/visual-baselines`,
+  inside the consumer project's source tree) so they can be committed and
+  code-reviewed like any other test asset; a deliberate
+  `-Dvisual.updateBaselines=true` run re-baselines every checkpoint after an
+  intentional UI change. On mismatch, a red-highlighted diff image is
+  attached to the execution report (Allure/Extent/log) via the existing
+  `ExecutionReporting` pipeline, and (when `visual.failOnMismatch=true`, the
+  default) an `AssertionError` is thrown. New `VisualRegressionConfig` in
+  `ConfigurationManager` (7 keys, full system-property/env/YAML precedence)
+  and a new `visual:` block in `sdk-config.yaml.template`. 12 new unit tests
+  (  `ImageDiffEngineTest`, `VisualRegressionCheckerTest`); documented in
+  `TESTBASE-API.md` section 34.
 - **Runtime self-healing locators (`com.test.automation.sdk.healing`).**
   New opt-in `TestBase.initElements(driver, this)` (drop-in alternative to
   `PageFactory.initElements(driver, this)`) wires every `@FindBy` field to a

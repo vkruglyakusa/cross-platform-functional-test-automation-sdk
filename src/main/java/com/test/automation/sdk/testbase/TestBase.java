@@ -383,6 +383,60 @@ public class TestBase {
 	}
 
 	/**
+	 * Zero-config visual regression check (Tier 2 -- see
+	 * {@link com.test.automation.sdk.visual.VisualRegressionChecker}).
+	 *
+	 * <p>Captures the current page screenshot and compares it against the
+	 * stored baseline for {@code checkpointName}. The very first time a given
+	 * {@code checkpointName} is checked, the screenshot is saved as the new
+	 * accepted baseline and this call passes (nothing to compare against
+	 * yet) -- no separate "record baseline" step is required. Every
+	 * subsequent call compares against that stored baseline using a
+	 * tolerant pixel diff (see {@code visual.*} keys in
+	 * {@code sdk-config.yaml}) and, when {@code visual.failOnMismatch} is
+	 * {@code true} (the default), throws an {@link AssertionError} if the
+	 * mismatch exceeds {@code visual.mismatchThresholdPercent}. A
+	 * red-highlighted diff image is attached to the execution report on any
+	 * mismatch.</p>
+	 *
+	 * @param checkpointName stable identifier for this visual checkpoint,
+	 *                        e.g. {@code "login-page"} -- reused across runs
+	 *                        to locate the same baseline file
+	 * @return the full comparison outcome, in case the caller wants to
+	 *         inspect it (e.g. log the mismatch percentage) without failing
+	 * @throws AssertionError when the screenshot does not match the baseline
+	 *         within tolerance and {@code visual.failOnMismatch} is enabled
+	 */
+	public com.test.automation.sdk.visual.VisualComparisonResult assertVisualMatch(String checkpointName) {
+		com.test.automation.sdk.visual.VisualRegressionChecker checker =
+				com.test.automation.sdk.visual.VisualRegressionChecker.fromConfiguration();
+		byte[] screenshotPng = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
+		com.test.automation.sdk.visual.VisualComparisonResult result = checker.check(screenshotPng, checkpointName);
+
+		if (result.isBaselineCreated()) {
+			ExecutionReporting.actionCompleted("VISUAL_CHECK", checkpointName, result.getDetail(), null);
+			log.info("[TestBase] Visual baseline created for checkpoint '{}': {}", checkpointName, result.getBaselinePath());
+			return result;
+		}
+
+		if (result.isMatched()) {
+			ExecutionReporting.actionCompleted("VISUAL_CHECK", checkpointName, result.getDetail(), null);
+			return result;
+		}
+
+		if (result.getDiffPath() != null) {
+			ExecutionReporting.publishEvidence(result.getDiffPath(), "Visual diff: " + checkpointName, "screenshot");
+		}
+		ExecutionReporting.actionFailed("VISUAL_CHECK", checkpointName, result.getDetail(), null, null);
+		log.warn("[TestBase] Visual mismatch for checkpoint '{}': {}", checkpointName, result.getDetail());
+
+		if (com.test.automation.sdk.config.ConfigurationManager.getVisualRegressionConfig().failOnMismatch()) {
+			throw new AssertionError("Visual regression mismatch for checkpoint '" + checkpointName + "': " + result.getDetail());
+		}
+		return result;
+	}
+
+	/**
 	 * Framework-internal debug utility. Not intended for direct use in test classes.
 	 * Method will highlite specified element
 	 *

@@ -127,6 +127,16 @@ public final class ConfigurationManager {
         return new AnalyticsConfig();
     }
 
+    /**
+     * Typed view over the zero-config visual regression feature
+     * ({@link com.test.automation.sdk.visual.VisualRegressionChecker}):
+     * screenshot-baseline pixel-diff comparisons with configurable mismatch
+     * tolerance, without requiring any external visual-testing service.
+     */
+    public static VisualRegressionConfig getVisualRegressionConfig() {
+        return new VisualRegressionConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -222,6 +232,73 @@ public final class ConfigurationManager {
         /** Directory one JSON-lines file per run is written to. */
         public String directory() {
             return resolve("reporting.analytics.directory", "test-output/analytics");
+        }
+    }
+
+    /**
+     * Typed, read-only view over the zero-config visual regression
+     * configuration.
+     */
+    public static final class VisualRegressionConfig {
+        private VisualRegressionConfig() {
+        }
+
+        /** Master on/off switch for the whole feature. */
+        public boolean enabled() {
+            return resolveBoolean("visual.enabled", true);
+        }
+
+        /**
+         * Directory accepted baseline screenshots are stored in. Defaults to
+         * a location under the consumer project's test resources so
+         * baselines can be committed to version control and reviewed like
+         * any other test asset.
+         */
+        public String baselineDirectory() {
+            return resolve("visual.baselineDirectory", "src/test/resources/visual-baselines");
+        }
+
+        /** Directory actual/diff screenshots from the current run are written to. */
+        public String outputDirectory() {
+            return resolve("visual.outputDirectory", "test-output/visual");
+        }
+
+        /** Maximum acceptable mismatch percentage (0-100) before a check is considered failed. */
+        public double mismatchThresholdPercent() {
+            String value = resolve("visual.mismatchThresholdPercent", null);
+            if (value == null) {
+                return 0.1;
+            }
+            try {
+                return Double.parseDouble(value.trim());
+            } catch (NumberFormatException e) {
+                return 0.1;
+            }
+        }
+
+        /** Maximum per-channel (0-255) color delta still considered "the same pixel" -- absorbs anti-aliasing noise. */
+        public int pixelColorTolerance() {
+            return resolveInt("visual.pixelColorTolerance", 12);
+        }
+
+        /**
+         * When {@code true}, every check overwrites the stored baseline with
+         * the current screenshot instead of comparing against it -- used for
+         * deliberate re-baselining runs (e.g. {@code -Dvisual.updateBaselines=true})
+         * after an intentional UI change.
+         */
+        public boolean updateBaselines() {
+            return resolveBoolean("visual.updateBaselines", false);
+        }
+
+        /**
+         * When {@code true} (default), a mismatch throws an
+         * {@link AssertionError} from {@code TestBase.assertVisualMatch}.
+         * When {@code false}, mismatches are only reported/logged, useful
+         * while first introducing visual checks into an existing suite.
+         */
+        public boolean failOnMismatch() {
+            return resolveBoolean("visual.failOnMismatch", true);
         }
     }
 }

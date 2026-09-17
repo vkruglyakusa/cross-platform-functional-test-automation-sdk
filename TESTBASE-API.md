@@ -42,6 +42,7 @@ This class provides the full Selenium helper library -- never use raw Selenium A
 31. [Map Widgets (Google Maps / Leaflet / Mapbox GL / OpenLayers / Bing Maps)](#31-map-widgets-google-maps--leaflet--mapbox-gl--openlayers--bing-maps)
 32. [Shadow DOM (Web Components / Lit / Stencil / Salesforce Lightning-LWC)](#32-shadow-dom-web-components--lit--stencil--salesforce-lightning-lwc)
 33. [Runtime Self-Healing Locators](#33-runtime-self-healing-locators)
+34. [Visual Regression Testing](#34-visual-regression-testing)
 
 ---
 
@@ -967,3 +968,55 @@ is required. Existing page objects that keep calling
 Mobile (Appium) self-healing is tracked as future work.
 
 *API Reference updated for SDK v1.9.0*
+
+## 34. Visual Regression Testing
+
+Zero-config screenshot-baseline visual regression, powered by
+`com.test.automation.sdk.visual.VisualRegressionChecker` /
+`ImageDiffEngine`. No external visual-testing service is required -- baselines
+are plain PNG files under `visual.baselineDirectory` (default
+`src/test/resources/visual-baselines`), so approving an intentional UI change
+is just a normal file diff/commit like any other test asset.
+
+| Method | Signature | Description |
+|---|---|---|
+| `assertVisualMatch` | `VisualComparisonResult assertVisualMatch(String checkpointName)` | Captures the current page screenshot and compares it against the stored baseline for `checkpointName`. |
+
+```java
+public void testDashboardLooksCorrect() {
+    dashboardPage.navigateTo();
+    assertVisualMatch("dashboard-page");
+}
+```
+
+**First run for a checkpoint:** the screenshot is saved as the accepted
+baseline and the call passes -- there is no separate "record baseline" step.
+
+**Every subsequent run:** the new screenshot is compared to that baseline
+using a tolerant pixel diff (`visual.pixelColorTolerance` absorbs harmless
+anti-aliasing/compression noise). If the mismatch percentage exceeds
+`visual.mismatchThresholdPercent` (default `0.1`%), a red-highlighted diff
+image is attached to the execution report and, when `visual.failOnMismatch`
+is `true` (the default), an `AssertionError` is thrown.
+
+**Re-baselining after an intentional UI change:** run once with
+`-Dvisual.updateBaselines=true` to overwrite every checkpoint's stored
+baseline with the current screenshots, then commit the updated baseline PNGs.
+
+**Configuration** (`sdk-config.yaml`, all overridable via `-D` / env var):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `visual.enabled` | `true` | Master on/off switch |
+| `visual.baselineDirectory` | `src/test/resources/visual-baselines` | Where accepted baselines live |
+| `visual.outputDirectory` | `test-output/visual` | Where this run's actual/diff images are written |
+| `visual.mismatchThresholdPercent` | `0.1` | Max acceptable mismatch % before a check fails |
+| `visual.pixelColorTolerance` | `12` | Max per-channel (0-255) delta still considered "the same pixel" |
+| `visual.updateBaselines` | `false` | When `true`, every check overwrites the baseline instead of comparing |
+| `visual.failOnMismatch` | `true` | When `false`, mismatches are only reported/logged, not thrown |
+
+**Scope of this release:** compares full-page/viewport screenshots (whatever
+`TakesScreenshot` returns for the current driver); element-scoped visual
+checks and automatic per-run screenshot cropping are tracked as future work.
+
+*API Reference updated for SDK v1.10.0*
