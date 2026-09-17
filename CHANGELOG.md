@@ -41,6 +41,25 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   and a new `visual:` block in `sdk-config.yaml.template`. 12 new unit tests
   (  `ImageDiffEngineTest`, `VisualRegressionCheckerTest`); documented in
   `TESTBASE-API.md` section 34.
+- **Flaky-test quarantine (`com.test.automation.sdk.flaky`).** New opt-in
+  `FlakyTestQuarantineListener` (TestNG `ITestListener`) uses the cross-run
+  historical analytics already written by `reporting.analytics`
+  (`AnalyticsTrendReport`) to distinguish a genuinely intermittent test from a
+  first-time regression or a consistently broken test. A failing test is only
+  quarantined (its final TestNG result reclassified from FAILED to SKIPPED)
+  when it has a mixed pass/fail history with at least
+  `flaky.minRunsForQuarantine` (default `5`) recorded runs, a historical
+  failure rate at or below `flaky.maxFailureRatePercent` (default `80`), and
+  `flaky.quarantine.enabled=true` is explicitly set (default `false` --
+  disabled by default since this is an opinionated behavior change). A clear
+  warning is always logged/reported via `ExecutionReporting` on quarantine, so
+  the outcome is visible, never silent. New `FlakyTestRegistry` (classification
+  logic) and `FlakyQuarantineConfig` in `ConfigurationManager` (3 keys), plus a
+  new `flaky:` block in `sdk-config.yaml.template`. Must be declared *after*
+  `Listener` in `<listeners>` so the genuine failure is recorded before
+  reclassification. 10 new unit tests (`FlakyTestRegistryTest`,
+  `FlakyTestQuarantineListenerTest`); documented in `SDK-USER-GUIDE.md`
+  section 15.1.
 - **Runtime self-healing locators (`com.test.automation.sdk.healing`).**
   New opt-in `TestBase.initElements(driver, this)` (drop-in alternative to
   `PageFactory.initElements(driver, this)`) wires every `@FindBy` field to a

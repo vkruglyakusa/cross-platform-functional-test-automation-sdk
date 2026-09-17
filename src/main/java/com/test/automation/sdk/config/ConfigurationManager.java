@@ -137,6 +137,19 @@ public final class ConfigurationManager {
         return new VisualRegressionConfig();
     }
 
+    /**
+     * Typed view over the flaky-test quarantine feature
+     * ({@link com.test.automation.sdk.flaky.FlakyTestQuarantineListener}):
+     * uses the cross-run analytics history to distinguish a genuinely
+     * intermittent ("known flaky") test from a first-time regression or a
+     * consistently-broken test, and -- only when explicitly enabled --
+     * reclassifies a known-flaky test's final failure as a skip so it does
+     * not block the build, while still surfacing it clearly in reports.
+     */
+    public static FlakyQuarantineConfig getFlakyQuarantineConfig() {
+        return new FlakyQuarantineConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -299,6 +312,50 @@ public final class ConfigurationManager {
          */
         public boolean failOnMismatch() {
             return resolveBoolean("visual.failOnMismatch", true);
+        }
+    }
+
+    /**
+     * Typed, read-only view over the flaky-test quarantine configuration.
+     */
+    public static final class FlakyQuarantineConfig {
+        private FlakyQuarantineConfig() {
+        }
+
+        /**
+         * Master on/off switch. Defaults to {@code false} -- automatically
+         * converting a failure into a skip is an opinionated, potentially
+         * risky behavior change that a project must deliberately opt into.
+         */
+        public boolean enabled() {
+            return resolveBoolean("flaky.quarantine.enabled", false);
+        }
+
+        /** Minimum number of historical runs required before a test can be quarantined. */
+        public int minRunsForQuarantine() {
+            return resolveInt("flaky.minRunsForQuarantine", 5);
+        }
+
+        /**
+         * Maximum historical failure rate (0-100) still considered "flaky"
+         * rather than "broken". A test failing more often than this is
+         * treated as consistently broken and keeps failing the build normally.
+         */
+        public double maxFailureRatePercent() {
+            String value = resolve("flaky.maxFailureRatePercent", null);
+            if (value == null) {
+                return 80.0;
+            }
+            try {
+                return Double.parseDouble(value.trim());
+            } catch (NumberFormatException e) {
+                return 80.0;
+            }
+        }
+
+        /** Directory the analytics event store writes {@code *.jsonl} run history to (shared with {@link AnalyticsConfig}). */
+        public String analyticsDirectory() {
+            return resolve("reporting.analytics.directory", "test-output/analytics");
         }
     }
 }

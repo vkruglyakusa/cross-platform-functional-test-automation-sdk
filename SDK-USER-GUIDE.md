@@ -2491,6 +2491,7 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
     <listeners>
         <listener class-name="com.test.automation.sdk.listener.Listener"/>
         <listener class-name="com.test.automation.sdk.listener.RetryListener"/>
+        <listener class-name="com.test.automation.sdk.flaky.FlakyTestQuarantineListener"/>
     </listeners>
     <test name="All Tests">
         <classes>
@@ -2505,6 +2506,43 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
 | `Listener` | Emits centralized lifecycle events, captures failure evidence once, publishes it to Allure/Extent/logs, and renames data-driven test entries |
 | `RetryListener` | Automatically retries a failed test once |
 | `WebEventListener` | Emits low-level WebDriver debug/a11y signals; it should not replace business steps in reports |
+| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see §15.1 below) |
+
+### 15.1 Flaky-test quarantine (`FlakyTestQuarantineListener`)
+
+`RetryListener` above handles same-run flakiness (retrying a failing test up
+to 3x within one execution). `FlakyTestQuarantineListener` is different: it
+uses the **historical analytics** written by `reporting.analytics`
+(`AnalyticsTrendReport`) to recognize a test that has a genuine mixed
+pass/fail history *across runs* and, only when explicitly enabled, prevents
+that single known-flaky test from failing the overall build.
+
+A test is only ever quarantined when **all** of the following are true:
+
+1. It has at least `flaky.minRunsForQuarantine` (default `5`) historical runs recorded.
+2. Its historical failure rate is **at or below** `flaky.maxFailureRatePercent` (default `80`).
+   A test that fails almost every run is treated as **broken, not flaky** and
+   always fails the build normally.
+3. `flaky.quarantine.enabled` is set to `true` (default `false` -- opt-in only).
+
+When a known-flaky test fails, its TestNG result is reclassified from FAILED
+to SKIPPED so it does not block the build, but a warning is still logged and
+reported via `ExecutionReporting` -- quarantine is always visible, never
+silent. A first-time failure with no history, or a consistently broken test,
+is never quarantined.
+
+**Must be declared *after* `Listener` in `<listeners>`** so the genuine
+failure (with screenshot/DOM/analytics evidence) is recorded first, and only
+then reclassified to SKIP -- this keeps the historical record accurate for
+future flaky-detection.
+
+```yaml
+flaky:
+  quarantine:
+    enabled: false                # opt-in                     (-Dflaky.quarantine.enabled)
+  minRunsForQuarantine: 5          #                            (-Dflaky.minRunsForQuarantine)
+  maxFailureRatePercent: 80        #                            (-Dflaky.maxFailureRatePercent)
+```
 
 ---
 

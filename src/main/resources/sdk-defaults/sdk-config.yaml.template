@@ -160,6 +160,23 @@ visual:
   failOnMismatch: true                        # throw AssertionError on mismatch    (-Dvisual.failOnMismatch)
 
 # ------------------------------------------------------------
+# Flaky-test quarantine: com.test.automation.sdk.flaky.FlakyTestQuarantineListener
+# uses the cross-run analytics history above (reporting.analytics) to tell a
+# genuinely intermittent test apart from a first-time regression or a test
+# that is simply broken (failing almost every run). Declare the listener in
+# your TestNG suite XML, AFTER com.test.automation.sdk.listener.Listener, so
+# the real failure is still recorded in reports/analytics before this
+# listener reclassifies the final TestNG result. Disabled by default --
+# converting a failure into a skip is an opinionated behavior change a
+# project must deliberately opt into.
+# ------------------------------------------------------------
+flaky:
+  quarantine:
+    enabled: false                       # master on/off switch                (-Dflaky.quarantine.enabled)
+  minRunsForQuarantine: 5                # min historical runs before quarantine is allowed (-Dflaky.minRunsForQuarantine)
+  maxFailureRatePercent: 80               # above this failure rate the test is "broken", not flaky (-Dflaky.maxFailureRatePercent)
+
+# ------------------------------------------------------------
 # Accessibility Testing (axe-core + WCAG checks)
 # Powered by the SDK's built-in accessibility engine.
 # Set enabled: true to activate scans automatically after
