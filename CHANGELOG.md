@@ -20,6 +20,24 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **Test impact analysis (`com.test.automation.sdk.impact`).** New standalone
+  `TestImpactCli` (`mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"`)
+  maps files changed since `impact.baseRef` (default `HEAD~1`, via
+  `git diff --name-only`) to the test classes transitively affected by that
+  change, using a compiler-free static source-reference heuristic
+  (`JavaSourceIndexer`: indexes every class under `impact.mainSourceDir` /
+  `impact.testSourceDir`, then records simple-name token matches as
+  reference edges) -- no bytecode/JaCoCo instrumentation required. Writes a
+  filtered TestNG suite (`ImpactSuiteWriter`) to `impact.outputSuiteFile`
+  (default `test-output/impact/impact_suite.xml`) runnable via
+  `mvn test -Dsurefire.suiteXmlFiles=...`. Deliberately over-approximates
+  (extra tests, never fewer) and falls back to recommending a full-suite run
+  whenever a changed file can't be resolved to a known class (non-Java file,
+  or outside the indexed roots) -- coverage is never silently narrowed. New
+  `TestImpactConfig` in `ConfigurationManager` (5 keys) and a new `impact:`
+  block in `sdk-config.yaml.template`. 12 new unit tests
+  (`JavaSourceIndexerTest`, `TestImpactAnalyzerTest`, `ImpactSuiteWriterTest`);
+  documented in `SDK-USER-GUIDE.md` section 15.2.
 - **Zero-config visual regression testing (`com.test.automation.sdk.visual`).**
   New `TestBase.assertVisualMatch(checkpointName)` captures the current page
   screenshot and compares it against a stored PNG baseline for that

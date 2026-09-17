@@ -177,6 +177,26 @@ flaky:
   maxFailureRatePercent: 80               # above this failure rate the test is "broken", not flaky (-Dflaky.maxFailureRatePercent)
 
 # ------------------------------------------------------------
+# Test impact analysis: com.test.automation.sdk.impact.TestImpactCli maps
+# changed source files (via `git diff --name-only <impact.baseRef>`) to the
+# test classes transitively affected by that change, using a lightweight
+# compiler-free source-reference heuristic -- no bytecode/JaCoCo
+# instrumentation required. Run it standalone (not part of `mvn test`):
+#   mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"
+# then run just the impacted tests:
+#   mvn test -Dsurefire.suiteXmlFiles=test-output/impact/impact_suite.xml
+# If any changed file can't be mapped to a known class (non-Java file, or
+# outside the indexed source roots), the CLI prints a warning and recommends
+# running the full suite instead -- this never silently narrows coverage.
+# ------------------------------------------------------------
+impact:
+  mainSourceDir: "src/main/java"              # (-Dimpact.mainSourceDir)
+  testSourceDir: "src/test/java"               # (-Dimpact.testSourceDir)
+  testClassNamePattern: "Test_.*"              # regex a class's simple name must match to count as a test (-Dimpact.testClassNamePattern)
+  outputSuiteFile: "test-output/impact/impact_suite.xml"  # (-Dimpact.outputSuiteFile)
+  baseRef: "HEAD~1"                            # git ref diffed to find changed files (-Dimpact.baseRef)
+
+# ------------------------------------------------------------
 # Accessibility Testing (axe-core + WCAG checks)
 # Powered by the SDK's built-in accessibility engine.
 # Set enabled: true to activate scans automatically after

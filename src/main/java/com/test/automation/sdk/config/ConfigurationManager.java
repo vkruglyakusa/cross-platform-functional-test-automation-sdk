@@ -150,6 +150,17 @@ public final class ConfigurationManager {
         return new FlakyQuarantineConfig();
     }
 
+    /**
+     * Typed, read-only view over the test-impact-analysis configuration used by
+     * {@code com.test.automation.sdk.impact.TestImpactCli}. This tool maps changed
+     * source files (from {@code git diff}) to affected test classes via a
+     * heuristic source-reference graph, then emits a filtered TestNG suite so CI
+     * can run only the impacted tests.
+     */
+    public static TestImpactConfig getTestImpactConfig() {
+        return new TestImpactConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -356,6 +367,41 @@ public final class ConfigurationManager {
         /** Directory the analytics event store writes {@code *.jsonl} run history to (shared with {@link AnalyticsConfig}). */
         public String analyticsDirectory() {
             return resolve("reporting.analytics.directory", "test-output/analytics");
+        }
+    }
+
+    /** Typed, read-only view over the test-impact-analysis configuration. */
+    public static final class TestImpactConfig {
+        private TestImpactConfig() {
+        }
+
+        /** Main source root scanned to build the class-reference graph. */
+        public String mainSourceDir() {
+            return resolve("impact.mainSourceDir", "src/main/java");
+        }
+
+        /** Test source root scanned to build the class-reference graph and locate test classes. */
+        public String testSourceDir() {
+            return resolve("impact.testSourceDir", "src/test/java");
+        }
+
+        /**
+         * Regex a simple (unqualified) class name must match to be considered a test class
+         * eligible for inclusion in the generated impact suite. Defaults to this SDK's own
+         * {@code Test_*} naming convention.
+         */
+        public String testClassNamePattern() {
+            return resolve("impact.testClassNamePattern", "Test_.*");
+        }
+
+        /** Where the generated impact-only TestNG suite XML is written. */
+        public String outputSuiteFile() {
+            return resolve("impact.outputSuiteFile", "test-output/impact/impact_suite.xml");
+        }
+
+        /** Git ref (or revision range base) diffed against the working tree to find changed files. */
+        public String baseRef() {
+            return resolve("impact.baseRef", "HEAD~1");
         }
     }
 }

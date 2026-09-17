@@ -2544,6 +2544,55 @@ flaky:
   maxFailureRatePercent: 80        #                            (-Dflaky.maxFailureRatePercent)
 ```
 
+### 15.2 Test impact analysis (`TestImpactCli`)
+
+Running the entire suite on every commit doesn't scale as a project grows.
+`com.test.automation.sdk.impact.TestImpactCli` maps the files changed in your
+working tree to the test classes that could actually be affected, so CI (or a
+local pre-push check) can run a small, targeted subset instead of everything.
+
+This is a **compiler-free, static heuristic** -- no bytecode/JaCoCo
+instrumentation or build-time agent is required. It scans every `.java` file
+under `impact.mainSourceDir`/`impact.testSourceDir`, and for each class
+records every other indexed class whose simple name appears anywhere in that
+file's body. That gives a lightweight "references" graph; from the changed
+files, the tool walks that graph in reverse (transitively) to collect every
+test class reachable from a change.
+
+```bash
+# Run from the consumer project root
+mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"
+
+# Then run only the impacted tests:
+mvn test -Dsurefire.suiteXmlFiles=test-output/impact/impact_suite.xml
+```
+
+By default this diffs against `impact.baseRef` (`HEAD~1`) via
+`git diff --name-only`. Override per-run, e.g. to diff against a PR's target
+branch: `-Dimpact.baseRef=origin/master`.
+
+**Safety fallback:** if any changed file cannot be mapped to a known class
+(a non-Java file such as `pom.xml`/a YAML config, or a file outside the
+indexed source roots), the tool prints a clear warning and recommends running
+the full suite instead -- it never silently narrows coverage without saying
+so. Changing a test class directly always includes that class itself in the
+impact suite.
+
+```yaml
+impact:
+  mainSourceDir: "src/main/java"                          # (-Dimpact.mainSourceDir)
+  testSourceDir: "src/test/java"                            # (-Dimpact.testSourceDir)
+  testClassNamePattern: "Test_.*"                           # (-Dimpact.testClassNamePattern)
+  outputSuiteFile: "test-output/impact/impact_suite.xml"    # (-Dimpact.outputSuiteFile)
+  baseRef: "HEAD~1"                                          # (-Dimpact.baseRef)
+```
+
+> [!]? This heuristic deliberately over-approximates (a comment/string
+> mentioning a class name, or two unrelated classes sharing a simple name,
+> both count as "referenced") rather than under-approximating -- running a
+> few extra tests is the safe failure mode; silently skipping an affected
+> test is not.
+
 ---
 
 ## 16. Locator Rules -- Non-Negotiable
