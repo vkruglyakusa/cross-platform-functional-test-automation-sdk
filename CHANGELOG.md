@@ -19,6 +19,23 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Added
+- **Runtime self-healing locators (`com.test.automation.sdk.healing`).**
+  New opt-in `TestBase.initElements(driver, this)` (drop-in alternative to
+  `PageFactory.initElements(driver, this)`) wires every `@FindBy` field to a
+  `HealingElementLocator`. When a primary XPath locator can no longer find any
+  element, a small set of progressively relaxed XPath candidates is generated
+  directly from that same locator (`LocatorRelaxationEngine`: drop-one-predicate,
+  keep-one-predicate-alone, and exact-to-`contains()` variants) -- no pre-crawled
+  fingerprint or external service required. A candidate is only trusted if it
+  resolves to **exactly one** element (the same uniqueness bar the crawler
+  enforces at design time); anything ambiguous is treated as still-broken. Every
+  heal attempt (success or exhaustion) is published through
+  `ExecutionReporting`, so it is visible in the log/Allure/Extent report trail
+  rather than a silent side effect. Existing page objects that keep calling
+  `PageFactory.initElements(driver, this)` directly are completely unaffected.
+  17 new unit tests (`LocatorRelaxationEngineTest`, `HealingElementLocatorTest`).
+
 ---
 
 ## [1.4.8] — 2026-09-17

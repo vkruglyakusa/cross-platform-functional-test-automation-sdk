@@ -30,6 +30,7 @@ import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.interactions.WheelInput;
 import org.openqa.selenium.remote.LocalFileDetector;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.FluentWait;
 import org.openqa.selenium.support.ui.Select;
@@ -50,6 +51,7 @@ import com.test.automation.sdk.utility.QueryExcelFile;
 import com.test.automation.sdk.config.YamlConfigReader;
 import com.test.automation.sdk.execution.ExecutionContext;
 import com.test.automation.sdk.execution.RunMode;
+import com.test.automation.sdk.healing.HealingFieldDecorator;
 import com.test.automation.sdk.reporting.ExecutionEvidence;
 import com.test.automation.sdk.reporting.ExecutionReporting;
 import com.test.automation.sdk.reporting.SecretRedactor;
@@ -916,6 +918,30 @@ public class TestBase {
 		long duration = (endTime - startTime);
 		log.info("Waiting time for element is - " + duration + " milliseconds");
 		return element;
+	}
+
+	/**
+	 * Runtime self-healing alternative to {@code PageFactory.initElements(driver, this)}.
+	 * Page objects opt in by calling {@code initElements(driver, this)} instead of the
+	 * plain PageFactory call in their constructor -- everything else about the page
+	 * object (its {@code @FindBy} fields) is unchanged.
+	 *
+	 * <p>When a healing-enabled field's primary XPath locator can no longer find any
+	 * element (e.g. an attribute value changed), a small set of relaxed candidates
+	 * derived from that same XPath is tried; a candidate is only trusted if it
+	 * resolves to exactly one element. Every heal attempt (success or exhaustion) is
+	 * published through {@link com.test.automation.sdk.reporting.ExecutionReporting}
+	 * so it is visible in the log/Allure/Extent report trail. See
+	 * {@code com.test.automation.sdk.healing.HealingElementLocator} for details.
+	 *
+	 * <p>Existing page objects that keep calling {@code PageFactory.initElements(driver, this)}
+	 * directly are completely unaffected.
+	 *
+	 * @param driver active WebDriver
+	 * @param page   the page object whose {@code @FindBy} fields should be initialized
+	 */
+	public static void initElements(WebDriver driver, Object page) {
+		PageFactory.initElements(new HealingFieldDecorator(driver), page);
 	}
 
 	/**

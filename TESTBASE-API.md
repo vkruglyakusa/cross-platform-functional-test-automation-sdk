@@ -40,6 +40,8 @@ This class provides the full Selenium helper library -- never use raw Selenium A
 29. [Collection Utilities](#29-collection-utilities)
 30. [URL Waits & Reservation Scanner](#30-url-waits--reservation-scanner)
 31. [Map Widgets (Google Maps / Leaflet / Mapbox GL / OpenLayers / Bing Maps)](#31-map-widgets-google-maps--leaflet--mapbox-gl--openlayers--bing-maps)
+32. [Shadow DOM (Web Components / Lit / Stencil / Salesforce Lightning-LWC)](#32-shadow-dom-web-components--lit--stencil--salesforce-lightning-lwc)
+33. [Runtime Self-Healing Locators](#33-runtime-self-healing-locators)
 
 ---
 
@@ -911,5 +913,57 @@ bounded at 8s) before enumerating a shadow root's contents.
 **Limitation:** *closed* shadow roots (`attachShadow({mode: 'closed'})`) cannot be
 discovered or traversed by any script or WebDriver command -- an intentional
 browser security boundary with no workaround.
+
+---
+
+## 33. Runtime Self-Healing Locators
+
+Opt-in alternative to `PageFactory.initElements(driver, this)` that lets a page
+object recover automatically when a primary `@FindBy` XPath locator stops
+matching anything (e.g. an attribute value changed slightly after a UI update),
+without waiting for a human to re-run the crawler and ship a fix.
+
+| Method | Signature | Description |
+|---|---|---|
+| `initElements` | `static void initElements(WebDriver driver, Object page)` | Drop-in replacement for `PageFactory.initElements(driver, this)`. Wires every `@FindBy` field on `page` to a self-healing `ElementLocator` instead of Selenium's stock one. |
+
+```java
+public class LoginPage extends TestBase {
+    @FindBy(xpath = "//input[@formcontrolname='email']")
+    public WebElement emailField;
+
+    public LoginPage(WebDriver driver) {
+        this.driver = driver;
+        initElements(driver, this);   // instead of PageFactory.initElements(driver, this)
+        PageContext.currentPage.set("LoginPage");
+    }
+}
+```
+
+**How healing works:** when the primary XPath locator throws
+`NoSuchElementException`, the SDK generates a small, ranked set of *relaxed*
+candidates from that same XPath (`LocatorRelaxationEngine`):
+
+1. **Drop-one-predicate** -- for a compound `[A and B]` predicate, try `[A]` and
+   `[B]` alone (and, for 3+ operands, every "drop exactly one" combination).
+2. **Exact-to-`contains()`** -- convert `@attr='value'` to
+   `contains(@attr,'value')`, and `normalize-space(.)='value'` /
+   `text()='value'` to a `contains(...)` variant.
+
+A relaxed candidate is only trusted if it resolves to **exactly one** element in
+the live DOM -- the same uniqueness bar the crawler enforces at design time.
+Matching zero or more-than-one elements is treated as "still broken": the
+original `NoSuchElementException` propagates normally, so a genuinely broken
+test still fails clearly.
+
+**Reporting:** every heal attempt (success or exhaustion) is published through
+`ExecutionReporting` (`LOCATOR_HEALED` action), so it shows up in the
+log/Allure/Extent report trail -- never a silent side effect that could mask a
+real product regression.
+
+**Scope of this release:** web (Selenium) only; no pre-crawled fingerprint data
+is required. Existing page objects that keep calling
+`PageFactory.initElements(driver, this)` directly are completely unaffected.
+Mobile (Appium) self-healing is tracked as future work.
 
 *API Reference updated for SDK v1.9.0*
