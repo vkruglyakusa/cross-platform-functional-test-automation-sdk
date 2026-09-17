@@ -25,6 +25,7 @@ public final class ExtentExecutionReporter implements ExecutionReporter {
                 if (ExtentTestManager.getTest() == null) {
                     ExtentTestManager.startTest(displayTestName(event));
                 }
+                publishMetadata(event);
                 break;
             case TEST_PASSED:
                 logToRoot(Status.PASS, "Test passed");
@@ -133,6 +134,32 @@ public final class ExtentExecutionReporter implements ExecutionReporter {
 
     private void logToRoot(Status status, String message) {
         root().log(status, SecretRedactor.redactMessage(message));
+    }
+
+    private void publishMetadata(ExecutionEvent event) {
+        ExtentTest test = root();
+        if (event.getSuiteName() != null && !event.getSuiteName().isEmpty()) {
+            test.assignCategory(SecretRedactor.redactMessage(event.getSuiteName()));
+            test.info("TestNG suite: " + SecretRedactor.redactMessage(event.getSuiteName()));
+        }
+        if (event.getTestNgTestName() != null && !event.getTestNgTestName().isEmpty()) {
+            test.info("TestNG test: " + SecretRedactor.redactMessage(event.getTestNgTestName()));
+        }
+        if ((event.getClassName() != null && !event.getClassName().isEmpty())
+                || (event.getMethodName() != null && !event.getMethodName().isEmpty())) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Test method: ");
+            if (event.getClassName() != null && !event.getClassName().isEmpty()) {
+                sb.append(SecretRedactor.redactMessage(event.getClassName()));
+            }
+            if (event.getMethodName() != null && !event.getMethodName().isEmpty()) {
+                if (sb.charAt(sb.length() - 1) != ' ') {
+                    sb.append('.');
+                }
+                sb.append(SecretRedactor.redactMessage(event.getMethodName()));
+            }
+            test.info(sb.toString());
+        }
     }
 
     private static String displayTestName(ExecutionEvent event) {

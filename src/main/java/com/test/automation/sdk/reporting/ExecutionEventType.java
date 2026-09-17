@@ -5,6 +5,8 @@ package com.test.automation.sdk.reporting;
  * reporting layer.
  */
 public enum ExecutionEventType {
+    SUITE_STARTED,
+    SUITE_COMPLETED,
     TEST_STARTED,
     TEST_PASSED,
     TEST_FAILED,

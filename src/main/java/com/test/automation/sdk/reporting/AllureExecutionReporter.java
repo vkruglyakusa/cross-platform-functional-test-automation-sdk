@@ -4,10 +4,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.UUID;
 
 import io.qameta.allure.Allure;
+import io.qameta.allure.model.Label;
 import io.qameta.allure.model.Status;
 import io.qameta.allure.model.StatusDetails;
 import io.qameta.allure.model.StepResult;
@@ -25,6 +28,7 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         if (event == null) {
             return;
         }
+        applyTestMetadata(event);
         switch (event.getType()) {
             case STEP_STARTED:
                 startStep(event);
@@ -110,6 +114,31 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         Allure.addAttachment("Exception", "text/plain", stackTrace(event.getThrowable()));
     }
 
+    private void applyTestMetadata(ExecutionEvent event) {
+        if (event.getSuiteName().isEmpty() && event.getTestNgTestName().isEmpty() && event.getClassName().isEmpty()) {
+            return;
+        }
+        if (!Allure.getLifecycle().getCurrentTestCase().isPresent()) {
+            return;
+        }
+        Allure.getLifecycle().updateTestCase(testResult -> {
+            List<Label> labels = new ArrayList<Label>();
+            if (testResult.getLabels() != null) {
+                labels.addAll(testResult.getLabels());
+            }
+            if (!event.getSuiteName().isEmpty()) {
+                labels = replaceLabel(labels, "parentSuite", event.getSuiteName());
+            }
+            if (!event.getTestNgTestName().isEmpty()) {
+                labels = replaceLabel(labels, "suite", event.getTestNgTestName());
+            }
+            if (!event.getClassName().isEmpty()) {
+                labels = replaceLabel(labels, "subSuite", event.getClassName());
+            }
+            testResult.setLabels(labels);
+        });
+    }
+
     private String buildStepName(ExecutionEvent event) {
         if (event.getStepNumber() == null) {
             return SecretRedactor.redactMessage(event.getStepName());
@@ -129,5 +158,21 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         throwable.printStackTrace(printWriter);
         printWriter.flush();
         return writer.toString();
+    }
+
+    private static List<Label> replaceLabel(List<Label> existing, String name, String value) {
+        List<Label> labels = new ArrayList<Label>();
+        if (existing != null) {
+            for (Label label : existing) {
+                if (label == null || name.equals(label.getName())) {
+                    continue;
+                }
+                labels.add(label);
+            }
+        }
+        if (value != null && !value.isEmpty()) {
+            labels.add(new Label().setName(name).setValue(SecretRedactor.redactMessage(value)));
+        }
+        return labels;
     }
 }

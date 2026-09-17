@@ -174,10 +174,12 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 
 	public void onStart(ISuite suite) {
 		Reporter.log("About to begin executing Suite " + suite.getName(), true);
+		ExecutionReporting.onSuiteStarted(suite);
 	}
 
 	public void onFinish(ISuite suite) {
 		Reporter.log("==========About to end executing Suite " + suite.getName() + "==============", true);
+		ExecutionReporting.onSuiteFinished(suite);
 		// OBS-9: automatic Allure HTML report generation. Runs once for the whole
 		// execution regardless of how many <suite> blocks or parallel test threads
 		// were involved -- see AllureReportGenerator's own once-per-run guard.

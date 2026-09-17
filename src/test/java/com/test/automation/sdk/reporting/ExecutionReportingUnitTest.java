@@ -5,6 +5,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.testng.ISuite;
+import org.testng.ITestContext;
 import org.testng.ITestClass;
 import org.testng.ITestNGMethod;
 import org.testng.ITestResult;
@@ -122,7 +124,10 @@ class ExecutionReportingUnitTest {
         evidence.add(ExecutionEvidence.screenshot("Failure Screenshot", Paths.get("target", "fake.png")));
         evidence.add(ExecutionEvidence.domDump("Failure DOM", Paths.get("target", "fake.html")));
 
-        ExecutionReporting.onTestFailed(mockResult("reportingFailure"), new IllegalStateException("boom"), evidence);
+        ExecutionReporting.onTestFailed(
+                mockResult("Example Suite", "Example Test Group", "reportingFailure"),
+                new IllegalStateException("boom"),
+                evidence);
 
         assertTrue(reporter.events.size() >= 3, "Expected exception + evidence + test failure events");
         long evidenceEvents = reporter.events.stream().filter(event ->
@@ -141,7 +146,7 @@ class ExecutionReportingUnitTest {
         ExecutionReporting.setReporterForTests(reporter);
         TestBase.setCurrentTestCaseName("ADO-202 Verify links");
 
-        ITestResult result = mockResult("lifecycleStory");
+        ITestResult result = mockResult("Example Suite", "Example Test Group", "lifecycleStory");
         ExecutionReporting.onTestStarted(result);
         ExecutionReporting.onTestPassed(result);
 
@@ -149,6 +154,39 @@ class ExecutionReportingUnitTest {
         assertEquals(ExecutionEventType.TEST_STARTED, reporter.events.get(0).getType());
         assertEquals(ExecutionEventType.TEST_PASSED, reporter.events.get(1).getType());
         assertEquals("ADO-202 Verify links", reporter.events.get(0).getTestCaseName());
+        assertEquals("Example Suite", reporter.events.get(0).getSuiteName());
+        assertEquals("Example Test Group", reporter.events.get(0).getTestNgTestName());
+        assertEquals("StepEnabledTestBase", reporter.events.get(0).getClassName());
+        assertEquals("lifecycleStory", reporter.events.get(0).getMethodName());
+    }
+
+    @Test
+    @DisplayName("Suite lifecycle events publish the authoritative TestNG suite name")
+    void suiteLifecycleEventsPublishAuthoritativeSuiteName() {
+        RecordingReporter reporter = new RecordingReporter();
+        ExecutionReporting.setReporterForTests(reporter);
+
+        ExecutionReporting.onSuiteStarted(mockSuite("Example XML Suite"));
+        ExecutionReporting.onSuiteFinished(mockSuite("Example XML Suite"));
+
+        assertEquals(2, reporter.events.size());
+        assertEquals(ExecutionEventType.SUITE_STARTED, reporter.events.get(0).getType());
+        assertEquals(ExecutionEventType.SUITE_COMPLETED, reporter.events.get(1).getType());
+        assertEquals("Example XML Suite", reporter.events.get(0).getSuiteName());
+        assertEquals("Example XML Suite", reporter.events.get(1).getSuiteName());
+    }
+
+    @Test
+    @DisplayName("Synthetic Surefire suite names fall back to a stable SDK-owned suite identity")
+    void surefireSyntheticSuiteNameFallsBackToClassName() {
+        RecordingReporter reporter = new RecordingReporter();
+        ExecutionReporting.setReporterForTests(reporter);
+
+        ExecutionReporting.onTestStarted(mockResult("Surefire suite", "Surefire test", "syntheticSurefire"));
+
+        assertEquals(1, reporter.events.size());
+        assertEquals("StepEnabledTestBase", reporter.events.get(0).getSuiteName());
+        assertEquals("Surefire test", reporter.events.get(0).getTestNgTestName());
     }
 
     @Test
@@ -166,6 +204,10 @@ class ExecutionReportingUnitTest {
                 try {
                     StepEnabledTestBase base = new StepEnabledTestBase();
                     TestBase.setCurrentTestCaseName(Thread.currentThread().getName());
+                    ExecutionReporting.onTestStarted(mockResult(
+                            "Suite-" + Thread.currentThread().getName(),
+                            "Group-" + Thread.currentThread().getName(),
+                            "parallelStory"));
                     ready.countDown();
                     assertTrue(start.await(5, TimeUnit.SECONDS));
                     base.runStep("Parallel step", new TestBase.StepAction() {
@@ -173,6 +215,10 @@ class ExecutionReportingUnitTest {
                         public void run() {
                         }
                     });
+                    ExecutionReporting.onTestPassed(mockResult(
+                            "Suite-" + Thread.currentThread().getName(),
+                            "Group-" + Thread.currentThread().getName(),
+                            "parallelStory"));
                 } catch (Throwable t) {
                     failure.set(t);
                 } finally {
@@ -195,27 +241,46 @@ class ExecutionReportingUnitTest {
         }
 
         List<String> testCaseNames = new ArrayList<String>();
+        List<String> suiteNames = new ArrayList<String>();
         for (ExecutionEvent event : reporter.events) {
             if (event.getType() == ExecutionEventType.STEP_PASSED) {
                 testCaseNames.add(event.getTestCaseName());
+                suiteNames.add(event.getSuiteName());
             }
         }
         Collections.sort(testCaseNames);
+        Collections.sort(suiteNames);
         assertEquals(2, testCaseNames.size());
         assertEquals("TC-A", testCaseNames.get(0));
         assertEquals("TC-B", testCaseNames.get(1));
+        assertEquals(2, suiteNames.size());
+        assertEquals("Suite-TC-A", suiteNames.get(0));
+        assertEquals("Suite-TC-B", suiteNames.get(1));
     }
 
-    private ITestResult mockResult(String methodName) {
+    private ITestResult mockResult(String suiteName, String testNgTestName, String methodName) {
         ITestResult result = Mockito.mock(ITestResult.class);
         ITestNGMethod testNgMethod = Mockito.mock(ITestNGMethod.class);
         ITestClass testClass = Mockito.mock(ITestClass.class);
+        ITestContext testContext = Mockito.mock(ITestContext.class);
+        ISuite suite = Mockito.mock(ISuite.class);
+
+        Mockito.when(suite.getName()).thenReturn(suiteName);
+        Mockito.when(testContext.getSuite()).thenReturn(suite);
+        Mockito.when(testContext.getName()).thenReturn(testNgTestName);
         Mockito.when(testClass.getRealClass()).thenReturn((Class) StepEnabledTestBase.class);
         Mockito.when(testNgMethod.getMethodName()).thenReturn(methodName);
         Mockito.when(result.getTestClass()).thenReturn(testClass);
         Mockito.when(result.getMethod()).thenReturn(testNgMethod);
         Mockito.when(result.getName()).thenReturn(methodName);
+        Mockito.when(result.getTestContext()).thenReturn(testContext);
         return result;
+    }
+
+    private ISuite mockSuite(String suiteName) {
+        ISuite suite = Mockito.mock(ISuite.class);
+        Mockito.when(suite.getName()).thenReturn(suiteName);
+        return suite;
     }
 
     private static final class StepEnabledTestBase extends TestBase {
