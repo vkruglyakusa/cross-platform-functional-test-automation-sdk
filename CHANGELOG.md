@@ -21,6 +21,23 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ---
 
+## [1.4.8] — 2026-09-17
+<!-- Add entries here during development; move to a version heading on release -->
+
+### Fixed
+- **OBS-10: TestNG suite identity in unified reporting.**
+  The SDK now resolves the business-facing suite name once from live TestNG
+  runtime metadata (`ISuite.getName()` / `ITestContext`) instead of relying on
+  Maven/Surefire synthetic naming. Unified execution events now carry
+  suite/test/class/method metadata, SDK logs emit real suite start/completion
+  lines, Allure receives the same `parentSuite` / `suite` / `subSuite`
+  mapping, and Extent records the same authoritative suite identity without
+  changing OBS-8 step reporting, OBS-9 report generation, or the 1 Azure Test
+  Case ID = 1 `@Test` contract. Added 5 OBS-10 regression tests; 584 total
+  tests pass in `mvn clean test`.
+
+---
+
 ## [1.4.7] — 2026-09-16
 <!-- Add entries here during development; move to a version heading on release -->
 

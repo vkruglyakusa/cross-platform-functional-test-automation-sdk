@@ -1,7 +1,7 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 1.4.7
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7`
+**Version:** 1.4.8
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the **single document** a QA engineer needs to start a new Selenium
@@ -485,7 +485,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8
 ```
 
 Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.2.0.jar` downloaded.
@@ -1878,6 +1878,43 @@ mvn allure:serve
 SDK business steps recorded via `step("...", () -> { ... })` are visible in the
 Allure timeline and reuse the same logical story in Extent and SDK logs.
 
+### Suite identity source
+
+The SDK resolves suite metadata from the live TestNG runtime, not from Maven
+or Surefire display names:
+
+- **TestNG suite** = `ISuite.getName()` -> `<suite name="Example Suite">`
+- **TestNG test** = `ITestContext.getName()` -> `<test name="Example Test Group">`
+- **Class** = the executing test class
+- **Method** = the executing `@Test` method
+- **Business step** = each SDK `step("...", () -> { ... })`
+
+That mapping is published once through the unified OBS-8 reporting pipeline and
+reused consistently everywhere:
+
+- **SDK logs** show the resolved suite/test/class/method metadata
+- **Allure** maps `parentSuite` -> TestNG suite, `suite` -> TestNG test,
+  `subSuite` -> test class
+- **Extent** records the same suite identity without renaming the underlying
+  test case or changing the 1 Azure Test Case ID = 1 `@Test` method contract
+
+Example:
+
+```xml
+<suite name="Example Suite">
+  <test name="Example Test Group">
+```
+
+This produces business-facing report metadata equivalent to:
+
+```
+Suite      = Example Suite
+TestNGTest = Example Test Group
+Class      = ExampleLoginTest
+Method     = validLogin
+Step       = Step 1: Open login page
+```
+
 ### Extent Report
 
 HTML report generated at `test-output/reports/` after every run.
@@ -2557,5 +2594,5 @@ BUILD SUCCESS
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.7`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`*  
 *Maintained by OTI QA Automation Team*
