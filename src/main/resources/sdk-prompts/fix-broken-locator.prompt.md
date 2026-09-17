@@ -10,8 +10,9 @@ are no longer working. Follow this workflow to heal them using the crawler.
 
 ## Required Information
 
+- **Platform**: `web` | `android` | `ios` (infer from page object base class -- `TestBase` = web, `MobileTestBase` = mobile)
 - **Page object class**: e.g. `PoletopLoginPage.java`
-- **Target URL** (the page in the current environment)
+- **Target URL** (web) or **Target screen** (mobile) in the current environment
 - **Broken elements** (optional -- agent will discover from failure if not provided)
 - **Credentials** for login if the page requires authentication
 
@@ -31,14 +32,23 @@ Map it back to the `@FindBy` field in the page object.
 
 If no failure provided, read the page object and list all `@FindBy` fields to be reviewed.
 
-### Step 2 -- Run the Crawler on the Affected Page
+### Step 2 -- Run the Crawler on the Affected Page/Screen
 Prefer secret-backed credential injection/environment variables for any required
 login. Inline `-Dinv.email` / `-Dinv.password` style overrides are a temporary
 compatibility fallback only -- do not treat them as the default recommendation.
+
+**Web:**
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Denvironment=stg -DbrowserName=chrome \
          -Dinv.email=${email} -Dinv.password=${password}
+```
+
+**Mobile (android/ios):**
+```bash
+mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
+         -Denvironment=stg -DmobileOS=${platform} \
+         -Dinv.email=${email} -Dinv.password=REDACTED_PLACEHOLDER
 ```
 
 The crawler produces:
@@ -49,7 +59,8 @@ The crawler produces:
 Open `test-output/crawler/<ClassName>_<timestamp>.txt`.
 
 For each previously broken element, find its new locator strategies.
-Apply the **Locator Priority Ladder** from `locator-strategy.instructions.md`:
+
+**Web** -- apply the **Locator Priority Ladder** from `locator-strategy.instructions.md`:
 ```
 1. @id (not auto-generated)
 2. @data-testid
@@ -61,8 +72,16 @@ Apply the **Locator Priority Ladder** from `locator-strategy.instructions.md`:
 8. @routerlink
 ```
 
-Accept **only `UNIQUE [x]`** strategies.
-Reject any locator marked `NOT UNIQUE`, `DYNAMIC`, or `STRUCTURAL`.
+**Mobile** -- apply the **Locator Priority Ladder** from `mobile-locator-strategy.instructions.md`:
+```
+Android: @resource-id -> @content-desc -> @text (exact) -> -android uiautomator -> compound xpath
+iOS:     accessibility id (name) -> -ios predicate (label/value) -> -ios class chain -> compound xpath
+```
+Reject recycled list-item ids and any pattern matching the dynamic-id table in
+`mobile-locator-strategy.instructions.md`.
+
+Accept **only `UNIQUE [x]`** (web) / **`UNIQUE`** (mobile) strategies.
+Reject any locator marked `NOT UNIQUE`, `NOT_UNIQUE`, `DYNAMIC`, or `STRUCTURAL`.
 
 ### Step 4 -- Classify Each Broken Element
 
@@ -77,9 +96,10 @@ Reject any locator marked `NOT UNIQUE`, `DYNAMIC`, or `STRUCTURAL`.
 - Stop and report: `"Element '<fieldName>' has no stable locator -- needs product team input"`
 
 ### Step 5 -- Update the Page Object
-Replace only the broken `@FindBy` annotations with new `UNIQUE [x]` locators.
+Replace only the broken locator annotations with new `UNIQUE` locators.
 Do not change unbroken locators, method names, or logic.
 
+**Web** (`@FindBy`):
 ```java
 // Before (broken):
 @FindBy(xpath = "//input[@id='mat-input-0']")  // dynamic -- no longer resolves
@@ -90,13 +110,27 @@ public WebElement emailField;
 public WebElement emailField;
 ```
 
+**Mobile** (`@AndroidFindBy`/`@iOSXCUITFindBy`):
+```java
+// Before (broken):
+@AndroidFindBy(xpath = "//android.widget.TextView[@resource-id='com.app:id/list_item_3']")  // recycled list id
+public WebElement emailField;
+
+// After (healed):
+@AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='com.app:id/email_input']")  // UNIQUE from crawler report
+public WebElement emailField;
+```
+
 ### Step 6 -- Validate (MANDATORY)
 ```bash
 # Compile
 mvn compile test-compile -q
 
-# Re-run all tests that use this page object
+# Re-run all tests that use this page object (web)
 mvn test -Dtest=${AffectedTestClass} -Denvironment=stg -DbrowserName=chrome
+
+# Re-run all tests that use this page object (mobile)
+mvn test -Dtest=${AffectedTestClass} -Denvironment=stg -DmobileOS=${platform}
 ```
 
 If multiple test classes use the page object, run them all.

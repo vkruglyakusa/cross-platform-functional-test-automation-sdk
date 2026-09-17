@@ -33,6 +33,7 @@ beyond what is described here.
     - [7.1 Map Widgets -- Google Maps, Leaflet, Mapbox GL, OpenLayers, Bing Maps](#71-map-widgets--google-maps-leaflet-mapbox-gl-openlayers-bing-maps)
     - [7.2 Shadow DOM -- Web Components, Lit/Stencil, Salesforce Lightning (LWC)](#72-shadow-dom--web-components-litstencil-salesforce-lightning-lwc)
     - [7.3 Crawler Reliability & Self-Healing Features](#73-crawler-reliability--self-healing-features)
+    - [7.4 Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator](#74-mobile-appium-crawler--abstractmobilelocatorinvestigator)
 8. [Writing Page Objects (uiActions)](#8-writing-page-objects-uiactions)
 9. [TestBase API -- What You Can Use](#9-testbase-api--what-you-can-use)
 10. [Writing Test Classes](#10-writing-test-classes)
@@ -66,6 +67,9 @@ automation project only needs **one** Maven dependency.
 | **CrawlerScenario** | `sdk.tools.crawler.web.CrawlerScenario` | Named step sequence. `fromTestCase(name, steps...)` builder auto-enables per-step DOM snapshots. |
 | **ElementSearchEngine** | `sdk.tools.crawler.web.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label text, placeholder, aria-label, visible text, or `@formcontrolname`. Used internally by `DataDrivenCrawler`. |
 | **AbstractLocatorInvestigator** | `sdk.tools.locator.AbstractLocatorInvestigator` | Base class for consumer `LocatorInvestigator` tools. Override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`); all crawl infrastructure (login, role switching, nav helpers, summary) is SDK-owned. |
+| **MobileElementCrawler** | `sdk.tools.crawler.mobile.MobileElementCrawler` | Appium analogue of `ElementCrawler` -- scans the current native/hybrid screen (`crawlCurrentScreen()`) and returns a `MobileScreenSnapshot` covering native elements, WebView content, and screenshot. |
+| **MobilePageObjectGenerator** | `sdk.tools.pageobject.MobilePageObjectGenerator` | Generates an `@AndroidFindBy`/`@iOSXCUITFindBy`-annotated mobile Page Object from a `MobileScreenSnapshot`. |
+| **AbstractMobileLocatorInvestigator** | `sdk.tools.locator.AbstractMobileLocatorInvestigator` | Mobile analogue of `AbstractLocatorInvestigator`. Base class for consumer `MobileLocatorInvestigator` tools -- override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`), call `crawlScreen(key, name)` instead of `crawlPage(...)`; all Appium session/crawl infrastructure is SDK-owned. |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
 | **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, and evidence references |
@@ -1288,6 +1292,77 @@ ElementCrawler.safeClick(driver, someElement);
 > These features only make the *scan itself* more resilient to a flaky or
 > slow-loading page -- they do not alter the uniqueness rules or which
 > locators are marked `UNIQUE [x]`.
+
+---
+
+### 7.4 Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator
+
+The SDK's mobile support is **not a separate product** -- `MobileElementCrawler`
+and `MobilePageObjectGenerator` mirror the web crawler's capability set (attribute
+priority ladder, uniqueness testing, dynamic-id rejection) but operate over an
+Appium session instead of a `WebDriver`. See
+`mobile-locator-strategy.instructions.md` for the full mobile locator ladder
+(Android `resource-id`/`content-desc`/`text`/uiautomator, iOS accessibility
+id/predicate/class chain) and the React Native fallback rules.
+
+**What it does differently from the web crawler:**
+
+| Capability | Mobile behavior |
+|---|---|
+| Element discovery | `MobileElementCrawler.crawlCurrentScreen()` fetches `getPageSource()` **once** per screen and counts attribute-value frequency in memory -- no per-candidate remote `findElements()` calls (Appium round trips are latency/cost-bound, unlike local Selenium) |
+| Uniqueness testing | Candidates are marked `UNIQUE` / `NOT_UNIQUE` / `DYNAMIC` / `STRUCTURAL` from the in-memory page-source analysis, not live calls |
+| Dynamic-id rejection | Recycled list-item ids (`.../list_item_3`), numeric-only suffixes, and hash/UUID suffixes are rejected even if unique in the current snapshot -- they are not stable across scroll/data changes or app builds |
+| Page object generation | `MobilePageObjectGenerator.generate(className, snapshot)` / `writeToFile(...)` emits an `@AndroidFindBy`/`@iOSXCUITFindBy`-annotated class extending `MobileTestBase` |
+| WebView / hybrid content | Delegated to the same `ElementCrawler` used for web -- `MobileScreenSnapshot.getWebViewElements()` returns a per-context map |
+
+**`AbstractMobileLocatorInvestigator` -- Consumer Investigator Base**
+
+Extend this SDK class in your consumer project's `MobileLocatorInvestigator` tool
+-- the mobile analogue of [`AbstractLocatorInvestigator`](#7-the-element-crawler--generating-page-objects).
+Override exactly 3 methods; all infrastructure is provided by the SDK:
+
+| Method | What to implement |
+|---|---|
+| `performLogin(username, password)` | Your app's native/hybrid login screen interaction |
+| `isSessionAlive()` | Locator check for a reliable post-login element |
+| `defineCrawlSteps()` | List of screens to crawl in order |
+
+The SDK owns: Appium driver init (via `MobileTestBase.setUpDriver`), role
+registration, `@Test runFullCrawl()`, login fail-fast, session reuse,
+`crawlScreen()`, and the crawl summary log.
+
+```java
+public class MobileLocatorInvestigator extends AbstractMobileLocatorInvestigator {
+
+    @Override
+    protected void performLogin(String username, String password) throws Exception {
+        // interact with YOUR app's native login screen
+    }
+
+    @Override
+    protected boolean isSessionAlive() {
+        return !mobileDriver.findElements(By.xpath("//*[@resource-id='main-nav']")).isEmpty();
+    }
+
+    @Override
+    protected void defineCrawlSteps() throws Exception {
+        crawlScreen("login", "LoginScreen");
+
+        if (loginAs("default")) {
+            crawlScreen("dashboard", "DashboardScreen");
+        }
+    }
+}
+```
+
+Run it via a mobile crawler suite (mirroring `crawler_suite.xml` for web),
+supplying `mobileOS`/`deviceName` instead of `browserName`:
+
+```bash
+mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
+         -Denvironment=stg -DmobileOS=android \
+         -Dinv.email=your@email.com -Dinv.password=yourpassword
+```
 
 ---
 

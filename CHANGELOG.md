@@ -56,6 +56,23 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   permanently on any write failure, and the aggregator silently skips
   malformed lines/files instead of aborting. 13 new unit tests
   (`AnalyticsExecutionReporterTest`, `AnalyticsTrendReportTest`).
+- **Mobile/web crawler & prompt-doc feature parity
+  (`com.test.automation.sdk.tools.locator`).** Added
+  `AbstractMobileLocatorInvestigator`, a mobile (Appium) analogue of the
+  existing web-only `AbstractLocatorInvestigator`: extends `MobileTestBase`,
+  drives `MobileElementCrawler` / `MobilePageObjectGenerator`, and exposes the
+  same declarative shape (`registerRoles`/`registerRole`, `loginAs`,
+  `defineCrawlSteps`, `crawlScreen(...)` in place of `crawlPage(...)`,
+  `shouldSkip`, fail-fast role blacklisting) so mobile crawl scripts can be
+  written with the same pattern as web ones. New unit tests
+  (`AbstractMobileLocatorInvestigatorTest`). Also closed a documentation gap
+  where mobile workflows existed in code but were not reflected in
+  consumer-facing docs/prompts: `SDK-USER-GUIDE.md` gained a new section 7.4
+  ("Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator") plus table/TOC
+  entries, and `create-test.prompt.md`, `fix-broken-locator.prompt.md`, and
+  `start.prompt.md` now ask for **Platform** (web/android/ios) and branch their
+  crawler commands, locator-priority guidance, and page-object examples between
+  web (`@FindBy`) and mobile (`@AndroidFindBy`/`@iOSXCUITFindBy`) accordingly.
 
 ---
 
