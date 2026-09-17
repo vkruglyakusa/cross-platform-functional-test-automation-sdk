@@ -482,6 +482,30 @@ public final class ExecutionReporting {
         return testCaseName == null ? "" : testCaseName;
     }
 
+    /**
+     * Read-only snapshot of the current thread's suite/test/class metadata, captured
+     * without mutating the underlying execution state. Used by {@link AllureLabelLifecycleListener}
+     * to (re)apply neutral labels at the exact moment Allure's own lifecycle processes a test
+     * case -- this is independent of TestNG's {@code ITestListener} invocation order, which is
+     * not guaranteed relative to service-loaded listeners such as {@code AllureTestNg}.
+     */
+    static CurrentTestMetadata peekCurrentTestMetadata() {
+        ExecutionState current = state.get();
+        return new CurrentTestMetadata(current.suiteName, current.testNgTestName, current.className);
+    }
+
+    static final class CurrentTestMetadata {
+        final String suiteName;
+        final String testNgTestName;
+        final String className;
+
+        CurrentTestMetadata(String suiteName, String testNgTestName, String className) {
+            this.suiteName = suiteName == null ? "" : suiteName;
+            this.testNgTestName = testNgTestName == null ? "" : testNgTestName;
+            this.className = className == null ? "" : className;
+        }
+    }
+
     static final class ExecutionState {
         private String executionId = "";
         private String suiteName = "";

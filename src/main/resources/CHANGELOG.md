@@ -19,6 +19,38 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Changed
+- **Bumped TestNG from 7.3.0 to 7.10.2.** Deliberately chose the well-established
+  7.10.2 over the bleeding-edge 7.12.0, given this SDK has external consumer
+  projects. Full dependency-impact verification performed:
+  - `mvn dependency:tree` confirms `testng:7.10.2` resolves cleanly with no
+    version conflicts against `appium-java-client:10.1.1`,
+    `selenium-*:4.44.0`, `allure-testng:2.23.0` (its own transitive
+    `testng:6.14.3` is correctly superseded), or `com.google.guava:33.4.8-jre`.
+  - **Fixed a silent transitive-dependency removal**: TestNG 7.10.2 marks its
+    own `com.google.inject:guice` dependency `optional=true` (was a plain
+    compile-scope dependency at `4.2.2` in 7.3.0, now `5.1.0` optional). This
+    broke Mockito's ability to mock `ISuite`/`ITestContext` (both reference
+    `com.google.inject.Injector`) with a
+    `NoClassDefFoundError: com.google.inject.Injector`. Fixed by adding
+    `com.google.inject:guice:5.1.0` as an explicit **test-scoped** dependency.
+  - **Fixed a genuine breaking API removal**: TestNG 7.10.x removed the
+    deprecated `ITestAnnotation.getRetryAnalyzer()` method entirely (only
+    `getRetryAnalyzerClass()` remains). Updated `RetryListener` accordingly.
+  - **Fixed a TestNG listener-ordering regression affecting Allure `subSuite`
+    labeling**: TestNG's relative invocation order between service-loaded
+    listeners (e.g. `io.qameta.allure.testng.AllureTestNg`) and the SDK's own
+    `Listener` is no longer reliable for suite-XML-file execution, so
+    `Allure.getLifecycle().getCurrentTestCase()` was sometimes invisible from
+    within `Listener`'s callbacks, leaving Allure's default (fully-qualified)
+    class name in the `subSuite` label instead of the SDK's simple-name
+    override. Fixed by adding `AllureLabelLifecycleListener` (implements
+    Allure's own `io.qameta.allure.listener.TestLifecycleListener` SPI,
+    auto-registered via `META-INF/services`), which re-applies the
+    `parentSuite`/`suite`/`subSuite` labels synchronously inside Allure's own
+    lifecycle callbacks -- independent of TestNG's `ITestListener` ordering.
+  - Full suite: 614/614 tests pass after all fixes.
+
 ---
 
 ## [1.4.8] — 2026-09-17

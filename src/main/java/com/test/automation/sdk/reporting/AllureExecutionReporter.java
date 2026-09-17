@@ -160,7 +160,7 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         return writer.toString();
     }
 
-    private static List<Label> replaceLabel(List<Label> existing, String name, String value) {
+    static List<Label> replaceLabel(List<Label> existing, String name, String value) {
         List<Label> labels = new ArrayList<Label>();
         if (existing != null) {
             for (Label label : existing) {

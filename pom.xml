@@ -28,7 +28,7 @@
         <appium.version>10.1.1</appium.version>
         <selenium.version>4.44.0</selenium.version>
         <aspectj.version>1.9.25</aspectj.version>
-        <testng.version>7.3.0</testng.version>
+        <testng.version>7.10.2</testng.version>
         <allure.version>2.23.0</allure.version>
         <maven.surefire.plugin.version>2.22.2</maven.surefire.plugin.version>
 
@@ -73,6 +73,14 @@
         <dependency><groupId>com.browserstack</groupId><artifactId>browserstack-java-sdk</artifactId><version>LATEST</version><scope>compile</scope><optional>true</optional></dependency>
 
         <dependency><groupId>org.testng</groupId><artifactId>testng</artifactId><version>${testng.version}</version><scope>compile</scope></dependency>
+        <!-- TestNG 7.4+ marks its com.google.inject:guice dependency optional=true
+             (7.3.0 pulled it in transitively as a plain compile dependency). ISuite/ITestContext
+             method signatures (getParentInjector()/setParentInjector()) reference
+             com.google.inject.Injector, so Mockito's ByteBuddy mock maker needs that class
+             resolvable on the classpath whenever a test mocks those TestNG interfaces. Declared
+             explicitly here, test scoped only, so the SDK's own runtime/consumer classpath is
+             unaffected. -->
+        <dependency><groupId>com.google.inject</groupId><artifactId>guice</artifactId><version>5.1.0</version><scope>test</scope></dependency>
         <!-- NOTE: pinned to 4.44.0 (not the web SDK's original 4.47.0), the highest version
              documented as compatible with appium-java-client:10.1.1's compatibility matrix
              (https://github.com/appium/java-client#readme). Appium's client trails Selenium's
