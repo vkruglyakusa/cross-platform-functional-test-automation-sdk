@@ -19,37 +19,146 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
-### Changed
-- **Bumped TestNG from 7.3.0 to 7.10.2.** Deliberately chose the well-established
-  7.10.2 over the bleeding-edge 7.12.0, given this SDK has external consumer
-  projects. Full dependency-impact verification performed:
-  - `mvn dependency:tree` confirms `testng:7.10.2` resolves cleanly with no
-    version conflicts against `appium-java-client:10.1.1`,
-    `selenium-*:4.44.0`, `allure-testng:2.23.0` (its own transitive
-    `testng:6.14.3` is correctly superseded), or `com.google.guava:33.4.8-jre`.
-  - **Fixed a silent transitive-dependency removal**: TestNG 7.10.2 marks its
-    own `com.google.inject:guice` dependency `optional=true` (was a plain
-    compile-scope dependency at `4.2.2` in 7.3.0, now `5.1.0` optional). This
-    broke Mockito's ability to mock `ISuite`/`ITestContext` (both reference
-    `com.google.inject.Injector`) with a
-    `NoClassDefFoundError: com.google.inject.Injector`. Fixed by adding
-    `com.google.inject:guice:5.1.0` as an explicit **test-scoped** dependency.
-  - **Fixed a genuine breaking API removal**: TestNG 7.10.x removed the
-    deprecated `ITestAnnotation.getRetryAnalyzer()` method entirely (only
-    `getRetryAnalyzerClass()` remains). Updated `RetryListener` accordingly.
-  - **Fixed a TestNG listener-ordering regression affecting Allure `subSuite`
-    labeling**: TestNG's relative invocation order between service-loaded
-    listeners (e.g. `io.qameta.allure.testng.AllureTestNg`) and the SDK's own
-    `Listener` is no longer reliable for suite-XML-file execution, so
-    `Allure.getLifecycle().getCurrentTestCase()` was sometimes invisible from
-    within `Listener`'s callbacks, leaving Allure's default (fully-qualified)
-    class name in the `subSuite` label instead of the SDK's simple-name
-    override. Fixed by adding `AllureLabelLifecycleListener` (implements
-    Allure's own `io.qameta.allure.listener.TestLifecycleListener` SPI,
-    auto-registered via `META-INF/services`), which re-applies the
-    `parentSuite`/`suite`/`subSuite` labels synchronously inside Allure's own
-    lifecycle callbacks -- independent of TestNG's `ITestListener` ordering.
-  - Full suite: 614/614 tests pass after all fixes.
+### Added
+- **API testing module (`com.test.automation.sdk.api`).** New standalone
+  `ApiTestBase` -- deliberately does *not* extend `TestBase`/require a
+  `WebDriver` -- built on RestAssured (the HTTP library already used by this
+  org's existing legacy API automation projects) for pure REST API test
+  classes. Provides `given()` (a preconfigured `RequestSpecification` with
+  per-environment base URL resolution, timeouts, and an optional single auth
+  header sourced from an environment variable), `get`/`post`/`put`/`patch`/`delete`
+  convenience wrappers, and assertion helpers (`assertStatusCode`,
+  `assertJsonPath`, `assertResponseTimeUnder`, `assertMatchesJsonSchema`).
+  Every call is timed and reported through `ExecutionReporting`
+  (`actionStarted`/`actionCompleted`/`actionFailed`) and -- when
+  `api.logRequestsAndResponses` is enabled (default) -- request/response JSON
+  is captured to `api.outputDirectory` and published as evidence (new
+  `ExecutionEventType.API_PAYLOAD_CAPTURED`, new
+  `ExecutionEvidence.apiPayload(...)`), so API test runs show up in
+  Allure/Extent reports, the cross-run analytics store, and the flaky-test
+  quarantine exactly like Web/Mobile runs, with no extra wiring. Reuses
+  `TestBase`'s static, driver-free `currentTestCaseName` ThreadLocal for test
+  attribution and `Excel_Reader` for `@DataProvider`-driven test data, so no
+  functionality is duplicated. New `ApiConfig` in `ConfigurationManager` and a
+  new `api:` block (extending the existing `api:` mailinator section) in
+  `sdk-config.yaml.template`. New owner-less `ExecutionReporting.info/warning/
+  validation(String, ...)` overloads (mirroring the existing owner-less
+  `actionStarted`/`actionCompleted`/`actionFailed`), since `ApiTestBase` has
+  no `TestBase` instance to report against. New `rest-assured` and
+  `json-schema-validator` (5.5.0) SDK dependencies. 12 new unit tests
+  (`ApiTestBaseTest`, `ApiConfigTest`); documented in `SDK-USER-GUIDE.md`
+  section 18.
+- **Test impact analysis (`com.test.automation.sdk.impact`).** New standalone
+  `TestImpactCli` (`mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"`)
+  maps files changed since `impact.baseRef` (default `HEAD~1`, via
+  `git diff --name-only`) to the test classes transitively affected by that
+  change, using a compiler-free static source-reference heuristic
+  (`JavaSourceIndexer`: indexes every class under `impact.mainSourceDir` /
+  `impact.testSourceDir`, then records simple-name token matches as
+  reference edges) -- no bytecode/JaCoCo instrumentation required. Writes a
+  filtered TestNG suite (`ImpactSuiteWriter`) to `impact.outputSuiteFile`
+  (default `test-output/impact/impact_suite.xml`) runnable via
+  `mvn test -Dsurefire.suiteXmlFiles=...`. Deliberately over-approximates
+  (extra tests, never fewer) and falls back to recommending a full-suite run
+  whenever a changed file can't be resolved to a known class (non-Java file,
+  or outside the indexed roots) -- coverage is never silently narrowed. New
+  `TestImpactConfig` in `ConfigurationManager` (5 keys) and a new `impact:`
+  block in `sdk-config.yaml.template`. 12 new unit tests
+  (`JavaSourceIndexerTest`, `TestImpactAnalyzerTest`, `ImpactSuiteWriterTest`);
+  documented in `SDK-USER-GUIDE.md` section 15.2.
+- **Zero-config visual regression testing (`com.test.automation.sdk.visual`).**
+  New `TestBase.assertVisualMatch(checkpointName)` captures the current page
+  screenshot and compares it against a stored PNG baseline for that
+  checkpoint using a tolerant pixel diff (`ImageDiffEngine`: per-channel
+  color tolerance absorbs anti-aliasing/compression noise; a mismatch
+  percentage above `visual.mismatchThresholdPercent` fails the check). The
+  first check for a given checkpoint name saves the screenshot as the
+  accepted baseline -- no separate "record baseline" step, and no external
+  visual-testing service required. Baselines live under
+  `visual.baselineDirectory` (default `src/test/resources/visual-baselines`,
+  inside the consumer project's source tree) so they can be committed and
+  code-reviewed like any other test asset; a deliberate
+  `-Dvisual.updateBaselines=true` run re-baselines every checkpoint after an
+  intentional UI change. On mismatch, a red-highlighted diff image is
+  attached to the execution report (Allure/Extent/log) via the existing
+  `ExecutionReporting` pipeline, and (when `visual.failOnMismatch=true`, the
+  default) an `AssertionError` is thrown. New `VisualRegressionConfig` in
+  `ConfigurationManager` (7 keys, full system-property/env/YAML precedence)
+  and a new `visual:` block in `sdk-config.yaml.template`. 12 new unit tests
+  (  `ImageDiffEngineTest`, `VisualRegressionCheckerTest`); documented in
+  `TESTBASE-API.md` section 34.
+- **Flaky-test quarantine (`com.test.automation.sdk.flaky`).** New opt-in
+  `FlakyTestQuarantineListener` (TestNG `ITestListener`) uses the cross-run
+  historical analytics already written by `reporting.analytics`
+  (`AnalyticsTrendReport`) to distinguish a genuinely intermittent test from a
+  first-time regression or a consistently broken test. A failing test is only
+  quarantined (its final TestNG result reclassified from FAILED to SKIPPED)
+  when it has a mixed pass/fail history with at least
+  `flaky.minRunsForQuarantine` (default `5`) recorded runs, a historical
+  failure rate at or below `flaky.maxFailureRatePercent` (default `80`), and
+  `flaky.quarantine.enabled=true` is explicitly set (default `false` --
+  disabled by default since this is an opinionated behavior change). A clear
+  warning is always logged/reported via `ExecutionReporting` on quarantine, so
+  the outcome is visible, never silent. New `FlakyTestRegistry` (classification
+  logic) and `FlakyQuarantineConfig` in `ConfigurationManager` (3 keys), plus a
+  new `flaky:` block in `sdk-config.yaml.template`. Must be declared *after*
+  `Listener` in `<listeners>` so the genuine failure is recorded before
+  reclassification. 10 new unit tests (`FlakyTestRegistryTest`,
+  `FlakyTestQuarantineListenerTest`); documented in `SDK-USER-GUIDE.md`
+  section 15.1.
+- **Runtime self-healing locators (`com.test.automation.sdk.healing`).**
+  New opt-in `TestBase.initElements(driver, this)` (drop-in alternative to
+  `PageFactory.initElements(driver, this)`) wires every `@FindBy` field to a
+  `HealingElementLocator`. When a primary XPath locator can no longer find any
+  element, a small set of progressively relaxed XPath candidates is generated
+  directly from that same locator (`LocatorRelaxationEngine`: drop-one-predicate,
+  keep-one-predicate-alone, and exact-to-`contains()` variants) -- no pre-crawled
+  fingerprint or external service required. A candidate is only trusted if it
+  resolves to **exactly one** element (the same uniqueness bar the crawler
+  enforces at design time); anything ambiguous is treated as still-broken. Every
+  heal attempt (success or exhaustion) is published through
+  `ExecutionReporting`, so it is visible in the log/Allure/Extent report trail
+  rather than a silent side effect. Existing page objects that keep calling
+  `PageFactory.initElements(driver, this)` directly are completely unaffected.
+  17 new unit tests (`LocatorRelaxationEngineTest`, `HealingElementLocatorTest`).
+- **Cross-run analytics event store (`com.test.automation.sdk.reporting`).**
+  A new `AnalyticsExecutionReporter` is now wired into the default
+  `CompositeExecutionReporter` chain alongside the existing log/Allure/Extent
+  reporters, so every `ExecutionEvent` (test start/pass/fail/skip, step
+  events, healed-locator actions, etc.) is additionally appended as one JSON
+  line to a per-JVM-run file under `test-output/analytics/` (default;
+  configurable via `reporting.analytics.enabled` / `reporting.analytics.directory`
+  in `sdk-config.yaml`, an environment variable, or a `-D` system property,
+  following the SDK's usual config-precedence rules). Because runs accumulate
+  as separate files in that directory, a new `AnalyticsTrendReport` utility can
+  read the whole directory back and aggregate: `summarizeTestOutcomes(Path)`
+  returns pass/fail/skip counts per test (keyed by
+  `ClassName.methodName[testCaseName]`) and flags tests that both passed and
+  failed across runs as flaky (`TestOutcome#isFlaky()`); `summarizeHealing(Path)`
+  aggregates `LOCATOR_HEALED` events per locator into healed-vs-exhausted
+  counts, surfacing which locators are healing frequently (a signal that the
+  underlying page object should be fixed rather than relying on healing
+  indefinitely). The reporter never affects test execution: it disables itself
+  permanently on any write failure, and the aggregator silently skips
+  malformed lines/files instead of aborting. 13 new unit tests
+  (`AnalyticsExecutionReporterTest`, `AnalyticsTrendReportTest`).
+- **Mobile/web crawler & prompt-doc feature parity
+  (`com.test.automation.sdk.tools.locator`).** Added
+  `AbstractMobileLocatorInvestigator`, a mobile (Appium) analogue of the
+  existing web-only `AbstractLocatorInvestigator`: extends `MobileTestBase`,
+  drives `MobileElementCrawler` / `MobilePageObjectGenerator`, and exposes the
+  same declarative shape (`registerRoles`/`registerRole`, `loginAs`,
+  `defineCrawlSteps`, `crawlScreen(...)` in place of `crawlPage(...)`,
+  `shouldSkip`, fail-fast role blacklisting) so mobile crawl scripts can be
+  written with the same pattern as web ones. New unit tests
+  (`AbstractMobileLocatorInvestigatorTest`). Also closed a documentation gap
+  where mobile workflows existed in code but were not reflected in
+  consumer-facing docs/prompts: `SDK-USER-GUIDE.md` gained a new section 7.4
+  ("Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator") plus table/TOC
+  entries, and `create-test.prompt.md`, `fix-broken-locator.prompt.md`, and
+  `start.prompt.md` now ask for **Platform** (web/android/ios) and branch their
+  crawler commands, locator-priority guidance, and page-object examples between
+  web (`@FindBy`) and mobile (`@AndroidFindBy`/`@iOSXCUITFindBy`) accordingly.
 
 ---
 

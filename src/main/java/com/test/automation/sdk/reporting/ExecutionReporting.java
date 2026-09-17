@@ -124,7 +124,9 @@ public final class ExecutionReporting {
                     ? ExecutionEventType.SCREENSHOT_CAPTURED
                     : ("pageSource".equalsIgnoreCase(item.getType())
                         ? ExecutionEventType.PAGE_SOURCE_CAPTURED
-                        : ExecutionEventType.DOM_CAPTURED);
+                        : ("apiPayload".equalsIgnoreCase(item.getType())
+                            ? ExecutionEventType.API_PAYLOAD_CAPTURED
+                            : ExecutionEventType.DOM_CAPTURED));
             emit(baseEvent(ensureState(), type, ExecutionStatus.INFO)
                     .message(item.getName())
                     .addEvidence(item)
@@ -179,6 +181,25 @@ public final class ExecutionReporting {
                 .build());
     }
 
+    /**
+     * Owner-less overload of {@link #info(TestBase, String)} for callers
+     * (e.g. {@code com.test.automation.sdk.api.ApiTestBase}) that have no
+     * {@link TestBase}/WebDriver instance to report against.
+     */
+    public static void info(String message) {
+        info(null, message);
+    }
+
+    /** Owner-less overload of {@link #warning(TestBase, String)}. */
+    public static void warning(String message) {
+        warning(null, message);
+    }
+
+    /** Owner-less overload of {@link #validation(TestBase, String, String, String)}. */
+    public static void validation(String description, String expected, String actual) {
+        validation(null, description, expected, actual);
+    }
+
     public static void actionStarted(String action, String locator, String detail) {
         actionStarted(null, action, locator, detail);
     }
@@ -197,6 +218,8 @@ public final class ExecutionReporting {
             evidence.add(ExecutionEvidence.screenshot(name, path));
         } else if ("pageSource".equalsIgnoreCase(type)) {
             evidence.add(ExecutionEvidence.pageSource(name, path));
+        } else if ("apiPayload".equalsIgnoreCase(type)) {
+            evidence.add(ExecutionEvidence.apiPayload(name, path));
         } else {
             evidence.add(ExecutionEvidence.domDump(name, path));
         }

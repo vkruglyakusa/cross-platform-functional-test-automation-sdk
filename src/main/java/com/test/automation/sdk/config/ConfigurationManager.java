@@ -161,6 +161,17 @@ public final class ConfigurationManager {
         return new TestImpactConfig();
     }
 
+    /**
+     * Typed, read-only view over the API-testing module configuration used by
+     * {@code com.test.automation.sdk.api.ApiTestBase}: per-environment base URLs,
+     * a single optional auth header sourced from an environment variable (never
+     * a config file/YAML value, so secrets are never committed), timeouts, and
+     * request/response logging toggles.
+     */
+    public static ApiConfig getApiConfig() {
+        return new ApiConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -402,6 +413,87 @@ public final class ConfigurationManager {
         /** Git ref (or revision range base) diffed against the working tree to find changed files. */
         public String baseRef() {
             return resolve("impact.baseRef", "HEAD~1");
+        }
+    }
+
+    /**
+     * Typed, read-only view over the API-testing module configuration.
+     * Base URLs are resolved per-environment using the same
+     * "one otherwise-identical key per environment" convention already used
+     * by {@code TestBase.setBaseUrl(environment)} and this org's legacy API
+     * projects (e.g. {@code stg_base_url}, {@code prd_base_url}): the key
+     * looked up is {@code api.baseUrl.<environment>}, falling back to the
+     * environment-neutral {@code api.baseUrl} when no per-environment
+     * override is configured.
+     */
+    public static final class ApiConfig {
+        private ApiConfig() {
+        }
+
+        /**
+         * Resolves the base URL for the given environment: tries
+         * {@code api.baseUrl.<environment>} first, then falls back to the
+         * environment-neutral {@code api.baseUrl}.
+         *
+         * @param environment environment name (e.g. {@code "stg"}, {@code "prd"}); may be null/empty
+         * @return the resolved base URL, or {@code null} if neither key is configured
+         */
+        public String baseUrl(String environment) {
+            if (environment != null && !environment.trim().isEmpty()) {
+                String perEnvironment = resolve("api.baseUrl." + environment.trim(), null);
+                if (perEnvironment != null) {
+                    return perEnvironment;
+                }
+            }
+            return resolve("api.baseUrl", null);
+        }
+
+        /**
+         * Name of the single HTTP header (e.g. {@code Ocp-Apim-Subscription-Key},
+         * {@code Authorization}) automatically attached to every request built via
+         * {@code ApiTestBase.given()}, when both this and {@link #authTokenEnvVar()}
+         * are configured. Empty/unset disables automatic header injection entirely.
+         */
+        public String authHeaderName() {
+            return resolve("api.authHeaderName", "");
+        }
+
+        /**
+         * Name of the environment variable whose value becomes the auth header's
+         * value. Deliberately an environment-variable NAME, never the secret value
+         * itself, so no credential is ever stored in {@code sdk-config.yaml}.
+         */
+        public String authTokenEnvVar() {
+            return resolve("api.authTokenEnvVar", "");
+        }
+
+        /** Connection timeout (milliseconds) applied to every request. */
+        public int connectionTimeoutMillis() {
+            return resolveInt("api.connectionTimeoutMillis", 10000);
+        }
+
+        /** Socket/read timeout (milliseconds) applied to every request. */
+        public int readTimeoutMillis() {
+            return resolveInt("api.readTimeoutMillis", 30000);
+        }
+
+        /** Whether request/response bodies are logged and captured as evidence on failure. */
+        public boolean logRequestsAndResponses() {
+            return resolveBoolean("api.logRequestsAndResponses", true);
+        }
+
+        /** Directory API request/response payload evidence files are written to. */
+        public String outputDirectory() {
+            return resolve("api.outputDirectory", "test-output/api");
+        }
+
+        /**
+         * Whether TLS certificate/hostname validation is relaxed. Defaults to
+         * {@code false} -- must be deliberately opted into for lower
+         * (non-production) environments only, never left on by default.
+         */
+        public boolean relaxedHttpsValidation() {
+            return resolveBoolean("api.relaxedHttpsValidation", false);
         }
     }
 }

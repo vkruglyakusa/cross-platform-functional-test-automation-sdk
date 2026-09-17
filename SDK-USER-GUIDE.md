@@ -45,7 +45,8 @@ beyond what is described here.
 15. [Retry & Listeners](#15-retry--listeners)
 16. [Locator Rules -- Non-Negotiable](#16-locator-rules--non-negotiable)
 17. [Complete End-to-End Example](#17-complete-end-to-end-example)
-18. [Troubleshooting](#18-troubleshooting)
+18. [API Testing (ApiTestBase)](#18-api-testing-apitestbase)
+19. [Troubleshooting](#19-troubleshooting)
 
 ---
 
@@ -2726,7 +2727,119 @@ BUILD SUCCESS
 
 ---
 
-## 18. Troubleshooting
+## 18. API Testing (`ApiTestBase`)
+
+For projects that need pure API test coverage (REST endpoints, no browser),
+`com.test.automation.sdk.api.ApiTestBase` is a standalone base class --
+deliberately does **not** extend `TestBase` or require a `WebDriver` -- built
+on [RestAssured](https://rest-assured.io/), the HTTP library already used by
+this org's existing API automation projects. It integrates with the same
+reporting, analytics, and flaky-test-quarantine infrastructure as Web/Mobile
+tests, so nothing else in the SDK needs to know or care that a given test has
+no browser at all.
+
+```java
+public class Test_GetUser extends ApiTestBase {
+
+    @DataProvider(name = "userData")
+    public Object[][] userData() throws IOException {
+        return getData("src/test/resources/testData/Users.xlsx", "GetUser");
+    }
+
+    @Test(dataProvider = "userData")
+    public void testGetUser(String testCaseName, String userId, String runMode) {
+        checkRunMode(testCaseName, runMode);
+        setCurrentTestCaseName(testCaseName);
+
+        Response response = get("Get user by id", "/api/users/" + userId);
+
+        assertStatusCode(response, 200);
+        assertJsonPath(response, "data.id", Integer.parseInt(userId));
+        assertResponseTimeUnder(response, 2000);
+    }
+}
+```
+
+### Per-environment base URLs
+
+Base URLs follow the exact convention already used elsewhere in the SDK
+(`TestBase.setBaseUrl(environment)`) and by this org's legacy API projects:
+one otherwise-identical config key per environment.
+
+```yaml
+api:
+  baseUrl: ""                        # environment-neutral fallback
+  baseUrl.stg: "https://stg.example.com"
+  baseUrl.prd: "https://api.example.com"
+```
+
+`ApiTestBase.given()` resolves `api.baseUrl.<environment>` first (the
+`environment` TestNG parameter, same `-Denvironment=stg` your suite XML
+already passes), falling back to `api.baseUrl` when no per-environment
+override exists.
+
+### Authentication
+
+A single configurable auth header (e.g. an APIM subscription key, or a
+Bearer token) is attached automatically to every request when both keys
+below are set. **`authTokenEnvVar` names an environment variable -- never
+put the actual secret value in `sdk-config.yaml`.**
+
+```yaml
+api:
+  authHeaderName: "Ocp-Apim-Subscription-Key"   # or "Authorization", etc.
+  authTokenEnvVar: "API_SUBSCRIPTION_KEY"        # value read from this env var at runtime
+```
+
+Anything more elaborate (OAuth token refresh, request signing, etc.) is a
+"bring your own" extension: call `given()` to get a preconfigured
+`RequestSpecification`, add whatever headers/auth your API needs, then pass
+it to the `get(action, path, spec)` overload.
+
+### Assertions & evidence
+
+| Method | Purpose |
+|---|---|
+| `assertStatusCode(response, expected)` | Asserts HTTP status code |
+| `assertJsonPath(response, jsonPath, expected)` | Asserts a value at a RestAssured JsonPath expression |
+| `assertResponseTimeUnder(response, maxMillis)` | Asserts response latency |
+| `assertMatchesJsonSchema(response, classpathResource)` | Validates the body against a JSON schema file |
+
+Every call made through `get`/`post`/`put`/`patch`/`delete` (or the lower-level
+`execute(...)`) is timed and reported through `ExecutionReporting`
+(`actionStarted`/`actionCompleted`/`actionFailed`), and -- when
+`api.logRequestsAndResponses` is enabled (default) -- the request/response
+JSON is captured to `api.outputDirectory` and published as evidence, showing
+up in Allure/Extent reports the same way screenshots do for Web/Mobile tests.
+
+```yaml
+api:
+  connectionTimeoutMillis: 10000
+  readTimeoutMillis: 30000
+  logRequestsAndResponses: true
+  outputDirectory: "test-output/api"
+  relaxedHttpsValidation: false        # opt-in only, for lower non-prod environments
+```
+
+### Migrating an existing RestAssured-based project
+
+If your project already has its own `TestBase`/API-request wrapper (e.g. a
+legacy `apiGeneric.java`-style helper), migrating to `ApiTestBase` typically
+means:
+1. Replace your custom per-environment URL/extension properties with
+   `api.baseUrl.<environment>` keys.
+2. Replace your custom auth-header wiring with `api.authHeaderName` +
+   `api.authTokenEnvVar`.
+3. Replace your custom Excel-reading helper with `ApiTestBase.getData(...)`
+   (same `Object[][]` `@DataProvider` shape already used by Web/Mobile tests).
+4. Keep any domain-specific request-body-building logic (e.g. an
+   agency-specific JSON builder) in your own project -- it is intentionally
+   out of scope for the SDK, which only standardizes the generic
+   request/response/reporting/config plumbing around it.
+
+---
+
+## 19. Troubleshooting
 
 | Problem | Likely cause | Fix |
 |---------|-------------|-----|

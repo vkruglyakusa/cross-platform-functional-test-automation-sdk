@@ -46,6 +46,26 @@ api:
     inboxPollTimeoutSeconds: 60
     inboxInitialWaitSeconds: 5      # wait before first poll to allow email delivery
 
+  # ------------------------------------------------------------
+  # API-testing module: com.test.automation.sdk.api.ApiTestBase, a standalone
+  # (no WebDriver) base class for pure API test classes, built on RestAssured.
+  # Base URLs follow the same "one otherwise-identical key per environment"
+  # convention already used by TestBase.setBaseUrl(environment): set
+  # api.baseUrl.<environment> (e.g. api.baseUrl.stg) for per-environment
+  # overrides, falling back to the environment-neutral api.baseUrl below.
+  # NEVER put a real secret/token value here -- api.authTokenEnvVar names an
+  # ENVIRONMENT VARIABLE whose value is read at runtime instead.
+  # ------------------------------------------------------------
+  baseUrl: ""                       # environment-neutral fallback base URL      (-Dapi.baseUrl)
+  # baseUrl.stg: "https://stg.example.com"     # per-environment override example (-Dapi.baseUrl.stg)
+  authHeaderName: ""                # e.g. "Ocp-Apim-Subscription-Key" or "Authorization" (-Dapi.authHeaderName)
+  authTokenEnvVar: ""                # name of the env var holding the token/key value     (-Dapi.authTokenEnvVar)
+  connectionTimeoutMillis: 10000    # (-Dapi.connectionTimeoutMillis)
+  readTimeoutMillis: 30000          # (-Dapi.readTimeoutMillis)
+  logRequestsAndResponses: true     # capture request/response JSON as evidence   (-Dapi.logRequestsAndResponses)
+  outputDirectory: "test-output/api"  # captured API payload evidence files       (-Dapi.outputDirectory)
+  relaxedHttpsValidation: false     # opt-in only, for lower non-prod environments (-Dapi.relaxedHttpsValidation)
+
 # ------------------------------------------------------------
 # Logging Settings
 # Log file paths should normally stay under reporting.logsDir below.

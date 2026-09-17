@@ -32,6 +32,15 @@ public final class ExecutionEvidence {
         return new ExecutionEvidence(name, "pageSource", "text/html", path);
     }
 
+    /**
+     * API request/response payload dump (see {@code com.test.automation.sdk.api.ApiTestBase}),
+     * captured to disk once per call and published as evidence only when the call is
+     * reported as failed -- mirrors the web/mobile "capture once, publish many" pattern.
+     */
+    public static ExecutionEvidence apiPayload(String name, Path path) {
+        return new ExecutionEvidence(name, "apiPayload", "application/json", path);
+    }
+
     public String getName() {
         return name;
     }

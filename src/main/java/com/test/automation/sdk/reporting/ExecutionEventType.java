@@ -23,5 +23,6 @@ public enum ExecutionEventType {
     SCREENSHOT_CAPTURED,
     DOM_CAPTURED,
     PAGE_SOURCE_CAPTURED,
+    API_PAYLOAD_CAPTURED,
     EXCEPTION
 }

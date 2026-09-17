@@ -42,6 +42,7 @@ public final class AllureExecutionReporter implements ExecutionReporter {
             case SCREENSHOT_CAPTURED:
             case DOM_CAPTURED:
             case PAGE_SOURCE_CAPTURED:
+            case API_PAYLOAD_CAPTURED:
                 attachEvidence(event);
                 break;
             case EXCEPTION:

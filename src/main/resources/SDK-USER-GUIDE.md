@@ -33,7 +33,6 @@ beyond what is described here.
     - [7.1 Map Widgets -- Google Maps, Leaflet, Mapbox GL, OpenLayers, Bing Maps](#71-map-widgets--google-maps-leaflet-mapbox-gl-openlayers-bing-maps)
     - [7.2 Shadow DOM -- Web Components, Lit/Stencil, Salesforce Lightning (LWC)](#72-shadow-dom--web-components-litstencil-salesforce-lightning-lwc)
     - [7.3 Crawler Reliability & Self-Healing Features](#73-crawler-reliability--self-healing-features)
-    - [7.4 Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator](#74-mobile-appium-crawler--abstractmobilelocatorinvestigator)
 8. [Writing Page Objects (uiActions)](#8-writing-page-objects-uiactions)
 9. [TestBase API -- What You Can Use](#9-testbase-api--what-you-can-use)
 10. [Writing Test Classes](#10-writing-test-classes)
@@ -46,7 +45,8 @@ beyond what is described here.
 15. [Retry & Listeners](#15-retry--listeners)
 16. [Locator Rules -- Non-Negotiable](#16-locator-rules--non-negotiable)
 17. [Complete End-to-End Example](#17-complete-end-to-end-example)
-18. [Troubleshooting](#18-troubleshooting)
+18. [API Testing (ApiTestBase)](#18-api-testing-apitestbase)
+19. [Troubleshooting](#19-troubleshooting)
 
 ---
 
@@ -67,9 +67,6 @@ automation project only needs **one** Maven dependency.
 | **CrawlerScenario** | `sdk.tools.crawler.web.CrawlerScenario` | Named step sequence. `fromTestCase(name, steps...)` builder auto-enables per-step DOM snapshots. |
 | **ElementSearchEngine** | `sdk.tools.crawler.web.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label text, placeholder, aria-label, visible text, or `@formcontrolname`. Used internally by `DataDrivenCrawler`. |
 | **AbstractLocatorInvestigator** | `sdk.tools.locator.AbstractLocatorInvestigator` | Base class for consumer `LocatorInvestigator` tools. Override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`); all crawl infrastructure (login, role switching, nav helpers, summary) is SDK-owned. |
-| **MobileElementCrawler** | `sdk.tools.crawler.mobile.MobileElementCrawler` | Appium analogue of `ElementCrawler` -- scans the current native/hybrid screen (`crawlCurrentScreen()`) and returns a `MobileScreenSnapshot` covering native elements, WebView content, and screenshot. |
-| **MobilePageObjectGenerator** | `sdk.tools.pageobject.MobilePageObjectGenerator` | Generates an `@AndroidFindBy`/`@iOSXCUITFindBy`-annotated mobile Page Object from a `MobileScreenSnapshot`. |
-| **AbstractMobileLocatorInvestigator** | `sdk.tools.locator.AbstractMobileLocatorInvestigator` | Mobile analogue of `AbstractLocatorInvestigator`. Base class for consumer `MobileLocatorInvestigator` tools -- override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`), call `crawlScreen(key, name)` instead of `crawlPage(...)`; all Appium session/crawl infrastructure is SDK-owned. |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
 | **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, and evidence references |
@@ -1295,77 +1292,6 @@ ElementCrawler.safeClick(driver, someElement);
 
 ---
 
-### 7.4 Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator
-
-The SDK's mobile support is **not a separate product** -- `MobileElementCrawler`
-and `MobilePageObjectGenerator` mirror the web crawler's capability set (attribute
-priority ladder, uniqueness testing, dynamic-id rejection) but operate over an
-Appium session instead of a `WebDriver`. See
-`mobile-locator-strategy.instructions.md` for the full mobile locator ladder
-(Android `resource-id`/`content-desc`/`text`/uiautomator, iOS accessibility
-id/predicate/class chain) and the React Native fallback rules.
-
-**What it does differently from the web crawler:**
-
-| Capability | Mobile behavior |
-|---|---|
-| Element discovery | `MobileElementCrawler.crawlCurrentScreen()` fetches `getPageSource()` **once** per screen and counts attribute-value frequency in memory -- no per-candidate remote `findElements()` calls (Appium round trips are latency/cost-bound, unlike local Selenium) |
-| Uniqueness testing | Candidates are marked `UNIQUE` / `NOT_UNIQUE` / `DYNAMIC` / `STRUCTURAL` from the in-memory page-source analysis, not live calls |
-| Dynamic-id rejection | Recycled list-item ids (`.../list_item_3`), numeric-only suffixes, and hash/UUID suffixes are rejected even if unique in the current snapshot -- they are not stable across scroll/data changes or app builds |
-| Page object generation | `MobilePageObjectGenerator.generate(className, snapshot)` / `writeToFile(...)` emits an `@AndroidFindBy`/`@iOSXCUITFindBy`-annotated class extending `MobileTestBase` |
-| WebView / hybrid content | Delegated to the same `ElementCrawler` used for web -- `MobileScreenSnapshot.getWebViewElements()` returns a per-context map |
-
-**`AbstractMobileLocatorInvestigator` -- Consumer Investigator Base**
-
-Extend this SDK class in your consumer project's `MobileLocatorInvestigator` tool
--- the mobile analogue of [`AbstractLocatorInvestigator`](#7-the-element-crawler--generating-page-objects).
-Override exactly 3 methods; all infrastructure is provided by the SDK:
-
-| Method | What to implement |
-|---|---|
-| `performLogin(username, password)` | Your app's native/hybrid login screen interaction |
-| `isSessionAlive()` | Locator check for a reliable post-login element |
-| `defineCrawlSteps()` | List of screens to crawl in order |
-
-The SDK owns: Appium driver init (via `MobileTestBase.setUpDriver`), role
-registration, `@Test runFullCrawl()`, login fail-fast, session reuse,
-`crawlScreen()`, and the crawl summary log.
-
-```java
-public class MobileLocatorInvestigator extends AbstractMobileLocatorInvestigator {
-
-    @Override
-    protected void performLogin(String username, String password) throws Exception {
-        // interact with YOUR app's native login screen
-    }
-
-    @Override
-    protected boolean isSessionAlive() {
-        return !mobileDriver.findElements(By.xpath("//*[@resource-id='main-nav']")).isEmpty();
-    }
-
-    @Override
-    protected void defineCrawlSteps() throws Exception {
-        crawlScreen("login", "LoginScreen");
-
-        if (loginAs("default")) {
-            crawlScreen("dashboard", "DashboardScreen");
-        }
-    }
-}
-```
-
-Run it via a mobile crawler suite (mirroring `crawler_suite.xml` for web),
-supplying `mobileOS`/`deviceName` instead of `browserName`:
-
-```bash
-mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
-         -Denvironment=stg -DmobileOS=android \
-         -Dinv.email=your@email.com -Dinv.password=yourpassword
-```
-
----
-
 
 
 Every Page Object must follow this exact template.
@@ -2006,6 +1932,69 @@ String path = captureScreen("my-file");   // saves and returns the path
 saveDomDump(driver, "my-dom-dump");       // saves to reporting.domDumpsDir
 ```
 
+### Analytics Event Store -- Cross-Run Trends & Flaky-Test Detection
+
+Every `mvn test` run also appends one JSON line per `ExecutionEvent` (test
+start/pass/fail/skip, step events, `LOCATOR_HEALED` actions from the
+self-healing locators feature, etc.) to a per-run file under
+`test-output/analytics/`, e.g. `execution-events-20260214T091533Z.jsonl`. This
+happens automatically -- `AnalyticsExecutionReporter` is wired into the same
+default reporter chain as the log/Allure/Extent reporters, and it never
+affects test execution: it silently disables itself for the rest of the JVM
+run if a write ever fails.
+
+Because every `mvn test` invocation writes its own file, the directory
+naturally accumulates a history across many runs (CI or local). Use
+`AnalyticsTrendReport` to read that whole directory back and aggregate:
+
+```java
+import com.test.automation.sdk.reporting.AnalyticsTrendReport;
+import java.nio.file.Paths;
+import java.util.Map;
+
+Map<String, AnalyticsTrendReport.TestOutcome> outcomes =
+        AnalyticsTrendReport.summarizeTestOutcomes(Paths.get("test-output/analytics"));
+
+outcomes.forEach((testKey, outcome) -> {
+    if (outcome.isFlaky()) {
+        System.out.println(testKey + " is FLAKY: "
+                + outcome.getPassCount() + " pass / " + outcome.getFailCount() + " fail"
+                + " across " + outcome.getTotalRuns() + " runs");
+    }
+});
+
+Map<String, AnalyticsTrendReport.HealStats> healing =
+        AnalyticsTrendReport.summarizeHealing(Paths.get("test-output/analytics"));
+
+healing.forEach((locator, stats) -> {
+    if (stats.getExhaustedCount() > 0 || stats.getHealedCount() > 2) {
+        System.out.println(locator + " healed " + stats.getHealedCount()
+                + " time(s), exhausted " + stats.getExhaustedCount()
+                + " time(s) -- consider fixing the page object.");
+    }
+});
+```
+
+- `TestOutcome` -- pass/fail/skip counts per test, keyed by
+  `ClassName.methodName` (or `ClassName.methodName[testCaseName]` for
+  data-driven rows); `isFlaky()` is `true` whenever a test has both passed and
+  failed across the aggregated runs.
+- `HealStats` -- healed vs. exhausted counts per locator string, aggregated
+  across every `LOCATOR_HEALED` event found. A locator that heals frequently
+  is a signal the underlying `@FindBy` should be fixed rather than relying on
+  healing indefinitely; a locator that exhausts is a signal healing could not
+  find any relaxed candidate and the element is genuinely missing/changed.
+
+Configure the analytics store in `sdk-config.yaml` (same precedence rules as
+every other SDK setting -- system property > env var > YAML > default):
+
+```yaml
+reporting:
+  analytics:
+    enabled: true                      # set false to disable entirely
+    directory: "test-output/analytics" # where per-run .jsonl files are written
+```
+
 ---
 
 ## 13.1 Gap & Blocker Reports -- Configurable Output
@@ -2503,6 +2492,7 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
     <listeners>
         <listener class-name="com.test.automation.sdk.listener.Listener"/>
         <listener class-name="com.test.automation.sdk.listener.RetryListener"/>
+        <listener class-name="com.test.automation.sdk.flaky.FlakyTestQuarantineListener"/>
     </listeners>
     <test name="All Tests">
         <classes>
@@ -2517,6 +2507,92 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
 | `Listener` | Emits centralized lifecycle events, captures failure evidence once, publishes it to Allure/Extent/logs, and renames data-driven test entries |
 | `RetryListener` | Automatically retries a failed test once |
 | `WebEventListener` | Emits low-level WebDriver debug/a11y signals; it should not replace business steps in reports |
+| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see §15.1 below) |
+
+### 15.1 Flaky-test quarantine (`FlakyTestQuarantineListener`)
+
+`RetryListener` above handles same-run flakiness (retrying a failing test up
+to 3x within one execution). `FlakyTestQuarantineListener` is different: it
+uses the **historical analytics** written by `reporting.analytics`
+(`AnalyticsTrendReport`) to recognize a test that has a genuine mixed
+pass/fail history *across runs* and, only when explicitly enabled, prevents
+that single known-flaky test from failing the overall build.
+
+A test is only ever quarantined when **all** of the following are true:
+
+1. It has at least `flaky.minRunsForQuarantine` (default `5`) historical runs recorded.
+2. Its historical failure rate is **at or below** `flaky.maxFailureRatePercent` (default `80`).
+   A test that fails almost every run is treated as **broken, not flaky** and
+   always fails the build normally.
+3. `flaky.quarantine.enabled` is set to `true` (default `false` -- opt-in only).
+
+When a known-flaky test fails, its TestNG result is reclassified from FAILED
+to SKIPPED so it does not block the build, but a warning is still logged and
+reported via `ExecutionReporting` -- quarantine is always visible, never
+silent. A first-time failure with no history, or a consistently broken test,
+is never quarantined.
+
+**Must be declared *after* `Listener` in `<listeners>`** so the genuine
+failure (with screenshot/DOM/analytics evidence) is recorded first, and only
+then reclassified to SKIP -- this keeps the historical record accurate for
+future flaky-detection.
+
+```yaml
+flaky:
+  quarantine:
+    enabled: false                # opt-in                     (-Dflaky.quarantine.enabled)
+  minRunsForQuarantine: 5          #                            (-Dflaky.minRunsForQuarantine)
+  maxFailureRatePercent: 80        #                            (-Dflaky.maxFailureRatePercent)
+```
+
+### 15.2 Test impact analysis (`TestImpactCli`)
+
+Running the entire suite on every commit doesn't scale as a project grows.
+`com.test.automation.sdk.impact.TestImpactCli` maps the files changed in your
+working tree to the test classes that could actually be affected, so CI (or a
+local pre-push check) can run a small, targeted subset instead of everything.
+
+This is a **compiler-free, static heuristic** -- no bytecode/JaCoCo
+instrumentation or build-time agent is required. It scans every `.java` file
+under `impact.mainSourceDir`/`impact.testSourceDir`, and for each class
+records every other indexed class whose simple name appears anywhere in that
+file's body. That gives a lightweight "references" graph; from the changed
+files, the tool walks that graph in reverse (transitively) to collect every
+test class reachable from a change.
+
+```bash
+# Run from the consumer project root
+mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"
+
+# Then run only the impacted tests:
+mvn test -Dsurefire.suiteXmlFiles=test-output/impact/impact_suite.xml
+```
+
+By default this diffs against `impact.baseRef` (`HEAD~1`) via
+`git diff --name-only`. Override per-run, e.g. to diff against a PR's target
+branch: `-Dimpact.baseRef=origin/master`.
+
+**Safety fallback:** if any changed file cannot be mapped to a known class
+(a non-Java file such as `pom.xml`/a YAML config, or a file outside the
+indexed source roots), the tool prints a clear warning and recommends running
+the full suite instead -- it never silently narrows coverage without saying
+so. Changing a test class directly always includes that class itself in the
+impact suite.
+
+```yaml
+impact:
+  mainSourceDir: "src/main/java"                          # (-Dimpact.mainSourceDir)
+  testSourceDir: "src/test/java"                            # (-Dimpact.testSourceDir)
+  testClassNamePattern: "Test_.*"                           # (-Dimpact.testClassNamePattern)
+  outputSuiteFile: "test-output/impact/impact_suite.xml"    # (-Dimpact.outputSuiteFile)
+  baseRef: "HEAD~1"                                          # (-Dimpact.baseRef)
+```
+
+> [!]? This heuristic deliberately over-approximates (a comment/string
+> mentioning a class name, or two unrelated classes sharing a simple name,
+> both count as "referenced") rather than under-approximating -- running a
+> few extra tests is the safe failure mode; silently skipping an affected
+> test is not.
 
 ---
 
@@ -2651,7 +2727,119 @@ BUILD SUCCESS
 
 ---
 
-## 18. Troubleshooting
+## 18. API Testing (`ApiTestBase`)
+
+For projects that need pure API test coverage (REST endpoints, no browser),
+`com.test.automation.sdk.api.ApiTestBase` is a standalone base class --
+deliberately does **not** extend `TestBase` or require a `WebDriver` -- built
+on [RestAssured](https://rest-assured.io/), the HTTP library already used by
+this org's existing API automation projects. It integrates with the same
+reporting, analytics, and flaky-test-quarantine infrastructure as Web/Mobile
+tests, so nothing else in the SDK needs to know or care that a given test has
+no browser at all.
+
+```java
+public class Test_GetUser extends ApiTestBase {
+
+    @DataProvider(name = "userData")
+    public Object[][] userData() throws IOException {
+        return getData("src/test/resources/testData/Users.xlsx", "GetUser");
+    }
+
+    @Test(dataProvider = "userData")
+    public void testGetUser(String testCaseName, String userId, String runMode) {
+        checkRunMode(testCaseName, runMode);
+        setCurrentTestCaseName(testCaseName);
+
+        Response response = get("Get user by id", "/api/users/" + userId);
+
+        assertStatusCode(response, 200);
+        assertJsonPath(response, "data.id", Integer.parseInt(userId));
+        assertResponseTimeUnder(response, 2000);
+    }
+}
+```
+
+### Per-environment base URLs
+
+Base URLs follow the exact convention already used elsewhere in the SDK
+(`TestBase.setBaseUrl(environment)`) and by this org's legacy API projects:
+one otherwise-identical config key per environment.
+
+```yaml
+api:
+  baseUrl: ""                        # environment-neutral fallback
+  baseUrl.stg: "https://stg.example.com"
+  baseUrl.prd: "https://api.example.com"
+```
+
+`ApiTestBase.given()` resolves `api.baseUrl.<environment>` first (the
+`environment` TestNG parameter, same `-Denvironment=stg` your suite XML
+already passes), falling back to `api.baseUrl` when no per-environment
+override exists.
+
+### Authentication
+
+A single configurable auth header (e.g. an APIM subscription key, or a
+Bearer token) is attached automatically to every request when both keys
+below are set. **`authTokenEnvVar` names an environment variable -- never
+put the actual secret value in `sdk-config.yaml`.**
+
+```yaml
+api:
+  authHeaderName: "Ocp-Apim-Subscription-Key"   # or "Authorization", etc.
+  authTokenEnvVar: "API_SUBSCRIPTION_KEY"        # value read from this env var at runtime
+```
+
+Anything more elaborate (OAuth token refresh, request signing, etc.) is a
+"bring your own" extension: call `given()` to get a preconfigured
+`RequestSpecification`, add whatever headers/auth your API needs, then pass
+it to the `get(action, path, spec)` overload.
+
+### Assertions & evidence
+
+| Method | Purpose |
+|---|---|
+| `assertStatusCode(response, expected)` | Asserts HTTP status code |
+| `assertJsonPath(response, jsonPath, expected)` | Asserts a value at a RestAssured JsonPath expression |
+| `assertResponseTimeUnder(response, maxMillis)` | Asserts response latency |
+| `assertMatchesJsonSchema(response, classpathResource)` | Validates the body against a JSON schema file |
+
+Every call made through `get`/`post`/`put`/`patch`/`delete` (or the lower-level
+`execute(...)`) is timed and reported through `ExecutionReporting`
+(`actionStarted`/`actionCompleted`/`actionFailed`), and -- when
+`api.logRequestsAndResponses` is enabled (default) -- the request/response
+JSON is captured to `api.outputDirectory` and published as evidence, showing
+up in Allure/Extent reports the same way screenshots do for Web/Mobile tests.
+
+```yaml
+api:
+  connectionTimeoutMillis: 10000
+  readTimeoutMillis: 30000
+  logRequestsAndResponses: true
+  outputDirectory: "test-output/api"
+  relaxedHttpsValidation: false        # opt-in only, for lower non-prod environments
+```
+
+### Migrating an existing RestAssured-based project
+
+If your project already has its own `TestBase`/API-request wrapper (e.g. a
+legacy `apiGeneric.java`-style helper), migrating to `ApiTestBase` typically
+means:
+1. Replace your custom per-environment URL/extension properties with
+   `api.baseUrl.<environment>` keys.
+2. Replace your custom auth-header wiring with `api.authHeaderName` +
+   `api.authTokenEnvVar`.
+3. Replace your custom Excel-reading helper with `ApiTestBase.getData(...)`
+   (same `Object[][]` `@DataProvider` shape already used by Web/Mobile tests).
+4. Keep any domain-specific request-body-building logic (e.g. an
+   agency-specific JSON builder) in your own project -- it is intentionally
+   out of scope for the SDK, which only standardizes the generic
+   request/response/reporting/config plumbing around it.
+
+---
+
+## 19. Troubleshooting
 
 | Problem | Likely cause | Fix |
 |---------|-------------|-----|

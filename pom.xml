@@ -122,6 +122,13 @@
         <dependency><groupId>io.qameta.allure</groupId><artifactId>allure-java-commons</artifactId><version>${allure.version}</version></dependency>
         <dependency><groupId>org.aspectj</groupId><artifactId>aspectjweaver</artifactId><version>${aspectj.version}</version><scope>compile</scope></dependency>
         <dependency><groupId>org.hamcrest</groupId><artifactId>hamcrest-all</artifactId><version>1.3</version></dependency>
+
+        <!-- ===== API testing (com.test.automation.sdk.api) ===== -->
+        <!-- RestAssured: already the de-facto standard in this org's legacy API projects
+             (e.g. DOITTQA_311_API uses 4.3.2); ApiTestBase builds on it directly rather than
+             introducing a new HTTP client choice. -->
+        <dependency><groupId>io.rest-assured</groupId><artifactId>rest-assured</artifactId><version>5.5.0</version></dependency>
+        <dependency><groupId>io.rest-assured</groupId><artifactId>json-schema-validator</artifactId><version>5.5.0</version></dependency>
         <!--
         TODO: Enable after com.manybrain:mailinator-client:1.0 is available in the local Maven repository.
         <dependency>

@@ -20,6 +20,34 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Added
+- **API testing module (`com.test.automation.sdk.api`).** New standalone
+  `ApiTestBase` -- deliberately does *not* extend `TestBase`/require a
+  `WebDriver` -- built on RestAssured (the HTTP library already used by this
+  org's existing legacy API automation projects) for pure REST API test
+  classes. Provides `given()` (a preconfigured `RequestSpecification` with
+  per-environment base URL resolution, timeouts, and an optional single auth
+  header sourced from an environment variable), `get`/`post`/`put`/`patch`/`delete`
+  convenience wrappers, and assertion helpers (`assertStatusCode`,
+  `assertJsonPath`, `assertResponseTimeUnder`, `assertMatchesJsonSchema`).
+  Every call is timed and reported through `ExecutionReporting`
+  (`actionStarted`/`actionCompleted`/`actionFailed`) and -- when
+  `api.logRequestsAndResponses` is enabled (default) -- request/response JSON
+  is captured to `api.outputDirectory` and published as evidence (new
+  `ExecutionEventType.API_PAYLOAD_CAPTURED`, new
+  `ExecutionEvidence.apiPayload(...)`), so API test runs show up in
+  Allure/Extent reports, the cross-run analytics store, and the flaky-test
+  quarantine exactly like Web/Mobile runs, with no extra wiring. Reuses
+  `TestBase`'s static, driver-free `currentTestCaseName` ThreadLocal for test
+  attribution and `Excel_Reader` for `@DataProvider`-driven test data, so no
+  functionality is duplicated. New `ApiConfig` in `ConfigurationManager` and a
+  new `api:` block (extending the existing `api:` mailinator section) in
+  `sdk-config.yaml.template`. New owner-less `ExecutionReporting.info/warning/
+  validation(String, ...)` overloads (mirroring the existing owner-less
+  `actionStarted`/`actionCompleted`/`actionFailed`), since `ApiTestBase` has
+  no `TestBase` instance to report against. New `rest-assured` and
+  `json-schema-validator` (5.5.0) SDK dependencies. 12 new unit tests
+  (`ApiTestBaseTest`, `ApiConfigTest`); documented in `SDK-USER-GUIDE.md`
+  section 18.
 - **Test impact analysis (`com.test.automation.sdk.impact`).** New standalone
   `TestImpactCli` (`mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"`)
   maps files changed since `impact.baseRef` (default `HEAD~1`, via
