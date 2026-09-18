@@ -1,7 +1,7 @@
 ﻿# Framework Automation SDK -- User Guide
 
-**Version:** 1.4.8
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`
+**Version:** 1.5.0
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the primary installation, configuration, and usage reference for the
@@ -162,7 +162,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.4.8</version>
+    <version>1.5.0</version>
 </dependency>
 ```
 
@@ -520,10 +520,10 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 â€” Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.4.8.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.0.jar` downloaded.
 
 ---
 
@@ -3154,6 +3154,6 @@ means:
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`*  
 *Maintained by OTI QA Automation Team*
 

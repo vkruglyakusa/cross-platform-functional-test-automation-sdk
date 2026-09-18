@@ -19,6 +19,10 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.5.0] — 2026-09-18
+
 ### Documentation
 - **SDK documentation finalization pass for the current 1.4.8 working tree.**
   Expanded the authoritative dependency/version baseline, corrected stale

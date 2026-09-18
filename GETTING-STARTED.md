@@ -1,6 +1,6 @@
 ﻿# Getting Started -- Cross-Platform Functional Test Automation SDK
 
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`
 
 This is the single first-day setup guide for a brand-new consumer project.
 Follow the shared steps first, then continue with the track(s) you need:
@@ -55,7 +55,7 @@ mvn clean install -DskipTests
 ```
 
 This places the jar in:
-`~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.4.8/`
+`~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.5.0/`
 
 ---
 
@@ -67,7 +67,7 @@ This places the jar in:
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.4.8</version>
+    <version>1.5.0</version>
 </dependency>
 ```
 
