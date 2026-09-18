@@ -1,7 +1,7 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 1.5.1
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`
+**Version:** 1.5.2
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the primary installation, configuration, and usage reference for the
@@ -179,7 +179,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.5.1</version>
+    <version>1.5.2</version>
 </dependency>
 ```
 
@@ -559,10 +559,10 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.1.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.2.jar` downloaded.
 
 ---
 
@@ -2590,14 +2590,16 @@ browser test: a failed test's Allure result now includes the Exception,
 Failure Screenshot, Failure DOM, and Browser Console Log attachments.
 Regression coverage: `ListenerEvidenceCaptureOrderingTest`.
 
-> **Known cosmetic limitation (pre-existing, not fixed in v1.5.1):** Allure's
-> own `AllureLifecycle` may still log benign `"Could not update test case...
-> not found"` ERROR-level messages during `@BeforeMethod` setup/navigation,
-> before the actual `@Test` method runs. This is log noise only -- it does
-> not prevent the failure-evidence attachments described above, does not
-> change the test's pass/fail outcome, and does not corrupt the final
-> failed-test's own Allure result. It predates v1.5.1 and is tracked for a
-> future maintenance release rather than addressed here.
+> **Fixed in v1.5.2 (was a known cosmetic limitation in v1.5.1):** Allure's
+> own `AllureLifecycle` previously could log benign `"Could not update test
+> case... not found"` ERROR-level messages during `@BeforeMethod`
+> setup/navigation, caused by `AllureExecutionReporter` reactively calling
+> `Allure.getLifecycle().updateTestCase(...)` on every event, racing
+> `AllureTestNg`'s own test-case creation. This reactive call has been
+> removed; `parentSuite`/`suite`/`subSuite` labels are now applied
+> exclusively through `AllureLabelLifecycleListener`'s race-free Allure
+> lifecycle hooks. See CHANGELOG v1.5.2 and
+> `SDK-FIX-PROMPT-AllureLifecycleRace.md` for the full root-cause writeup.
 
 ### 13.4.2 Browser console log capture
 
@@ -3566,6 +3568,6 @@ means:
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`*  
 *Maintained by OTI QA Automation Team*
 

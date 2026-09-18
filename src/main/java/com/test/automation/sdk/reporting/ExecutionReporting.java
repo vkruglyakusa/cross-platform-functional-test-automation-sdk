@@ -33,6 +33,26 @@ public final class ExecutionReporting {
     private static final ThreadLocal<ExecutionState> state =
             ThreadLocal.withInitial(ExecutionState::new);
 
+    /**
+     * OBS-Allure-fix: independent, longer-lived snapshot of the current test's
+     * suite/testNgTestName/className, read by {@link AllureLabelLifecycleListener}.
+     * {@code state} is eagerly cleared by {@link #clear()} as soon as
+     * onTestPassed/onTestFailed/onTestSkipped fires (this SDK's own
+     * {@code Listener} callback), but Allure's own {@code AllureTestNg} listener
+     * -- a separate, ServiceLoader-registered {@code ITestListener} -- is not
+     * guaranteed to run its {@code writeTestCase(...)} (and therefore
+     * {@code beforeTestWrite}) before or after that same-named TestNG callback on
+     * this SDK's listener. If {@code state} were used directly and clear() ran
+     * first, the label listener would see empty metadata. This ThreadLocal is
+     * refreshed at the same points as {@code state}'s suite/test/class fields
+     * but is only removed by {@link #clearAllureLabelMetadata()}, which
+     * {@link AllureLabelLifecycleListener#afterTestWrite} calls once Allure has
+     * actually finished writing the test case -- guaranteeing metadata survives
+     * regardless of listener ordering.
+     */
+    private static final ThreadLocal<CurrentTestMetadata> allureLabelMetadata =
+            ThreadLocal.withInitial(() -> new CurrentTestMetadata("", "", ""));
+
     private static final String UNKNOWN_SUITE = "Unknown Suite";
 
     private ExecutionReporting() {}
@@ -381,6 +401,7 @@ public final class ExecutionReporting {
         current.className = resolveClassName(result);
         current.methodName = resolveMethodName(result);
         current.testName = resolveTestName(current.className, current.methodName);
+        allureLabelMetadata.set(new CurrentTestMetadata(current.suiteName, current.testNgTestName, current.className));
     }
 
     private static ExecutionEvent.Builder buildContextEvent(TestBase owner, ExecutionEventType type, ExecutionStatus status) {
@@ -556,8 +577,16 @@ public final class ExecutionReporting {
      * not guaranteed relative to service-loaded listeners such as {@code AllureTestNg}.
      */
     static CurrentTestMetadata peekCurrentTestMetadata() {
-        ExecutionState current = state.get();
-        return new CurrentTestMetadata(current.suiteName, current.testNgTestName, current.className);
+        return allureLabelMetadata.get();
+    }
+
+    /**
+     * OBS-Allure-fix: called by {@link AllureLabelLifecycleListener#afterTestWrite}
+     * once Allure has finished writing the test case, so the metadata snapshot
+     * does not leak into the next test executed on this thread.
+     */
+    static void clearAllureLabelMetadata() {
+        allureLabelMetadata.remove();
     }
 
     static final class CurrentTestMetadata {

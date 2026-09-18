@@ -28,7 +28,18 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         if (event == null) {
             return;
         }
-        applyTestMetadata(event);
+        // OBS-Allure-fix: parentSuite/suite/subSuite labels are applied by
+        // AllureLabelLifecycleListener (hooked directly into Allure's own
+        // TestLifecycleListener callbacks), not reactively here. TestNG does not
+        // guarantee that AllureTestNg (ServiceLoader-registered, unordered relative
+        // to this SDK's own Listener) has already created the Allure test case
+        // entry by the time the first ExecutionEvent(s) for a test fire. Calling
+        // Allure.getLifecycle().updateTestCase(...) unconditionally from here raced
+        // against that test-case creation and produced deterministic
+        // "Could not update test case: test case with uuid X not found" ERROR log
+        // lines (exactly 2 per test, at test start) even though the labels were
+        // always re-applied correctly and race-free via AllureLabelLifecycleListener.
+        // See SDK-FIX-PROMPT-AllureLifecycleRace.md for full root-cause analysis.
         switch (event.getType()) {
             case STEP_STARTED:
                 startStep(event);
@@ -125,31 +136,6 @@ public final class AllureExecutionReporter implements ExecutionReporter {
             return;
         }
         Allure.addAttachment("Exception", "text/plain", stackTrace(event.getThrowable()));
-    }
-
-    private void applyTestMetadata(ExecutionEvent event) {
-        if (event.getSuiteName().isEmpty() && event.getTestNgTestName().isEmpty() && event.getClassName().isEmpty()) {
-            return;
-        }
-        if (!Allure.getLifecycle().getCurrentTestCase().isPresent()) {
-            return;
-        }
-        Allure.getLifecycle().updateTestCase(testResult -> {
-            List<Label> labels = new ArrayList<Label>();
-            if (testResult.getLabels() != null) {
-                labels.addAll(testResult.getLabels());
-            }
-            if (!event.getSuiteName().isEmpty()) {
-                labels = replaceLabel(labels, "parentSuite", event.getSuiteName());
-            }
-            if (!event.getTestNgTestName().isEmpty()) {
-                labels = replaceLabel(labels, "suite", event.getTestNgTestName());
-            }
-            if (!event.getClassName().isEmpty()) {
-                labels = replaceLabel(labels, "subSuite", event.getClassName());
-            }
-            testResult.setLabels(labels);
-        });
     }
 
     private String buildStepName(ExecutionEvent event) {

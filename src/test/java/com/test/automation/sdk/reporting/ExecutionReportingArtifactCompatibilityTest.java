@@ -159,6 +159,15 @@ class ExecutionReportingArtifactCompatibilityTest {
         int exitCode = process.waitFor();
 
         assertEquals(0, exitCode, "Probe failed. Output:\n" + output);
+        // Regression guard for the AllureExecutionReporter#applyTestMetadata()
+        // updateTestCase() race (see SDK-FIX-PROMPT-AllureLifecycleRace.md):
+        // parentSuite/suite/subSuite labels must be applied exclusively via
+        // AllureLabelLifecycleListener's race-free Allure lifecycle hooks, never
+        // via a reactive Allure.getLifecycle().updateTestCase(...) call from
+        // report(). If this ever regresses, Allure's own AllureLifecycle logs
+        // this exact ERROR line.
+        assertFalse(output.contains("Could not update test case"),
+                "Allure lifecycle race regression detected. Output:\n" + output);
     }
 
     private Path resolveJavaExecutable() {

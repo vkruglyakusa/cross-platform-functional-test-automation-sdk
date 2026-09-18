@@ -34,6 +34,16 @@ public final class AllureLabelLifecycleListener implements TestLifecycleListener
         applyLabels(result);
     }
 
+    @Override
+    public void afterTestWrite(TestResult result) {
+        // OBS-Allure-fix: this is the guaranteed last touchpoint Allure gives us
+        // for this test case -- safe to release the metadata snapshot now,
+        // regardless of whether this SDK's own Listener callback (which clears
+        // ExecutionReporting's primary per-test state) ran before or after
+        // AllureTestNg's callbacks for the same TestNG lifecycle event.
+        ExecutionReporting.clearAllureLabelMetadata();
+    }
+
     private void applyLabels(TestResult result) {
         if (result == null) {
             return;

@@ -19,7 +19,47 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.5.2] — 2026-09-18
+
 ### Fixed
+- **Allure `updateTestCase` lifecycle race ("Could not update test case: test
+  case with uuid X not found").** Real regression validation of
+  `Poletop_Automation` against SDK 1.5.1 (34 tests) produced exactly 68 ERROR
+  log lines -- one uuid per test, each hit exactly twice, always within ~2s of
+  test start. Root cause: `AllureExecutionReporter.applyTestMetadata()` called
+  `Allure.getLifecycle().updateTestCase(...)` reactively for **every**
+  `ExecutionEvent`, racing against `AllureTestNg` (ServiceLoader-registered,
+  unordered relative to this SDK's own `Listener`) actually creating the
+  Allure test-case entry. `applyTestMetadata()` and its reactive
+  `updateTestCase()` call have been removed entirely from
+  `AllureExecutionReporter.report()`. The `parentSuite`/`suite`/`subSuite`
+  labels are now applied exclusively by the already-existing
+  `AllureLabelLifecycleListener`, hooked directly into Allure's own
+  `TestLifecycleListener` callbacks (`beforeTestStart`/`beforeTestWrite`),
+  which are guaranteed to fire only once Allure's test case actually exists.
+  A second, related gap surfaced while validating this change:
+  `ExecutionReporting`'s per-test suite/testNgTestName/className state was
+  being cleared (`clear()`, called from `onTestPassed`/`onTestFailed`/
+  `onTestSkipped`) before `AllureTestNg`'s own `writeTestCase(...)` (and
+  therefore `beforeTestWrite`) had a chance to run, for the same reason --
+  no guaranteed ordering between this SDK's `Listener` and `AllureTestNg`'s
+  callbacks for `onTestSuccess`/`onTestFailure`/`onTestSkipped`. Fixed by
+  giving `AllureLabelLifecycleListener` its own longer-lived metadata
+  snapshot (`ExecutionReporting`'s new `allureLabelMetadata` ThreadLocal),
+  populated at the same points as the primary per-test state but only
+  cleared from the listener's own `afterTestWrite(...)` callback -- Allure's
+  guaranteed last touchpoint for that test case -- instead of from this
+  SDK's `Listener` callbacks. This also resolves the previously-documented
+  cosmetic-only "could not update test case" log limitation noted in the
+  v1.5.1 SDK-USER-GUIDE. Regression coverage: existing
+  `ExecutionReportingArtifactCompatibilityTest` and
+  `TestNgSuiteMetadataIntegrationTest` end-to-end probes (which exercise real
+  `AllureTestNg` + `Listener` registration-order combinations) now also
+  assert the exact ERROR string never appears in probe output, in addition
+  to their existing final-label assertions. See
+  `SDK-FIX-PROMPT-AllureLifecycleRace.md` for the full root-cause writeup.
 - **Mobile: configurable UiAutomator2 server launch timeout.** Live emulator
   validation of the Mobile consumer template surfaced a real
   `SessionNotCreatedException` ("The instrumentation process cannot be

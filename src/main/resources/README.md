@@ -1,9 +1,9 @@
 # Framework Automation SDK
 
-![SDK](https://img.shields.io/badge/SDK-cross--platform--functional--test--automation--sdk:1.5.1-blue)
+![SDK](https://img.shields.io/badge/SDK-cross--platform--functional--test--automation--sdk:1.5.2-blue)
 
 > **Reusable Selenium + Appium + RestAssured framework layer for OTI QA Automation**  
-> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`
+> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`
 
 This SDK is a single JAR that consumer automation projects depend on.
 It provides one shared framework layer for:
@@ -141,7 +141,7 @@ are starting, or follow Option B below to add the SDK to an existing project.
 <dependency>
   <groupId>com.test.automation</groupId>
   <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-<version>1.5.1</version>
+<version>1.5.2</version>
 </dependency>
 ```
 
@@ -430,4 +430,4 @@ cross-platform-functional-test-automation-sdk/
 ---
 
 *Maintained by OTI QA Automation Team*  
-*SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`*
+*SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`*

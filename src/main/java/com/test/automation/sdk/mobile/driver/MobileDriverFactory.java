@@ -5,6 +5,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -193,6 +194,17 @@ public final class MobileDriverFactory {
             proxyCapability.put("sslProxy", androidHttpProxy);
             options.setCapability("proxy", proxyCapability);
         }
+        // Appium's default uiautomator2ServerLaunchTimeout (30s) is frequently too short on a
+        // cold-started or software-rendered (e.g. swiftshader) emulator, where the UiAutomator2
+        // instrumentation process can still be mid-ART-verification when the default timeout
+        // expires -- producing a SessionNotCreatedException even though the server was about to
+        // come up successfully a moment later. Root-caused while validating this template against
+        // a real local emulator. Default raised to 90s and made configurable via
+        // android.uiautomator2ServerLaunchTimeoutMs so slower CI/local emulator environments are
+        // not the common case that requires manual capability tuning.
+        long launchTimeoutMs = MobileConfigReader.getLong(
+                "android.uiautomator2ServerLaunchTimeoutMs", 90000L);
+        options.setUiautomator2ServerLaunchTimeout(Duration.ofMillis(launchTimeoutMs));
 
         AppiumDriver driver = new AndroidDriver(localAppiumUrl(), options);
         log.info("Local Android driver session started: {}", driver.getSessionId());

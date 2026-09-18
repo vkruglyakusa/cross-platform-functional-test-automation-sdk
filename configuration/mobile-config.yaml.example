@@ -29,6 +29,10 @@ android:
   # Local emulator/device name (e.g. "Pixel_6_API_34" or a USB-attached device's ADB id).
   deviceName: ""
   automationName: "UiAutomator2"
+  # Optional: raises Appium's uiautomator2ServerLaunchTimeout above its 30s default. Cold-started
+  # or software-rendered (e.g. swiftshader) emulators can need longer for the UiAutomator2
+  # instrumentation process to finish initializing on first launch. Defaults to 90000 (90s) if omitted.
+  uiautomator2ServerLaunchTimeoutMs: 90000
   # noReset (default true): keep the app's existing install + data/cache between local runs,
   # matching how a developer manually reuses an already-installed, already-warmed-up app on the
   # same emulator/device. Set to "false" if your tests need a guaranteed clean-slate app state
