@@ -52,6 +52,12 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 | **A11ySessionManager** | `sdk.accessibility.A11ySessionManager` | Scan de-duplication, severity thresholding, allowlists, and DOM fingerprint protection |
 | **A11yTestNGListener** | `sdk.accessibility.A11yTestNGListener` | Automatic post-test accessibility scanning when enabled |
 | **AllureA11yReporter** | `sdk.accessibility.AllureA11yReporter` | Publishes accessibility findings to Allure with attachments |
+| **ApiTestBase** | `sdk.api.ApiTestBase` | Standalone base class for pure REST API tests (RestAssured-backed) -- no `WebDriver` required; `get/post/put/patch/delete`, status/JSON-path/response-time/JSON-schema assertions -- see [SDK-USER-GUIDE.md §18](SDK-USER-GUIDE.md#18-api-testing-apitestbase) and [`API-TESTBASE-API.md`](API-TESTBASE-API.md) |
+| **MobileTestBase** | `sdk.mobile.testbase.MobileTestBase` | Appium (Android/iOS) peer of `TestBase` -- 60+ mobile gesture/wait/assertion helpers, no `WebDriver`/browser dependency |
+| **MobileDriverFactory** | `sdk.mobile.driver.MobileDriverFactory` | Appium session initialization -- local Android/iOS and BrowserStack App Automate |
+| **MobileElementCrawler** | `sdk.tools.crawler.mobile.MobileElementCrawler` | Scans a live app screen and generates an `@AndroidFindBy`/`@iOSXCUITFindBy`-annotated Page Object |
+| **MobilePageObjectGenerator** | `sdk.mobile.crawler.MobilePageObjectGenerator` | Standalone runner for `MobileElementCrawler` |
+| **AbstractMobileLocatorInvestigator** | `sdk.tools.locator.AbstractMobileLocatorInvestigator` | Mobile analogue of `AbstractLocatorInvestigator` -- declarative role/login/crawl-step shape for Appium crawl scripts -- see [SDK-USER-GUIDE.md §7.4](SDK-USER-GUIDE.md#74-mobile-appium-crawler--abstractmobilelocatorinvestigator) |
 
 ---
 
@@ -288,6 +294,9 @@ All prompts support **autonomous mode** -- grant it once to skip step-by-step co
 |---|---|
 | [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md) | Complete setup, config, crawler, API, and examples |
 | [`TESTBASE-API.md`](TESTBASE-API.md) | Every TestBase method with usage guidance |
+| [`API-TESTBASE-API.md`](API-TESTBASE-API.md) | Every `ApiTestBase` method with usage guidance (RestAssured-based API testing) |
+| [`MOBILE-USER-GUIDE.md`](MOBILE-USER-GUIDE.md) | Mobile (Appium) consumer-facing setup and usage guide |
+| [`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md) | Every `MobileTestBase` method with usage guidance |
 | [`CHANGELOG.md`](CHANGELOG.md) | SDK version history -- all changes since 1.0.0 |
 | [`SDK-PUBLISHING.md`](SDK-PUBLISHING.md) | Build, deploy, and version bump process for SDK maintainers |
 
@@ -325,16 +334,23 @@ mvn clean deploy -DskipTests
 cross-platform-functional-test-automation-sdk/
 +-- pom.xml                          <- version, dependencies, deploy config
 +-- CHANGELOG.md                     <- all version changes
-+-- SDK-USER-GUIDE.md                <- consumer-facing user guide
-+-- TESTBASE-API.md                  <- TestBase API reference
++-- SDK-USER-GUIDE.md                <- consumer-facing user guide (web)
++-- TESTBASE-API.md                  <- TestBase API reference (web)
++-- API-TESTBASE-API.md              <- ApiTestBase API reference (REST API)
++-- MOBILE-USER-GUIDE.md             <- consumer-facing user guide (mobile/Appium)
++-- MOBILE-TESTBASE-API.md           <- MobileTestBase API reference (mobile)
 +-- SDK-PUBLISHING.md                <- maintainer deploy guide
 +-- mvn-repo/                        <- git submodule -> local Maven repository
 +-- src/
     +-- main/
     |   +-- java/com/test/automation/sdk/
     |   |   +-- testbase/            <- TestBase, WebDriverFactory, SdkConfig
-    |   |   +-- utility/             <- ElementCrawler, PageObjectGenerator,
-    |   |   |                           GapReportWriter, YamlConfigReader,
+    |   |   +-- api/                 <- ApiTestBase, ApiConfig (REST/RestAssured testing)
+    |   |   +-- mobile/              <- MobileTestBase, MobileDriverFactory,
+    |   |   |                           MobileConfigReader, mobile crawler facades
+    |   |   +-- tools/               <- crawler/, pageobject/, locator/ -- desktop +
+    |   |   |                           mobile element crawlers and page-object generators
+    |   |   +-- utility/             <- GapReportWriter, YamlConfigReader,
     |   |   |                           Excel_Reader, InstructionExtractor, Mailinator
     |   |   +-- listener/            <- Listener, RetryListener, WebEventListener
     |   +-- resources/
@@ -344,12 +360,12 @@ cross-platform-functional-test-automation-sdk/
     |       |                           NOT the same as sdk-prompts/ above -- see ai/README.md)
     |       +-- sdk-defaults/        <- sdk-config.yaml.template, log4j templates
     |       +-- sdk-templates/       <- gap report template
-    |       +-- SDK-USER-GUIDE.md
-    |       +-- TESTBASE-API.md
+    |       +-- SDK-USER-GUIDE.md / TESTBASE-API.md / API-TESTBASE-API.md
+    |       +-- MOBILE-USER-GUIDE.md / MOBILE-TESTBASE-API.md
     |       +-- CHANGELOG.md
     +-- test/
         +-- java/com/test/automation/sdk/
-            +-- utility/             <- unit tests (296 total)
+            +-- utility/             <- unit tests (664+ total)
 ```
 
 ---

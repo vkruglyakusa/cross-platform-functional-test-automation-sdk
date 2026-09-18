@@ -33,6 +33,7 @@ beyond what is described here.
     - [7.1 Map Widgets -- Google Maps, Leaflet, Mapbox GL, OpenLayers, Bing Maps](#71-map-widgets--google-maps-leaflet-mapbox-gl-openlayers-bing-maps)
     - [7.2 Shadow DOM -- Web Components, Lit/Stencil, Salesforce Lightning (LWC)](#72-shadow-dom--web-components-litstencil-salesforce-lightning-lwc)
     - [7.3 Crawler Reliability & Self-Healing Features](#73-crawler-reliability--self-healing-features)
+    - [7.4 Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator](#74-mobile-appium-crawler--abstractmobilelocatorinvestigator)
 8. [Writing Page Objects (uiActions)](#8-writing-page-objects-uiactions)
 9. [TestBase API -- What You Can Use](#9-testbase-api--what-you-can-use)
 10. [Writing Test Classes](#10-writing-test-classes)
@@ -1375,6 +1376,81 @@ public class LoginPage extends TestBase {
 - No raw `sendKeys()` -- always use `clearAndType()`.
 - No `Thread.sleep()` -- always use a TestBase wait method.
 - No `new WebDriverWait(...)` -- always use a TestBase wait method.
+
+---
+
+### 7.4 Mobile (Appium) Crawler & `AbstractMobileLocatorInvestigator`
+
+Mobile projects don't crawl a live web page -- they crawl a live **app screen**
+over an Appium session. `com.test.automation.sdk.tools.crawler.mobile.MobileElementCrawler`
+is the mobile analogue of `ElementCrawler`: it inspects the current screen's
+accessibility tree and produces `MobileScreenSnapshot`/`MobileElementInfo`
+data that `com.test.automation.sdk.tools.pageobject.MobilePageObjectGenerator`
+turns into a ready-to-edit `@AndroidFindBy`/`@iOSXCUITFindBy` Page Object --
+exactly like `PageObjectGenerator` does for web, but for native/hybrid apps.
+
+`com.test.automation.sdk.tools.locator.AbstractMobileLocatorInvestigator` is
+the mobile analogue of `AbstractLocatorInvestigator` (Section 7): extend it in
+your consumer project's `MobileLocatorInvestigator` tool and override exactly
+3 hooks -- all crawl infrastructure (Appium session init, role registration,
+fail-fast login, session reuse, `@Test runFullCrawl()`, and the crawl summary
+log) is provided by the SDK:
+
+| Method | What to implement |
+|---|---|
+| `performLogin(username, password)` | Your app's native login-screen interaction |
+| `isSessionAlive()` | XPath/accessibility-id check for a reliable post-login element |
+| `defineCrawlSteps()` | List of screens to crawl in order, using `crawlScreen(...)` and `loginAs(...)` |
+
+```java
+public class MobileLocatorInvestigator extends AbstractMobileLocatorInvestigator {
+
+    @Override
+    protected void performLogin(String username, String password) throws Exception {
+        // interact with YOUR app's native login screen
+        mobileDriver.findElement(By.xpath("//*[@resource-id='email']")).sendKeys(username);
+        mobileDriver.findElement(By.xpath("//*[@resource-id='password']")).sendKeys(password);
+        mobileDriver.findElement(By.xpath("//*[@resource-id='loginButton']")).click();
+    }
+
+    @Override
+    protected boolean isSessionAlive() {
+        return !mobileDriver.findElements(By.xpath("//*[@resource-id='main-nav']")).isEmpty();
+    }
+
+    @Override
+    protected void defineCrawlSteps() throws Exception {
+        crawlScreen("login", "LoginScreen");
+
+        if (loginAs("default")) {
+            crawlScreen("dashboard", "DashboardScreen");
+        }
+    }
+}
+```
+
+Run it via the mobile crawler suite, supplying `mobileOS`/`deviceName` TestNG
+parameters (see `mobile_crawler_suite.xml`):
+
+```bash
+mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
+         -Denvironment=stg -DmobileOS=android \
+         -Dinv.email=<email> -Dinv.password=<password>
+```
+
+**Optional overrides:**
+- `registerRoles()` -- register credentials for multiple roles (default:
+  registers a single `"default"` role from `-Dinv.email` / `-Dinv.password`).
+- `getPostLoginLandmark()` -- the `By` locator `loginAs(...)` waits on after
+  `performLogin(...)` returns to confirm login succeeded (default: an
+  element with `@resource-id`/`@name` of `main-content`).
+
+Only locators marked crawler-`UNIQUE` should be promoted into the generated
+Page Object's active `@AndroidFindBy`/`@iOSXCUITFindBy` annotations -- see
+`mobile-locator-strategy.instructions.md` for the full mobile locator
+priority ladder (`@resource-id` -> `@content-desc` -> `@text` -> `-android
+uiautomator` / `-ios predicate string` -> compound XPath), dynamic/recycled-id
+rejection patterns, and React Native/hybrid-specific fallback rules.
 
 ---
 
@@ -2854,6 +2930,18 @@ means:
 | `UnsupportedClassVersionError` when tests start | Maven is running on a JVM older than Java 20 | Re-check `java -version` and `mvn -version`; point `JAVA_HOME` / your IDE Maven runner at JDK 20+ |
 | `AspectJ Internal Error: unable to add stackmap attributes` or `Unsupported class file major version 64` | An old AspectJ javaagent (for example `aspectjweaver:1.9.5`) is trying to weave Java 20+ bytecode | Upgrade the consumer's AspectJ javaagent/dependency to 1.9.25 or newer |
 | `403 Forbidden` / `ReadPackages` while resolving `org.seleniumhq.selenium:*` from Azure Artifacts | The consumer can reach the SDK feed URL but lacks read permission or matching Maven credentials for that feed | Grant feed Reader/Packaging Read permission, ensure the `<server><id>` matches the repository `<id>`, or use a local SDK install for the first smoke test |
+
+### API testing (`ApiTestBase`) -- additional problems
+
+| Problem | Likely cause | Fix |
+|---------|-------------|-----|
+| `IllegalStateException: No base URL configured for environment '<env>'` | Missing `api.baseUrl.<environment>` (and no fallback `api.baseUrl`) in `sdk-config.yaml` | Add the environment-specific key, or a plain `api.baseUrl` fallback |
+| `java.net.ConnectException` / `UnknownHostException` on every request | Wrong/unreachable base URL, or a corporate proxy blocking the JVM's outbound HTTPS | Verify the URL with `curl`/a browser first; if behind a proxy, pass `-Dhttps.proxyHost`/`-Dhttps.proxyPort` to the **test run itself**, not just Maven dependency resolution |
+| `401 Unauthorized` / `403 Forbidden` on every request | `api.authTokenEnvVar` unset/misspelled, or the named environment variable isn't actually exported in the shell/CI running the tests | Confirm the exact env var name matches in both `sdk-config.yaml` and your shell/CI secret; the token value is never read from YAML |
+| `javax.net.ssl.SSLHandshakeException: PKIX path building failed` | Target API uses a self-signed/internal certificate (common on lower non-prod environments) | Set `api.relaxedHttpsValidation: true` -- **non-prod only, never for production traffic** |
+| `assertMatchesJsonSchema` fails with a validation-message dump instead of a simple pass/fail | The response body genuinely doesn't match the schema (this is working as intended) | Read the RestAssured/`json-schema-validator` message -- it lists the exact field(s)/type mismatch; fix the schema file or the expected response body |
+| `test-output/api-payloads/` (or your configured `api.outputDirectory`) stays empty after a passing run | `api.logRequestsAndResponses` is `false`, or `outputDirectory` points somewhere else than you're looking | Set `logRequestsAndResponses: true` and re-check the `outputDirectory` value |
+| `NullPointerException` inside `ExtentManager`/`Listener` before any `@Test` runs, in an API-only project | `configuration/config.properties` is missing entirely | Add a minimal `config.properties` with at least `extReportDir=test-output/reports` -- the SDK's legacy Extent-report listener reads this file unconditionally, even for pure `ApiTestBase` projects with no browser |
 
 ---
 

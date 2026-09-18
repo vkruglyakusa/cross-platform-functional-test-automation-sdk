@@ -19,6 +19,25 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Documentation
+- **README.md audit and fixes.** Root `README.md` had zero mentions of the
+  API testing module (`ApiTestBase`) or the mobile module (`MobileTestBase`,
+  `MobileDriverFactory`, `MobileElementCrawler`, `MobilePageObjectGenerator`,
+  `AbstractMobileLocatorInvestigator`) despite both being fully implemented
+  and documented elsewhere -- added rows to the "What's Inside" component
+  table, links to `API-TESTBASE-API.md`/`MOBILE-USER-GUIDE.md`/
+  `MOBILE-TESTBASE-API.md` in the Documentation table, and corresponding
+  entries in the Repository Layout tree.
+- **Closed a real documentation gap**: a prior `[Unreleased]` entry claimed
+  `SDK-USER-GUIDE.md` gained a new section 7.4 ("Mobile (Appium) Crawler &
+  AbstractMobileLocatorInvestigator") -- that section was never actually
+  written. Added it now, with a working example and TOC entry.
+- Added API-testing-specific rows to `SDK-USER-GUIDE.md` section 19
+  ("Troubleshooting"), which previously covered only web/Selenium failure
+  modes (connection errors, auth header misconfiguration, JSON schema
+  validation failures, TLS handshake errors on self-signed non-prod
+  certificates, missing `config.properties` in pure-API projects).
+
 ### Added
 - **API testing module (`com.test.automation.sdk.api`).** New standalone
   `ApiTestBase` -- deliberately does *not* extend `TestBase`/require a
