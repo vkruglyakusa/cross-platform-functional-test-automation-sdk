@@ -919,10 +919,11 @@ browser security boundary with no workaround.
 
 ## 33. Runtime Self-Healing Locators
 
-Opt-in alternative to `PageFactory.initElements(driver, this)` that lets a page
-object recover automatically when a primary `@FindBy` XPath locator stops
-matching anything (e.g. an attribute value changed slightly after a UI update),
-without waiting for a human to re-run the crawler and ship a fix.
+Opt-in alternative to `PageFactory.initElements(driver, this)` powered by
+`com.test.automation.sdk.healing.HealingElementLocator`. It lets a page object
+recover automatically when a primary `@FindBy` XPath locator stops matching
+anything (e.g. an attribute value changed slightly after a UI update), without
+waiting for a human to re-run the crawler and ship a fix.
 
 | Method | Signature | Description |
 |---|---|---|
@@ -966,8 +967,6 @@ real product regression.
 is required. Existing page objects that keep calling
 `PageFactory.initElements(driver, this)` directly are completely unaffected.
 Mobile (Appium) self-healing is tracked as future work.
-
-*API Reference updated for SDK v1.9.0*
 
 ## 34. Visual Regression Testing
 
@@ -1018,5 +1017,3 @@ baseline with the current screenshots, then commit the updated baseline PNGs.
 **Scope of this release:** compares full-page/viewport screenshots (whatever
 `TakesScreenshot` returns for the current driver); element-scoped visual
 checks and automatic per-run screenshot cropping are tracked as future work.
-
-*API Reference updated for SDK v1.10.0*

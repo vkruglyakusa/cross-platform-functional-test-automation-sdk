@@ -20,6 +20,14 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 <!-- Add entries here during development; move to a version heading on release -->
 
 ### Documentation
+- **SDK documentation finalization pass for the current 1.4.8 working tree.**
+  Expanded the authoritative dependency/version baseline, corrected stale
+  version examples, documented every `sdk-config.yaml.template` key and the
+  `ConfigurationManager` typed views, modernized `GETTING-STARTED.md` for
+  Web/Mobile/API onboarding, documented the unified mobile `sdk-config.yaml`
+  path vs. deprecated `mobile-config.yaml`, added the missing bundled
+  `src/main/resources/GETTING-STARTED.md` mirror, and re-synced all root/resource
+  documentation mirrors that had drifted out of sync.
 - **README.md audit and fixes.** Root `README.md` had zero mentions of the
   API testing module (`ApiTestBase`) or the mobile module (`MobileTestBase`,
   `MobileDriverFactory`, `MobileElementCrawler`, `MobilePageObjectGenerator`,

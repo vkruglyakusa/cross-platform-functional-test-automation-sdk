@@ -2,21 +2,33 @@
 
 ![SDK](https://img.shields.io/badge/SDK-functional--test--automation--sdk:1.4.8-blue)
 
-> **Reusable Selenium + TestNG framework layer for OTI QA Automation**  
+> **Reusable Selenium + Appium + RestAssured framework layer for OTI QA Automation**  
 > Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`
 
 This SDK is a single JAR that consumer automation projects depend on.
-It provides TestBase, WebDriverFactory, ElementCrawler, listeners, utilities,
-and AI-agent prompts -- so every consumer project contains **only** its own
-page objects, test classes, and test data.
+It provides one shared framework layer for:
+- Web UI automation (Selenium + TestNG)
+- Native and hybrid mobile automation (Appium for Android/iOS)
+- Pure REST API automation (RestAssured, no browser or device session)
+
+Consumer projects keep only their own page objects, test classes, API payloads,
+and test data; the framework plumbing, reporting, crawler tooling, and Copilot
+prompts stay in the SDK.
 
 ## Validated dependency baseline
 
 | Component | Supported baseline |
 |---|---|
 | Java | 20 or newer |
+| TestNG | 7.10.2 |
 | Selenium | 4.44.0 |
 | Appium Java Client | 10.1.1 |
+| RestAssured | 5.5.0 |
+| Allure TestNG / Commons / Attachments | 2.23.0 |
+| Log4j2 | 2.20.0 |
+| WebDriverManager | 6.3.4 |
+| Apache POI | 3.17 |
+| axe-core Selenium binding | 4.10.1 |
 | AspectJ Weaver | 1.9.25 |
 | BrowserStack Java SDK | Optional for consumers; declare it explicitly only when using BrowserStack |
 
@@ -42,11 +54,19 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 | **ElementSearchEngine** | `sdk.tools.crawler.web.ElementSearchEngine` | Live DOM semantic element resolver -- finds elements by label, placeholder, aria-label, text |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap/blocker `.md` reports when automation is not possible |
 | **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` -- browser, proxy, crawler, reporting settings |
+| **ConfigurationManager** | `sdk.config.ConfigurationManager` | Central precedence-aware resolver (`-D` > env var > `sdk-config.yaml` > default) plus typed views: `CommonConfig`, `WebConfig`, `AllureReportConfig`, `AnalyticsConfig`, `RcaBundleConfig`, `VisualRegressionConfig`, `FlakyQuarantineConfig`, `TestImpactConfig`, and `ApiConfig` |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
 | **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
 | **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade: one execution event stream fans out to logs, Allure, Extent, reusable evidence references, and authoritative TestNG suite/test/class/method metadata |
+| **AllureReportGenerator** | `sdk.reporting.AllureReportGenerator` | Optional post-run `allure generate` / `allure open` automation that never changes test pass/fail outcomes |
+| **AnalyticsExecutionReporter / AnalyticsTrendReport** | `sdk.reporting.*` | Cross-run JSONL event store plus aggregators for pass/fail trends, flaky-test detection, and healed-locator frequency |
+| **RcaBundleWriter** | `sdk.reporting.RcaBundleWriter` | Writes one JSON RCA bundle per failure, pre-linking screenshot, DOM dump, log tail, and exception chain |
+| **HealingElementLocator** | `sdk.healing.HealingElementLocator` | Opt-in runtime self-healing wrapper for XPath `@FindBy` locators; only accepts uniquely resolved relaxed candidates |
+| **VisualRegressionChecker** | `sdk.visual.VisualRegressionChecker` | Baseline-vs-actual screenshot comparison powered by `ImageDiffEngine`, with no external visual-testing service |
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
+| **FlakyTestQuarantineListener** | `sdk.flaky.FlakyTestQuarantineListener` | Opt-in post-retry reclassification of historically flaky failures to SKIP, backed by analytics history |
+| **TestImpactCli** | `sdk.impact.TestImpactCli` | Generates an impacted-tests TestNG suite from `git diff` so CI can run a smaller targeted subset |
 | **InstructionExtractor** | `sdk.utility.InstructionExtractor` | Extracts Copilot prompts and instructions into consumer projects |
 | **AccessibilityChecker** | `sdk.accessibility.AccessibilityChecker` | Built-in 5-layer accessibility scanner: axe-core (`com.deque.html.axe-core:selenium:4.10.1`, bundled transitively), interaction, WCAG 2.2, structural, and motion analysis -- see [SDK-USER-GUIDE.md §14](SDK-USER-GUIDE.md#14-accessibility-testing) |
 | **A11ySessionManager** | `sdk.accessibility.A11ySessionManager` | Scan de-duplication, severity thresholding, allowlists, and DOM fingerprint protection |
@@ -63,13 +83,15 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 
 ## Quick Start -- Using the SDK in a Consumer Project
 
-### Option A -- Start from the consumer template (recommended)
+### Option A -- Start from the consumer template for your track (recommended)
 
 ```bash
 git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/framework_automation_consumer_template
 ```
 
-The template already has the SDK dependency, suite XMLs, config files, and folder structure.
+The template already has the SDK dependency, suite XMLs, config files, and folder
+structure. If you are starting an API-only or mobile project, use the matching
+consumer template for that track or follow Option B below.
 
 ### Option B -- Add to an existing Maven project
 
@@ -134,7 +156,10 @@ reporting:
   gapOutputDir: "docs/test-case-gaps"
 ```
 
-Full reference: [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md)
+Full reference: [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md). For pure API projects,
+also read [`API-TESTBASE-API.md`](API-TESTBASE-API.md). For mobile/Appium
+projects, read [`MOBILE-USER-GUIDE.md`](MOBILE-USER-GUIDE.md) and
+[`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md).
 
 Use inherited `TestBase.step("...", () -> { ... })` for business-readable test steps.
 The SDK now fans those steps out consistently to file/console logs, Allure,
@@ -149,7 +174,7 @@ logs, Allure (`parentSuite` / `suite` / `subSuite`), and Extent.
 
 ## Accessibility Testing
 
-Version 1.5.0 adds a built-in accessibility framework with a 5-layer WCAG engine,
+The SDK includes a built-in accessibility framework with a 5-layer WCAG engine,
 automatic TestNG listener scans, WebEventListener per-element checks, and
 `TestBase` helpers for manual scans and assertions. All accessibility features are
 opt-in and write JSON, Excel, and HTML artifacts under `reporting.accessibilityDir`.
@@ -292,7 +317,8 @@ All prompts support **autonomous mode** -- grant it once to skip step-by-step co
 
 | Document | Description |
 |---|---|
-| [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md) | Complete setup, config, crawler, API, and examples |
+| [`GETTING-STARTED.md`](GETTING-STARTED.md) | First-day installation and setup for Web, Mobile, and API consumer projects |
+| [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md) | Complete setup, config, crawler, reporting, accessibility, and API examples |
 | [`TESTBASE-API.md`](TESTBASE-API.md) | Every TestBase method with usage guidance |
 | [`API-TESTBASE-API.md`](API-TESTBASE-API.md) | Every `ApiTestBase` method with usage guidance (RestAssured-based API testing) |
 | [`MOBILE-USER-GUIDE.md`](MOBILE-USER-GUIDE.md) | Mobile (Appium) consumer-facing setup and usage guide |
@@ -334,7 +360,8 @@ mvn clean deploy -DskipTests
 cross-platform-functional-test-automation-sdk/
 +-- pom.xml                          <- version, dependencies, deploy config
 +-- CHANGELOG.md                     <- all version changes
-+-- SDK-USER-GUIDE.md                <- consumer-facing user guide (web)
++-- GETTING-STARTED.md               <- first-day install/setup guide (web/mobile/api)
++-- SDK-USER-GUIDE.md                <- consumer-facing user guide (web + shared features)
 +-- TESTBASE-API.md                  <- TestBase API reference (web)
 +-- API-TESTBASE-API.md              <- ApiTestBase API reference (REST API)
 +-- MOBILE-USER-GUIDE.md             <- consumer-facing user guide (mobile/Appium)
@@ -360,6 +387,7 @@ cross-platform-functional-test-automation-sdk/
     |       |                           NOT the same as sdk-prompts/ above -- see ai/README.md)
     |       +-- sdk-defaults/        <- sdk-config.yaml.template, log4j templates
     |       +-- sdk-templates/       <- gap report template
+    |       +-- GETTING-STARTED.md
     |       +-- SDK-USER-GUIDE.md / TESTBASE-API.md / API-TESTBASE-API.md
     |       +-- MOBILE-USER-GUIDE.md / MOBILE-TESTBASE-API.md
     |       +-- CHANGELOG.md

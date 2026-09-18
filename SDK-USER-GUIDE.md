@@ -1,20 +1,29 @@
-# Framework Automation SDK -- User Guide
+﻿# Framework Automation SDK -- User Guide
 
 **Version:** 1.4.8
 **Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
-This guide is the **single document** a QA engineer needs to start a new Selenium
-automation project on top of this SDK. No Selenium or TestNG expertise required
-beyond what is described here.
+This guide is the primary installation, configuration, and usage reference for the
+SDK's shared features across Web (Selenium), Mobile (Appium), and pure API
+(RestAssured) consumer projects. Read it together with `TESTBASE-API.md`
+(web), `MOBILE-USER-GUIDE.md` / `MOBILE-TESTBASE-API.md` (mobile), and
+`API-TESTBASE-API.md` (API) when you need track-specific method detail.
 
 ## Validated baseline
 
 | Component | Supported baseline |
 |---|---|
 | Java | 20 or newer |
+| TestNG | 7.10.2 |
 | Selenium | 4.44.0 |
 | Appium Java Client | 10.1.1 |
+| RestAssured | 5.5.0 |
+| Allure TestNG / Commons / Attachments | 2.23.0 |
+| Log4j2 | 2.20.0 |
+| WebDriverManager | 6.3.4 |
+| Apache POI | 3.17 |
+| axe-core Selenium binding | 4.10.1 |
 | AspectJ Weaver | 1.9.25 |
 | BrowserStack Java SDK | Optional for consumers; required only for BrowserStack-enabled runs |
 
@@ -26,6 +35,7 @@ beyond what is described here.
 2. [Prerequisites](#2-prerequisites)
 3. [Set Up a New Project](#3-set-up-a-new-project)
 4. [Maven Dependency](#4-maven-dependency)
+    - [4a. Keeping Your Project on the Latest SDK Version](#4a-keeping-your-project-on-the-latest-sdk-version)
     - [4b. First-Time Consumer Setup](#4b-first-time-consumer-setup)
 5. [Project Structure](#5-project-structure)
 6. [Configuration Reference](#6-configuration-reference)
@@ -71,19 +81,36 @@ automation project only needs **one** Maven dependency.
 | **AbstractLocatorInvestigator** | `sdk.tools.locator.AbstractLocatorInvestigator` | Base class for consumer `LocatorInvestigator` tools. Override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`); all crawl infrastructure (login, role switching, nav helpers, summary) is SDK-owned. |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
-| **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, and evidence references |
+| **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, analytics, and evidence references |
+| **AllureReportGenerator** | `sdk.reporting.AllureReportGenerator` | Optional post-run `allure generate` / `allure open` automation. Missing CLI, timeouts, and process failures are logged but never change test outcomes. |
+| **AnalyticsExecutionReporter** | `sdk.reporting.AnalyticsExecutionReporter` | Appends one JSON line per execution event to a per-run file under `reporting.analytics.directory`. Disables itself if a write ever fails. |
+| **AnalyticsTrendReport** | `sdk.reporting.AnalyticsTrendReport` | Reads the analytics history back and aggregates pass/fail trends, flaky tests, and healed-locator counts across many runs. |
+| **RcaBundleWriter** | `sdk.reporting.RcaBundleWriter` | Writes one JSON RCA bundle per failure, consolidating screenshot, DOM dump, SDK log tail, and exception chain. |
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
+| **FlakyTestQuarantineListener** | `sdk.flaky.FlakyTestQuarantineListener` | Opt-in post-retry listener that reclassifies historically flaky failures to SKIP, backed by analytics history. |
+| **TestImpactCli** | `sdk.impact.TestImpactCli` | Standalone CLI that maps `git diff` changes to impacted TestNG classes and writes a focused suite XML. |
 | **WebEventListener** | `sdk.listener.WebEventListener` | Low-level WebDriver debug signal plus accessibility hook; business reporting should use `TestBase.step(...)` |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
 | **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` for advanced SDK settings |
+| **ConfigurationManager** | `sdk.config.ConfigurationManager` | Central precedence-aware resolver plus typed config views: `CommonConfig`, `WebConfig`, `AllureReportConfig`, `AnalyticsConfig`, `RcaBundleConfig`, `VisualRegressionConfig`, `FlakyQuarantineConfig`, `TestImpactConfig`, and `ApiConfig`. |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap-report.md / blocker-report.md to the configured output directory |
 | **AccessibilityChecker** | `sdk.accessibility.AccessibilityChecker` | Built-in 5-layer WCAG scan engine: axe-core, interaction, WCAG 2.2, structural, and motion checks. |
 | **A11ySessionManager** | `sdk.accessibility.A11ySessionManager` | De-duplicates scans by URL, cooldown, and DOM fingerprint; applies severity threshold and allowlists. |
 | **A11yTestNGListener** | `sdk.accessibility.A11yTestNGListener` | Automatically scans pages after each test when accessibility is enabled. Registered by the SDK via `META-INF/services`. |
 | **AllureA11yReporter** | `sdk.accessibility.AllureA11yReporter` | Sends accessibility violations, summaries, and artifact attachments to Allure steps. |
+| **HealingElementLocator** | `sdk.healing.HealingElementLocator` | Opt-in runtime self-healing wrapper for XPath `@FindBy` locators. It only trusts uniquely resolved relaxed candidates and reports every heal/exhaustion event. |
+| **VisualRegressionChecker** | `sdk.visual.VisualRegressionChecker` | Baseline-vs-actual screenshot comparison powered by `ImageDiffEngine`; no external visual-testing service required. |
+| **ApiTestBase** | `sdk.api.ApiTestBase` | Standalone RestAssured-based base class for pure API tests. No `WebDriver`, browser, or Appium session required. |
+| **MobileTestBase** | `sdk.mobile.testbase.MobileTestBase` | Appium base class for Android/iOS suites; mobile peer of `TestBase`. |
+| **MobileDriverFactory** | `sdk.mobile.driver.MobileDriverFactory` | Builds Android/iOS Appium sessions for local or BrowserStack runs. |
+| **MobileElementCrawler** | `sdk.tools.crawler.mobile.MobileElementCrawler` | Scans a live app screen, validates native locators in-memory, and delegates WebView DOM crawling to the desktop crawler. |
+| **MobilePageObjectGenerator** | `sdk.tools.pageobject.MobilePageObjectGenerator` | Generates starter mobile page objects from `MobileScreenSnapshot` crawl results. |
+| **AbstractMobileLocatorInvestigator** | `sdk.tools.locator.AbstractMobileLocatorInvestigator` | Reusable base class for consumer Appium crawler/investigator scripts. |
 
-All Selenium, TestNG, Allure, Extent, and Apache POI transitive dependencies
-are declared in the SDK's `pom.xml` -- **you do not add them yourself**.
+All Selenium, TestNG, Appium, RestAssured, Allure, Log4j2, Extent, Apache POI,
+and axe-core transitive dependencies are declared in the SDK's `pom.xml` --
+**you do not add them yourself** unless your project deliberately opts into an
+external runner such as BrowserStack's SDK.
 
 ---
 
@@ -94,6 +121,10 @@ are declared in the SDK's `pom.xml` -- **you do not add them yourself**.
 | Java JDK | 20 or higher | Must be on `PATH`. SDK is compiled at Java 20 source level (bumped from 8 in v2.0.0 -- see CHANGELOG). |
 | Maven | 3.6 or higher | Must be on `PATH`. |
 | Chrome + ChromeDriver | Latest stable | WebDriverManager auto-downloads the matching driver. Optionally set `browser.chromeDriverPath` in `sdk-config.yaml` to pin a local binary. |
+| Android Studio + Android SDK | Latest | Required for local Android mobile runs (`adb`, emulator, platform tools). |
+| Node.js + Appium server | Node 18+, Appium 2.x | Required for local mobile runs. Add the `uiautomator2` and/or `xcuitest` Appium drivers you need. |
+| BrowserStack account | Current | Required only for BrowserStack App Automate runs. |
+| Allure CLI | Current | Optional. Required only if you want automatic `allure generate` / `allure open` HTML reporting. |
 | IntelliJ IDEA | Any recent | Recommended IDE. |
 
 ---
@@ -102,9 +133,10 @@ are declared in the SDK's `pom.xml` -- **you do not add them yourself**.
 
 **Option A -- Consumer Template (recommended)**
 
-Clone the `framework_automation_consumer_template` repository. It is a
-ready-to-run project with all folders, config files, and example tests already
-in place.
+Clone the consumer template for your track. The web template below is the most
+common starting point; equivalent mobile/API templates follow the same pattern.
+Each template is a ready-to-run project with the SDK dependency, folder
+structure, config files, and example tests already in place.
 
 ```
 git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/framework_automation_consumer_template
@@ -130,7 +162,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.2.0</version>
+    <version>1.4.8</version>
 </dependency>
 ```
 
@@ -387,37 +419,37 @@ the current BrowserStack execution path for projects that explicitly need it.
 ---
 
 
-## 4.1 Maven Authentication — Choose Your Option
+## 4.1 Maven Authentication â€” Choose Your Option
 
 The SDK feed on Azure Artifacts requires authentication. There are **two supported
 approaches** depending on where the build runs:
 
-| | Option A — PAT in `settings.xml` | Option B — `MavenAuthenticate@0` pipeline task |
+| | Option A â€” PAT in `settings.xml` | Option B â€” `MavenAuthenticate@0` pipeline task |
 |---|---|---|
 | **Use when** | Local developer machine | Azure DevOps CI/CD pipeline |
 | **Credential type** | Personal Access Token stored in `~/.m2/settings.xml` | Pipeline-managed OAuth token (`$(System.AccessToken)`) |
-| **Secrets committed to repo?** | No — `settings.xml` is outside the project | No — token injected at runtime by Azure DevOps |
-| **Setup per machine?** | Yes — one-time per dev workstation | No — zero config per agent |
-| **Works in headless CI?** | Only if PAT is injected as a secret variable | Yes — native ADO support |
+| **Secrets committed to repo?** | No â€” `settings.xml` is outside the project | No â€” token injected at runtime by Azure DevOps |
+| **Setup per machine?** | Yes â€” one-time per dev workstation | No â€” zero config per agent |
+| **Works in headless CI?** | Only if PAT is injected as a secret variable | Yes â€” native ADO support |
 
 ---
 
-## 4.1a Option A — PAT Authentication (Local Developer Machine)
+## 4.1a Option A â€” PAT Authentication (Local Developer Machine)
 
 This is a **one-time setup per workstation**. No pipeline changes needed.
 
-### Step 1 — Generate a PAT in Azure DevOps
+### Step 1 â€” Generate a PAT in Azure DevOps
 
-1. Go to Azure DevOps → click your avatar (top right) → **Personal Access Tokens**
+1. Go to Azure DevOps â†’ click your avatar (top right) â†’ **Personal Access Tokens**
 2. Click **+ New Token**
 3. Fill in:
    - **Name:** `maven-sdk-read`
    - **Organization:** `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
    - **Expiration:** 1 year
-   - **Scopes:** ✅ **Packaging → Read** (read-only — for downloading the SDK)
-4. Click **Create** and **copy the token immediately** — it won't be shown again
+   - **Scopes:** âœ… **Packaging â†’ Read** (read-only â€” for downloading the SDK)
+4. Click **Create** and **copy the token immediately** â€” it won't be shown again
 
-### Step 2 — Create or update `%USERPROFILE%\.m2\settings.xml`
+### Step 2 â€” Create or update `%USERPROFILE%\.m2\settings.xml`
 
 If the file does not exist, create it. If it already exists, add the `<server>` block inside `<servers>`.
 
@@ -480,44 +512,44 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ```
 
 > **Important rules:**
-> - The `<id>` in `settings.xml` must exactly match the `<id>` in the `<repositories>` block in `pom.xml` — both are `functional-test-automation-sdk`
+> - The `<id>` in `settings.xml` must exactly match the `<id>` in the `<repositories>` block in `pom.xml` â€” both are `functional-test-automation-sdk`
 > - The `<username>` must be the org GUID: `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
 > - `*.pkgs.visualstudio.com` must be in `nonProxyHosts` if you use a corporate proxy
-> - **Never commit your PAT** — `settings.xml` lives outside the project in `~/.m2/`
+> - **Never commit your PAT** â€” `settings.xml` lives outside the project in `~/.m2/`
 
-### Step 3 — Verify
+### Step 3 â€” Verify
 
 ```bash
 mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.2.0.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.4.8.jar` downloaded.
 
 ---
 
-## 4.1b Option B — `MavenAuthenticate@0` Pipeline Task (Azure DevOps CI/CD)
+## 4.1b Option B â€” `MavenAuthenticate@0` Pipeline Task (Azure DevOps CI/CD)
 
 This is the **recommended approach for all CI/CD pipelines**. No PATs, no
-`settings.xml` maintenance — Azure DevOps injects credentials automatically using
+`settings.xml` maintenance â€” Azure DevOps injects credentials automatically using
 the pipeline's built-in OAuth token.
 
-> 📖 Official reference: [MavenAuthenticate@0 task](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-authenticate-v0?view=azure-pipelines)
+> ðŸ“– Official reference: [MavenAuthenticate@0 task](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-authenticate-v0?view=azure-pipelines)
 
 ### How it works
 
 The `MavenAuthenticate@0` task writes temporary `<server>` credentials into the
-agent's `~/.m2/settings.xml` before Maven runs. It uses `$(System.AccessToken)` —
-the pipeline's own OAuth token — so no PAT is stored anywhere.
+agent's `~/.m2/settings.xml` before Maven runs. It uses `$(System.AccessToken)` â€”
+the pipeline's own OAuth token â€” so no PAT is stored anywhere.
 
-> ℹ️ **Note:** `MavenAuthenticate@0` obtains and injects the OAuth token
-> internally — you do **not** need to declare the `SYSTEM_ACCESSTOKEN` variable
+> â„¹ï¸ **Note:** `MavenAuthenticate@0` obtains and injects the OAuth token
+> internally â€” you do **not** need to declare the `SYSTEM_ACCESSTOKEN` variable
 > for the task itself to work. Declaring it (Step 1 below) is only required if
 > you *also* run Maven with a custom `settings.xml` via the `-s` switch and
 > reference `${env.SYSTEM_ACCESSTOKEN}` manually (see "Custom `settings.xml`"
 > below). It's included here for consistency and because other tooling in this
 > pipeline (e.g. custom scripts) may need it.
 
-### Step 1 — Enable `System.AccessToken` in the pipeline
+### Step 1 â€” Enable `System.AccessToken` in the pipeline
 
 In your Azure DevOps pipeline YAML, allow the job to use the built-in token:
 
@@ -544,7 +576,7 @@ variables:
   SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 ```
 
-### Step 2 — Add `MavenAuthenticate@0` before any `mvn` command
+### Step 2 â€” Add `MavenAuthenticate@0` before any `mvn` command
 
 ```yaml
 steps:
@@ -556,7 +588,7 @@ steps:
 
 The `artifactsFeeds` value must match the `<id>` in your `pom.xml` `<repositories>` block.
 
-### Step 3 — Run your tests with Maven
+### Step 3 â€” Run your tests with Maven
 
 ```yaml
   - task: Maven@4
@@ -602,7 +634,7 @@ If the pipeline runs in a **different ADO project** than the one hosting the
 `functional-test-automation-sdk` feed, `MavenAuthenticate@0` will still write
 credentials, but Maven will get a 401/403 unless the feed's hosting project
 grants the consuming pipeline's build service identity **Reader** access. Go to
-**Project Settings → Artifacts → Feed Settings → Permissions** on the feed's
+**Project Settings â†’ Artifacts â†’ Feed Settings â†’ Permissions** on the feed's
 project and add the other project's Build Service account
 (`<OtherProject> Build Service (<Org>)`) as **Reader**. See
 [Package permissions in Azure Pipelines](https://learn.microsoft.com/en-us/azure/devops/artifacts/feeds/feed-permissions#pipelines-permissions)
@@ -611,7 +643,7 @@ for details.
 ### `<id>` matching requirement
 
 The value(s) passed to `artifactsFeeds` must exactly match the `<id>` of the
-corresponding `<repository>` block in `pom.xml` — this is how Maven knows which
+corresponding `<repository>` block in `pom.xml` â€” this is how Maven knows which
 injected `<server>` credentials apply to which repository:
 
 ```xml
@@ -635,9 +667,9 @@ variables:
   SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
 steps:
-  # 1. Authenticate the Azure Artifacts feed — injects credentials into settings.xml
+  # 1. Authenticate the Azure Artifacts feed â€” injects credentials into settings.xml
   - task: MavenAuthenticate@0
-    displayName: 'Authenticate Azure Artifacts — functional-test-automation-sdk'
+    displayName: 'Authenticate Azure Artifacts â€” functional-test-automation-sdk'
     inputs:
       artifactsFeeds: functional-test-automation-sdk
 
@@ -659,17 +691,17 @@ steps:
         -DbrowserName=chrome
         -Dheadless=true
         -Dsurefire.suiteXmlFiles=regression_suite.xml
-      publishJUnitResults: false      # disabled — we publish TestNG XML directly below
+      publishJUnitResults: false      # disabled â€” we publish TestNG XML directly below
       javaHomeOption: 'JDKVersion'
       jdkVersionOption: '1.21'
     continueOnError: true             # allow publish steps to run even if tests fail
 
-  # 4. Filter TestNG results — remove runMode=N skips before publishing to ADO.
+  # 4. Filter TestNG results â€” remove runMode=N skips before publishing to ADO.
   #    Without this step ADO counts SKIPs as "Others" and reports ~79% pass rate
   #    even when every executed test passed (0 failures). This step removes SKIP
   #    nodes and corrects the total/skipped attributes on <test> and <testng-results>
   #    so ADO shows 100% pass rate when all executed tests pass.
-  #    NOTE: Allure reads its own JSON artifacts — it still shows SKIPs correctly.
+  #    NOTE: Allure reads its own JSON artifacts â€” it still shows SKIPs correctly.
   - task: PowerShell@2
     displayName: 'Filter TestNG results (remove runMode=N skips from ADO report)'
     condition: always()
@@ -732,7 +764,7 @@ steps:
       testResultsFiles: '**/testng-results.xml'
       mergeTestResults: true
       failTaskOnFailedTests: true
-      testRunTitle: 'Regression Suite — $(Build.BuildNumber)'
+      testRunTitle: 'Regression Suite â€” $(Build.BuildNumber)'
 
   # 6. Publish all test artifacts (screenshots, DOM dumps, logs, Allure, accessibility)
   - task: PublishBuildArtifacts@1
@@ -748,8 +780,8 @@ steps:
 | Scenario | Use |
 |---|---|
 | Developer running tests locally from IDE or terminal | Option A (PAT) |
-| Azure DevOps pipeline — same project as SDK feed | Option B (`MavenAuthenticate@0`) |
-| Azure DevOps pipeline — different project than SDK feed | Option B + grant build service Reader role |
+| Azure DevOps pipeline â€” same project as SDK feed | Option B (`MavenAuthenticate@0`) |
+| Azure DevOps pipeline â€” different project than SDK feed | Option B + grant build service Reader role |
 | GitHub Actions or Jenkins (non-ADO) | Option A with PAT injected as a pipeline secret variable |
 
 ---
@@ -817,117 +849,223 @@ prod_data_set    = YourApp_PROD_TestData.xlsx
 
 ### 6.2 `configuration/sdk-config.yaml` -- Optional Advanced Settings
 
-Controls browser behavior, proxy, screenshots, logs, crawler artifacts, gap
-reports, and the built-in accessibility engine. All artifact output directories
-are now centralized under one `reporting:` section.
+`configuration/sdk-config.yaml` is the SDK's central advanced-configuration file
+for Web, Mobile, reporting, analytics, visual testing, RCA bundles, flaky-test
+quarantine, test-impact analysis, accessibility, Mailinator, and the pure API
+module. The resolution order is the same everywhere in the SDK:
 
-```yaml
-browser:
-  default: chrome            # chrome | firefox | edge
-  headless: false            # true for CI/CD
-  windowSize: "1920x1080"
-  pageLoadTimeoutSeconds: 30
-  implicitWaitSeconds: 0     # keep 0 -- use TestBase explicit waits
-  chromeDriverPath: ""       # optional: absolute path to a local chromedriver binary
-                             # leave empty (default) -- WebDriverManager downloads
-                             # the latest version matching your installed Chrome
-                             # example: "C:/tools/chromedriver/chromedriver.exe"
+```
+-D system property > environment variable > sdk-config.yaml > SDK default
 ```
 
-**Pinning a specific ChromeDriver version (optional):**
+The authoritative implementation is `com.test.automation.sdk.config.ConfigurationManager`.
+Its typed views are what the rest of the SDK reads:
 
-By default, `WebDriverFactory` never requires a manually downloaded
-ChromeDriver -- WebDriverManager resolves and downloads the correct version
-automatically at test-run time. Only set `chromeDriverPath` if you need to
-pin an exact/offline binary (e.g. no internet access on a CI runner, or a
-version WebDriverManager doesn't yet know about):
+| Typed view | Keys it owns | Used by |
+|---|---|---|
+| `ConfigurationManager.CommonConfig` | `logging.level`, `reporting.screenshotsDir`, `reporting.logsDir` | Shared logging/reporting utilities |
+| `ConfigurationManager.WebConfig` | `browser.default`, `browser.headless`, `browser.pageLoadTimeoutSeconds` | `TestBase`, `WebDriverFactory` |
+| `ConfigurationManager.AllureReportConfig` | `reporting.allure.*` | `AllureReportGenerator` |
+| `ConfigurationManager.AnalyticsConfig` | `reporting.analytics.*` | `AnalyticsExecutionReporter` |
+| `ConfigurationManager.RcaBundleConfig` | `reporting.rcaBundle.*` | `RcaBundleWriter` |
+| `ConfigurationManager.VisualRegressionConfig` | `visual.*` | `VisualRegressionChecker` / `ImageDiffEngine` |
+| `ConfigurationManager.FlakyQuarantineConfig` | `flaky.*` plus `reporting.analytics.directory` | `FlakyTestQuarantineListener` |
+| `ConfigurationManager.TestImpactConfig` | `impact.*` | `TestImpactCli` |
+| `ConfigurationManager.ApiConfig` | `api.baseUrl*`, `api.auth*`, `api.*timeouts*`, `api.outputDirectory`, `api.relaxedHttpsValidation` | `ApiTestBase` |
 
-1. Download the matching binary for your OS from
-   [chromedriver.chromium.org](https://chromedriver.chromium.org) (or the
-   [Chrome for Testing endpoints](https://googlechromelabs.github.io/chrome-for-testing/)
-   for Chrome 115+).
-2. Place it anywhere in your project (e.g. `webDrivers/chromedriver.exe`).
-3. Set `browser.chromeDriverPath` to that path (relative or absolute):
-   ```yaml
-   browser:
-     chromeDriverPath: "webDrivers/chromedriver.exe"
-   ```
-4. If the configured path is missing or the binary fails to initialize
-   (version mismatch, corrupt file), `WebDriverFactory` logs a warning and
-   **automatically falls back to WebDriverManager** -- it never fails the
-   test run because of a bad `chromeDriverPath`.
+Every key from `src/main/resources/sdk-defaults/sdk-config.yaml.template` is documented below.
 
-```yaml
-proxy:
-  enabled: false
-  host: "bcpxy.nycnet"       # your corporate proxy
-  port: 8080
+#### `browser`
 
-screenshots:
-  captureOnFailure: true
-  captureOnStep: false
+| Key | Default | Purpose |
+|---|---|---|
+| `browser.default` | `chrome` | Default browser for WebDriver startup (`chrome`, `firefox`, `edge`). |
+| `browser.headless` | `false` | Enables headless browser startup for CI/service environments. |
+| `browser.windowSize` | `1920x1080` | Initial browser window size. |
+| `browser.pageLoadTimeoutSeconds` | `30` | Page-load timeout used by the web driver layer. |
+| `browser.implicitWaitSeconds` | `0` | Keep at `0`; prefer explicit waits from `TestBase`. |
+| `browser.scriptTimeoutSeconds` | `30` | Script timeout for JavaScript execution. |
+| `browser.chromeDriverPath` | `""` | Optional absolute or relative path to a local ChromeDriver binary. If invalid, the SDK falls back to WebDriverManager. |
 
-api:
-  mailinator:
-    apiKey: "YOUR_MAILINATOR_API_KEY"
-    domain: "mailinator.com"
-    privateDomain: true
-    inboxInitialWaitSeconds: 5
-    inboxPollIntervalSeconds: 3
-    inboxPollTimeoutSeconds: 60
+#### `proxy`
 
-logging:
-  level: INFO
-  sdkLogFile: "test-output/logs/sdk.log"
-  seleniumLogFile: "test-output/logs/selenium.log"
-  browserLogFile: "test-output/logs/browser.log"
-  enableSeleniumLogs: true
-  enableBrowserConsoleLogs: true
-  enableDriverLogs: false
+| Key | Default | Purpose |
+|---|---|---|
+| `proxy.enabled` | `false` | Enables the SDK's proxy-aware HTTP/browser setup. |
+| `proxy.host` | `""` | Proxy host name. |
+| `proxy.port` | `8080` | Proxy port number. |
+| `proxy.username` | `""` | Optional proxy username. |
+| `proxy.password` | `""` | Optional proxy password. |
+| `proxy.noProxy` | `localhost,127.0.0.1` | JVM `http.nonProxyHosts`-style bypass list. |
+| `proxy.bypassList` | `localhost;<-loopback>` | Chrome `--proxy-bypass-list` value. |
 
-crawler:
-  pageObject:
-    package:   "com.yourcompany.automation.uiActions"
-    outputDir: "src/main/java/com/yourcompany/automation/uiActions/"
+#### `api.mailinator`
 
-reporting:
-  screenshotsDir:   "test-output/screenshots"    # -Dreporting.screenshotsDir
-  domDumpsDir:      "test-output/dom-dumps"      # -Dreporting.domDumpsDir
-  logsDir:          "test-output/logs"           # -Dreporting.logsDir
-  crawlerDir:       "test-output/crawler"        # -Dreporting.crawlerDir
-  accessibilityDir: "test-output/accessibility"  # -Dreporting.accessibilityDir
-  gapOutputDir:     "docs/test-case-gaps"        # -Dreporting.gapOutputDir
+| Key | Default | Purpose |
+|---|---|---|
+| `api.mailinator.apiKey` | `YOUR_MAILINATOR_API_KEY` | Mailinator API v2 key used by `Mailinator` and `MailinatorEmailReader`. |
+| `api.mailinator.domain` | `mailinator.com` | Public or private Mailinator domain to query. |
+| `api.mailinator.privateDomain` | `true` | Informational flag for private-domain usage. |
+| `api.mailinator.inboxPollIntervalSeconds` | `3` | Delay between inbox polls while waiting for email delivery. |
+| `api.mailinator.inboxPollTimeoutSeconds` | `60` | Maximum time to keep polling for a matching email. |
+| `api.mailinator.inboxInitialWaitSeconds` | `5` | Initial wait before the first poll, allowing message delivery to land. |
 
-accessibility:
-  checking.enabled: false
-  fail.on.violation: false
-  wcag.tags: "wcag2a,wcag2aa"
-  debug: false
+#### `api`
 
-  session.noise.threshold: MINOR
-  session.max.scans.per.url: 1
-  session.dedup.cooldown.ms: 0
-  session.dedup.dom.fingerprint: true
-  session.allowed.rules: ""
-  session.allowed.urls: ""
+| Key | Default | Purpose |
+|---|---|---|
+| `api.baseUrl` | `""` | Environment-neutral fallback base URL for `ApiTestBase`. |
+| `api.baseUrl.<environment>` | none | Per-environment override such as `api.baseUrl.stg` or `api.baseUrl.prd`. |
+| `api.authHeaderName` | `""` | Optional single HTTP header name automatically added to requests. |
+| `api.authTokenEnvVar` | `""` | Environment variable name that holds the auth header value. Never store the token itself in YAML. |
+| `api.connectionTimeoutMillis` | `10000` | Connection timeout applied to every RestAssured request. |
+| `api.readTimeoutMillis` | `30000` | Socket/read timeout applied to every RestAssured request. |
+| `api.logRequestsAndResponses` | `true` | Captures API request/response payloads as evidence under `api.outputDirectory`. |
+| `api.outputDirectory` | `test-output/api` | Output directory for API payload evidence JSON files. |
+| `api.relaxedHttpsValidation` | `false` | Opt-in relaxed TLS validation for lower non-prod environments only. |
 
-  session.spa.poll.interval.ms: 0
-  scan.wait.enabled: true
-  scan.wait.timeout.ms: 5000
-  scan.iframe.max.depth: 3
+#### `logging`
 
-  engine.interaction.enabled: true
-  engine.wcag22.enabled: true
-  engine.structural.enabled: true
-  engine.motion.enabled: true
+| Key | Default | Purpose |
+|---|---|---|
+| `logging.level` | `INFO` | Top-level SDK logging level. |
+| `logging.sdkLogFile` | `test-output/logs/sdk.log` | Main SDK log file. |
+| `logging.seleniumLogFile` | `test-output/logs/selenium.log` | Selenium/WebDriver event log file. |
+| `logging.browserLogFile` | `test-output/logs/browser.log` | Browser console log file. |
+| `logging.enableSeleniumLogs` | `true` | Enables Selenium/WebDriver log capture. |
+| `logging.enableBrowserConsoleLogs` | `true` | Enables browser console log capture. |
+| `logging.enableDriverLogs` | `false` | Enables verbose driver-binary logs such as ChromeDriver output. |
 
-  scan.on.dialog: false
-  scan.dialog.poll.interval.ms: 1000
-```
+#### `screenshots`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `screenshots.captureOnFailure` | `true` | Automatically capture screenshots for failed UI tests. |
+| `screenshots.captureOnStep` | `false` | Optionally capture screenshots for every business step. |
+
+#### `crawler.pageObject`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `crawler.pageObject.package` | `com.mycompany.automation.uiActions` | Target Java package for generated page objects. Set this to your consumer project's real package. |
+| `crawler.pageObject.outputDir` | `src/main/java/com/mycompany/automation/uiActions/` | Directory where generated page-object `.java` files are written. |
+
+#### `appium`, `android`, and `ios`
+
+New projects should keep mobile configuration in `sdk-config.yaml`. A standalone
+`configuration/mobile-config.yaml` is still supported as a temporary compatibility
+path, but it is deprecated and should not be the primary setup path for new work.
+
+| Key | Default | Purpose |
+|---|---|---|
+| `appium.localUrl` | `http://127.0.0.1:4723/` | Local Appium server URL. |
+| `android.appPath` | `""` | Path to the Android `.apk` under test. |
+| `android.automationName` | `UiAutomator2` | Appium automation engine for Android. |
+| `ios.appPath` | `""` | Path to the iOS `.app` or `.ipa` under test. |
+| `ios.automationName` | `XCUITest` | Appium automation engine for iOS. |
+
+#### `reporting`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.screenshotsDir` | `test-output/screenshots` | Failure and manual screenshot captures. |
+| `reporting.domDumpsDir` | `test-output/dom-dumps` | Saved DOM dump HTML files. |
+| `reporting.logsDir` | `test-output/logs` | Root directory for SDK, Selenium, browser, and driver logs. |
+| `reporting.crawlerDir` | `test-output/crawler` | Web/mobile crawler output reports. |
+| `reporting.accessibilityDir` | `test-output/accessibility` | Accessibility JSON, Excel, and HTML artifacts. |
+| `reporting.gapOutputDir` | `docs/test-case-gaps` | Gap and blocker markdown report directory. |
+
+#### `reporting.allure`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.allure.enabled` | `true` | Master switch for automatic Allure HTML report generation. |
+| `reporting.allure.generateAfterExecution` | `true` | Runs `allure generate` after execution completes. |
+| `reporting.allure.openAfterGeneration` | `false` | Opens the generated report locally after success. Keep `false` on CI/service hosts. |
+| `reporting.allure.resultsDirectory` | `allure-results` | Directory where `allure-testng` writes raw results. |
+| `reporting.allure.reportDirectory` | `allure-report` | Directory where generated static HTML is written. |
+| `reporting.allure.generationTimeoutSeconds` | `120` | Max time to wait for `allure generate`. |
+
+#### `reporting.analytics`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.analytics.enabled` | `true` | Master switch for cross-run analytics capture. |
+| `reporting.analytics.directory` | `test-output/analytics` | Directory containing one `*.jsonl` analytics file per run. |
+
+#### `reporting.rcaBundle`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.rcaBundle.enabled` | `true` | Master switch for automated RCA bundle generation. |
+| `reporting.rcaBundle.directory` | `test-output/rca-bundles` | Directory containing one JSON RCA bundle per failure. |
+| `reporting.rcaBundle.logTailLines` | `80` | Number of trailing `sdk.log` lines embedded per bundle. |
+| `reporting.rcaBundle.stackTraceFrames` | `15` | Number of leading stack frames captured per exception/cause. |
+
+#### `visual`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `visual.enabled` | `true` | Master switch for visual regression checks. |
+| `visual.baselineDirectory` | `src/test/resources/visual-baselines` | Committable baseline PNG directory. |
+| `visual.outputDirectory` | `test-output/visual` | Directory for actual/diff images from the current run. |
+| `visual.mismatchThresholdPercent` | `0.1` | Maximum acceptable mismatch percentage before a check fails. |
+| `visual.pixelColorTolerance` | `12` | Per-channel RGB tolerance used by `ImageDiffEngine`. |
+| `visual.updateBaselines` | `false` | Overwrites baselines instead of comparing; use only for deliberate re-baselining runs. |
+| `visual.failOnMismatch` | `true` | Throws an assertion on mismatch when `true`; reports/logs only when `false`. |
+
+#### `flaky`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `flaky.quarantine.enabled` | `false` | Master switch for the opt-in flaky-test quarantine listener. |
+| `flaky.minRunsForQuarantine` | `5` | Minimum historical runs before a test can be classified as known flaky. |
+| `flaky.maxFailureRatePercent` | `80` | Above this failure rate, the test is treated as broken instead of flaky. |
+
+#### `impact`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `impact.mainSourceDir` | `src/main/java` | Main source tree indexed by `TestImpactCli`. |
+| `impact.testSourceDir` | `src/test/java` | Test source tree indexed by `TestImpactCli`. |
+| `impact.testClassNamePattern` | `Test_.*` | Regex a class name must match to be included in the generated impact suite. |
+| `impact.outputSuiteFile` | `test-output/impact/impact_suite.xml` | Output TestNG suite file containing impacted tests only. |
+| `impact.baseRef` | `HEAD~1` | Git ref used as the `git diff --name-only` comparison base. |
+
+#### `accessibility`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `accessibility.checking.enabled` | `false` | Master opt-in toggle for accessibility scanning. |
+| `accessibility.fail.on.violation` | `false` | Fails the test when violations are found. |
+| `accessibility.wcag.tags` | `wcag2a,wcag2aa` | Axe-core tag set used for Layer 1 scanning. |
+| `accessibility.debug` | `false` | Enables verbose accessibility debug output. |
+| `accessibility.session.noise.threshold` | `MINOR` | Minimum severity recorded by the session manager. |
+| `accessibility.session.max.scans.per.url` | `1` | Maximum scans per URL per run (`0` means unlimited). |
+| `accessibility.session.dedup.cooldown.ms` | `0` | Cooldown between scans of the same URL. |
+| `accessibility.session.dedup.dom.fingerprint` | `true` | Skips re-scan when the DOM fingerprint is unchanged. |
+| `accessibility.session.allowed.rules` | `""` | Comma-separated axe rule IDs to suppress. |
+| `accessibility.session.allowed.urls` | `""` | Comma-separated URL fragments to skip entirely. |
+| `accessibility.session.spa.poll.interval.ms` | `0` | SPA URL-change poll interval in milliseconds (`0` disables polling). |
+| `accessibility.scan.wait.enabled` | `true` | Wait for DOM settle before scanning. |
+| `accessibility.scan.wait.timeout.ms` | `5000` | Max wait before scanning anyway. |
+| `accessibility.scan.iframe.max.depth` | `3` | Nested iframe recursion depth. |
+| `accessibility.engine.interaction.enabled` | `true` | Enables Layer 2 interaction checks. |
+| `accessibility.engine.wcag22.enabled` | `true` | Enables Layer 3 WCAG 2.2 checks. |
+| `accessibility.engine.structural.enabled` | `true` | Enables Layer 4 structural checks. |
+| `accessibility.engine.motion.enabled` | `true` | Enables Layer 5 motion checks. |
+| `accessibility.scan.on.dialog` | `false` | Automatically scan newly opened modal/dialog content. |
+| `accessibility.scan.dialog.poll.interval.ms` | `1000` | Poll interval for dialog detection. |
 
 Backward-compatible aliases still work for older projects: `screenshots.outputDir`,
-`screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `reporting.gapOutputDir`.
-New projects should use the unified `reporting:` keys only.
+`screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `sdk.gapOutputDir`.
+New projects should use the unified `reporting:` keys and `sdk-config.yaml` sections above.
+
+**Pinning a specific ChromeDriver version (optional):** `browser.chromeDriverPath`
+may point at a pre-downloaded binary (for offline runners or a temporarily newer
+Chrome build). If the configured path is missing or invalid, `WebDriverFactory`
+logs a warning and automatically falls back to WebDriverManager.
+
 
 ### 6.3 Config Path Override
 
@@ -1897,7 +2035,22 @@ artifact type is configured from the unified `reporting:` section in
 | `reporting.allure.reportDirectory` | `allure-report` | `-Dreporting.allure.reportDirectory` | Destination directory for the generated static HTML report |
 | `reporting.allure.generationTimeoutSeconds` | `120` | `-Dreporting.allure.generationTimeoutSeconds` | Max time to wait for `allure generate` before giving up |
 
-Backward-compatible aliases remain supported for older projects: `screenshots.outputDir`, `screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `reporting.gapOutputDir`.
+Backward-compatible aliases remain supported for older projects: `screenshots.outputDir`, `screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `sdk.gapOutputDir`.
+
+#### Best-effort sidecar features: logging and failure semantics
+
+Several SDK features write extra artifacts after or alongside the main test flow.
+They share one deliberate rule: **reporting convenience must never corrupt the
+real test result**.
+
+- `AnalyticsExecutionReporter` writes JSONL history files and disables itself for
+  the rest of the JVM if a write ever fails.
+- `RcaBundleWriter` attempts one JSON bundle per failure and simply skips that
+  bundle if a write fails.
+- `AllureReportGenerator` logs missing CLI/process/timeout problems and leaves
+  TestNG pass/fail outcomes untouched.
+- `VisualRegressionChecker` converts image I/O problems into a failed comparison
+  result object instead of surfacing a raw infrastructure exception.
 
 The SDK generates two report types automatically -- no configuration required.
 
@@ -2159,7 +2312,7 @@ a structured report like this so the issue can be triaged by manual QA, the
 product owner, or the development team:
 
 ```markdown
-# Test Automation Blocker Report — ADO-<ID>
+# Test Automation Blocker Report â€” ADO-<ID>
 
 ## What is this file?
 Documents a product defect or technical blocker discovered during automation
@@ -2176,7 +2329,7 @@ Share with: Manual Testers, Product Owner, Development Team
 | Target Test Class | <ClassName>.java |
 | Date Reported | <date> |
 | Reported By | Copilot Automation / <user> |
-| Status | 🔴 BLOCKED — Product Defect |
+| Status | ðŸ”´ BLOCKED â€” Product Defect |
 
 ## Defect Summary
 <One-paragraph description of what is broken and why it blocks the test.>
@@ -2196,8 +2349,8 @@ Share with: Manual Testers, Product Owner, Development Team
 
 | ADO Step | Automated? | Notes |
 |---|---|---|
-| 1 — ... | ✅ Yes | |
-| 7 — ... | ❌ BLOCKED | Button not rendered — see defect above |
+| 1 â€” ... | âœ… Yes | |
+| 7 â€” ... | âŒ BLOCKED | Button not rendered â€” see defect above |
 
 ## Recommended Resolution
 - [ ] Dev Team: ...
@@ -2259,9 +2412,9 @@ Full step-by-step procedure: `.github/instructions/failure-investigation.instruc
 
 ### RCA is Complete When You Can Answer Three Questions
 
-1. **What exactly failed?** — exception type + line number from surefire report
-2. **Why did it fail?** — root cause confirmed by screenshot, DOM dump, AND log evidence
-3. **What is the minimal change that fixes the root cause?** — one targeted action
+1. **What exactly failed?** â€” exception type + line number from surefire report
+2. **Why did it fail?** â€” root cause confirmed by screenshot, DOM dump, AND log evidence
+3. **What is the minimal change that fixes the root cause?** â€” one targeted action
 
 Only after answering all three -- with all three artifacts reviewed -- should you write
 a single line of fix code. If your conclusion from the screenshot/DOM contradicts what
@@ -2274,11 +2427,11 @@ Go directly to the indicated action -- no further investigation needed.
 
 | Screenshot shows | DOM dump confirms | Log confirms | Fix action |
 |---|---|---|---|
-| Element not found / timeout | Attribute **missing** from DOM | Last logged action targeted this element | Run crawler → update `@FindBy` with new `UNIQUE [x]` locator |
-| Element not found / timeout | Attribute present, **value changed** | Last logged action targeted this element | Update `@FindBy` value to match DOM → confirm `UNIQUE [x]` |
-| Element not found / timeout | Attribute present, value unchanged | Retry-exhaustion warning logged | Check for overlay/modal in screenshot → add dismissal step |
+| Element not found / timeout | Attribute **missing** from DOM | Last logged action targeted this element | Run crawler â†’ update `@FindBy` with new `UNIQUE [x]` locator |
+| Element not found / timeout | Attribute present, **value changed** | Last logged action targeted this element | Update `@FindBy` value to match DOM â†’ confirm `UNIQUE [x]` |
+| Element not found / timeout | Attribute present, value unchanged | Retry-exhaustion warning logged | Check for overlay/modal in screenshot â†’ add dismissal step |
 | Validation error / toast visible | N/A | Action logged as completed before validation appeared | Fix test data in Excel or fix pre-condition setup |
-| Wrong field value / assertion mismatch | N/A | Action logged as completed successfully | Compare screenshot actual vs assertion expected → update assertion or Excel |
+| Wrong field value / assertion mismatch | N/A | Action logged as completed successfully | Compare screenshot actual vs assertion expected â†’ update assertion or Excel |
 | Login / session expired page | N/A | Unexpected redirect/URL change logged | Verify environment is up; check login step |
 | Blank / partially loaded page | N/A | No follow-up action logged after page load | Add `waitUntillPageLoad()` after the navigation click preceding failure |
 | Unexpected modal or overlay | Element behind overlay | Click logged but element remained | Add modal dismissal step in page object before the failing interaction |
@@ -2363,7 +2516,7 @@ The SDK now includes a built-in accessibility framework with a full 5-layer WCAG
 engine. No extra Maven dependency or custom listener registration is required.
 The feature is **opt-in only** and has zero runtime overhead when disabled.
 
-### 14.0 Underlying engine — what jar powers Layer 1
+### 14.0 Underlying engine â€” what jar powers Layer 1
 
 Layer 1 (static WCAG analysis) is powered by [**axe-core**](https://github.com/dequelabs/axe-core),
 the industry-standard open-source accessibility rules engine from **Deque Systems**,
@@ -2375,21 +2528,21 @@ via its official Selenium Java binding:
 | Vendor | Deque Systems, Inc. |
 | License | MPL-2.0 (Mozilla Public License 2.0) |
 | Entry point used internally | `com.deque.html.axecore.selenium.AxeBuilder` |
-| Versioning scheme | The binding's major.minor tracks the axe-core rules version it embeds — `4.10.1` embeds axe-core `4.10.x` rules |
+| Versioning scheme | The binding's major.minor tracks the axe-core rules version it embeds â€” `4.10.1` embeds axe-core `4.10.x` rules |
 | Source / API docs | [axe-core-maven-html-selenium README](https://github.com/dequelabs/axe-core-maven-html/blob/develop/selenium/README.md) |
 | Deque API reference | [Selenium Java API reference](https://docs.deque.com/devtools-for-web/4/en/java-api-selenium/) |
-| Full rule catalogue | [List of axe 4.10 rules](https://dequeuniversity.com/rules/axe/4.10) — rule IDs shown here are what you pass to `accessibility.session.allowed.rules` |
+| Full rule catalogue | [List of axe 4.10 rules](https://dequeuniversity.com/rules/axe/4.10) â€” rule IDs shown here are what you pass to `accessibility.session.allowed.rules` |
 
-**You do not add this dependency yourself** — it ships transitively with the SDK jar
+**You do not add this dependency yourself** â€” it ships transitively with the SDK jar
 (see `pom.xml`'s `<!-- Accessibility (axe-core) -->` block), so a consumer project's
 `pom.xml` still only needs the single `cross-platform-functional-test-automation-sdk` dependency
-described in [§4](#4-maven-dependency).
+described in [Â§4](#4-maven-dependency).
 
 `AccessibilityChecker` wraps `AxeBuilder` internally and drives it with
-`.withTags(...)` using the tags from `accessibility.wcag.tags` (§14.1) — it does not
+`.withTags(...)` using the tags from `accessibility.wcag.tags` (Â§14.1) â€” it does not
 currently expose `AxeBuilder`'s `include()`/`exclude()`/`withRules()`/`disableRules()`
 chain directly. If you need to scope a scan to a CSS selector or limit it to specific
-rule IDs, use `accessibility.session.allowed.rules` (§14.5) to suppress noisy rule IDs
+rule IDs, use `accessibility.session.allowed.rules` (Â§14.5) to suppress noisy rule IDs
 project-wide, or open an SDK feature request if per-call scoping is needed.
 
 ### 14.1 Enable or disable accessibility scanning
@@ -2411,7 +2564,7 @@ accessibility:
 
 | Layer | Engine area | What it checks |
 |---|---|---|
-| 1 | axe-core | Static WCAG 2.x analysis using `axe-core:selenium` (see §14.0 for the exact jar/version). |
+| 1 | axe-core | Static WCAG 2.x analysis using `axe-core:selenium` (see Â§14.0 for the exact jar/version). |
 | 2 | Interaction | Keyboard navigation, focus handling, touch target size, text spacing, zoom reflow. |
 | 3 | WCAG 2.2 | Focus appearance, dragging movements, target size minimum. |
 | 4 | Structural | Headings, landmarks, page title, language, link text, duplicate IDs. |
@@ -2555,7 +2708,7 @@ Written by `runAccessibilityScan(pageName)` / `assertNoAccessibilityViolations(p
 
 #### Example: interaction-layer JSON (`<timestamp>_<pageName>_interaction_<checkId>.json`)
 
-Written by `WebEventListener`'s per-element scans (§14.4) and Layer 2 checks:
+Written by `WebEventListener`'s per-element scans (Â§14.4) and Layer 2 checks:
 
 ```json
 {
@@ -2639,7 +2792,7 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
 | `Listener` | Emits centralized lifecycle events, captures failure evidence once, publishes it to Allure/Extent/logs, and renames data-driven test entries |
 | `RetryListener` | Automatically retries a failed test once |
 | `WebEventListener` | Emits low-level WebDriver debug/a11y signals; it should not replace business steps in reports |
-| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see §15.1 below) |
+| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see Â§15.1 below) |
 
 ### 15.1 Flaky-test quarantine (`FlakyTestQuarantineListener`)
 
@@ -2996,10 +3149,11 @@ means:
 | `401 Unauthorized` / `403 Forbidden` on every request | `api.authTokenEnvVar` unset/misspelled, or the named environment variable isn't actually exported in the shell/CI running the tests | Confirm the exact env var name matches in both `sdk-config.yaml` and your shell/CI secret; the token value is never read from YAML |
 | `javax.net.ssl.SSLHandshakeException: PKIX path building failed` | Target API uses a self-signed/internal certificate (common on lower non-prod environments) | Set `api.relaxedHttpsValidation: true` -- **non-prod only, never for production traffic** |
 | `assertMatchesJsonSchema` fails with a validation-message dump instead of a simple pass/fail | The response body genuinely doesn't match the schema (this is working as intended) | Read the RestAssured/`json-schema-validator` message -- it lists the exact field(s)/type mismatch; fix the schema file or the expected response body |
-| `test-output/api-payloads/` (or your configured `api.outputDirectory`) stays empty after a passing run | `api.logRequestsAndResponses` is `false`, or `outputDirectory` points somewhere else than you're looking | Set `logRequestsAndResponses: true` and re-check the `outputDirectory` value |
+| `test-output/api/` (or your configured `api.outputDirectory`) stays empty after a passing run | `api.logRequestsAndResponses` is `false`, or `outputDirectory` points somewhere else than you're looking | Set `logRequestsAndResponses: true` and re-check the `outputDirectory` value |
 | `NullPointerException` inside `ExtentManager`/`Listener` before any `@Test` runs, in an API-only project | `configuration/config.properties` is missing entirely | Add a minimal `config.properties` with at least `extReportDir=test-output/reports` -- the SDK's legacy Extent-report listener reads this file unconditionally, even for pure `ApiTestBase` projects with no browser |
 
 ---
 
 *Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.4.8`*  
 *Maintained by OTI QA Automation Team*
+
