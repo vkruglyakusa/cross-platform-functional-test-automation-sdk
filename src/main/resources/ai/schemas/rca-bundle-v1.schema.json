@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rca-bundle-v1",
+  "title": "RcaBundle",
+  "description": "Root Cause Analysis bundle written for a failed test, matching the JSON produced by com.test.automation.sdk.reporting.RcaBundleWriter.toJson(Context). This schema documents the actual writer output as of SDK v1.5.1; it is not a literal resource loaded/validated at runtime by the SDK.",
+  "type": "object",
+  "required": ["schemaVersion", "generatedAtIso", "status", "test", "exception", "evidence", "recentLogLines", "suggestedNextSteps"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "description": "RCA bundle format version, currently always 1."
+    },
+    "generatedAtIso": {
+      "type": "string",
+      "description": "ISO-8601 instant the bundle was generated."
+    },
+    "status": {
+      "type": "string",
+      "description": "Always \"FAILED\" -- RCA bundles are only written for failed tests.",
+      "enum": ["FAILED"]
+    },
+    "test": {
+      "$ref": "#/definitions/testIdentity"
+    },
+    "exception": {
+      "$ref": "#/definitions/exceptionChain"
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/evidenceItem" }
+    },
+    "recentLogLines": {
+      "type": "array",
+      "description": "Tail of the SDK's sdk.log file, bounded by reporting.rcaBundle.logTailLines.",
+      "items": { "type": "string" }
+    },
+    "browserConsoleLog": {
+      "type": "string",
+      "description": "Additive (SDK v1.5.1+), optional convenience path to the browser-console evidence file, when present in the evidence array. Absent (not null) when no browser-console evidence exists, so pre-v1.5.1 bundle consumers remain unaffected."
+    },
+    "networkTrace": {
+      "type": "string",
+      "description": "Additive (SDK v1.5.1+), optional convenience path to the *_network-trace.json evidence file, when present in the evidence array. Absent (not null) when no network-trace evidence exists."
+    },
+    "suggestedNextSteps": {
+      "type": "array",
+      "description": "Fixed four-item guidance list pointing the reader to screenshot, DOM, and log evidence before proposing a fix (see failure-investigation.instructions.md).",
+      "items": { "type": "string" },
+      "minItems": 4,
+      "maxItems": 4
+    }
+  },
+  "definitions": {
+    "testIdentity": {
+      "title": "TestIdentity",
+      "type": "object",
+      "description": "All properties are optional strings, present only when non-empty at capture time.",
+      "properties": {
+        "testCaseName": { "type": "string" },
+        "className": { "type": "string" },
+        "methodName": { "type": "string" },
+        "suiteName": { "type": "string" },
+        "testNgTestName": { "type": "string" },
+        "platform": { "type": "string" },
+        "browser": { "type": "string" },
+        "device": { "type": "string" },
+        "environment": {
+          "type": "string",
+          "description": "Value of the JVM system property 'environment' at capture time."
+        },
+        "lastCompletedStep": { "type": "string" }
+      }
+    },
+    "exceptionChain": {
+      "title": "ExceptionChain",
+      "type": "object",
+      "description": "Empty object ({}) when the failure carried no throwable.",
+      "properties": {
+        "chain": {
+          "type": "array",
+          "description": "Cause chain, root exception first, limited to 10 entries.",
+          "items": { "$ref": "#/definitions/exceptionNode" }
+        }
+      }
+    },
+    "exceptionNode": {
+      "title": "ExceptionNode",
+      "type": "object",
+      "required": ["type", "stackTrace"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Fully-qualified exception class name."
+        },
+        "message": {
+          "type": "string",
+          "description": "Exception message; omitted when null/empty."
+        },
+        "stackTrace": {
+          "type": "array",
+          "description": "Top stack frames, bounded by reporting.rcaBundle.stackTraceFrames.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "evidenceItem": {
+      "title": "EvidenceItem",
+      "type": "object",
+      "required": ["type", "name", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "e.g. \"screenshot\", \"dom\", \"browserConsole\", \"networkTrace\"."
+        },
+        "name": { "type": "string" },
+        "path": {
+          "type": "string",
+          "description": "Filesystem path to the evidence artifact."
+        }
+      }
+    }
+  }
+}
