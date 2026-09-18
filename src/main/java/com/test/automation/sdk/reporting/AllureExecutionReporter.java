@@ -43,6 +43,8 @@ public final class AllureExecutionReporter implements ExecutionReporter {
             case DOM_CAPTURED:
             case PAGE_SOURCE_CAPTURED:
             case API_PAYLOAD_CAPTURED:
+            case BROWSER_CONSOLE_CAPTURED:
+            case NETWORK_TRACE_CAPTURED:
                 attachEvidence(event);
                 break;
             case EXCEPTION:
@@ -92,6 +94,13 @@ public final class AllureExecutionReporter implements ExecutionReporter {
     }
 
     private void attachEvidence(ExecutionEvent event) {
+        // Fail-safe guard: Allure.addAttachment(...) silently logs "no test is
+        // running" and drops the attachment if there is no current Allure test
+        // case (e.g. AllureTestNg already closed it). Skip attaching rather than
+        // let Allure's own logger emit noise for evidence it cannot attribute.
+        if (!Allure.getLifecycle().getCurrentTestCase().isPresent()) {
+            return;
+        }
         for (ExecutionEvidence evidence : event.getEvidence()) {
             if (evidence == null || evidence.getPath() == null) {
                 continue;
@@ -110,6 +119,9 @@ public final class AllureExecutionReporter implements ExecutionReporter {
 
     private void attachException(ExecutionEvent event) {
         if (event.getThrowable() == null) {
+            return;
+        }
+        if (!Allure.getLifecycle().getCurrentTestCase().isPresent()) {
             return;
         }
         Allure.addAttachment("Exception", "text/plain", stackTrace(event.getThrowable()));

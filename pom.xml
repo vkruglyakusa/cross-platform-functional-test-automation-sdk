@@ -5,7 +5,7 @@
 
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.5.0</version>
+    <version>1.5.1</version>
     <packaging>jar</packaging>
     <name>cross-platform-functional-test-automation-sdk</name>
     <description>
@@ -175,6 +175,14 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <version>4.11.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- SDK v1.5.1: enables Mockito.mockStatic(...) so WebEventListenerTest can verify
+             ExecutionReporting.actionFailed(...) is/isn't invoked without a broader refactor. -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
             <version>4.11.0</version>
             <scope>test</scope>
         </dependency>

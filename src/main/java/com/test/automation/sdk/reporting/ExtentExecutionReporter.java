@@ -76,6 +76,8 @@ public final class ExtentExecutionReporter implements ExecutionReporter {
             case DOM_CAPTURED:
             case PAGE_SOURCE_CAPTURED:
             case API_PAYLOAD_CAPTURED:
+            case BROWSER_CONSOLE_CAPTURED:
+            case NETWORK_TRACE_CAPTURED:
                 addEvidenceLink(event);
                 break;
             case EXCEPTION:

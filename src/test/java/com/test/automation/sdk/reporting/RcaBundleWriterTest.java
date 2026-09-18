@@ -192,4 +192,49 @@ class RcaBundleWriterTest {
         JSONObject json = new JSONObject(new String(Files.readAllBytes(bundleFile), StandardCharsets.UTF_8));
         assertTrue(json.getJSONObject("exception").isEmpty());
     }
+
+    @Test
+    @DisplayName("SDK v1.5.1 -- browserConsoleLog and networkTrace are additive optional fields, "
+            + "absent when no such evidence is provided (backward compatible with pre-v1.5.1 bundles)")
+    void additiveFieldsAbsent_whenNoNewEvidenceTypes() throws Exception {
+        System.setProperty("reporting.rcaBundle.directory", tempDir.getAbsolutePath());
+
+        Path screenshot = new File(tempDir, "shot.png").toPath();
+        Files.write(screenshot, "png-bytes".getBytes(StandardCharsets.UTF_8));
+
+        Path bundleFile = RcaBundleWriter.write(RcaBundleWriter.builder()
+                .methodName("testSomething")
+                .throwable(new RuntimeException("boom"))
+                .evidence(Arrays.asList(ExecutionEvidence.screenshot("shot", screenshot))));
+
+        JSONObject json = new JSONObject(new String(Files.readAllBytes(bundleFile), StandardCharsets.UTF_8));
+        assertFalse(json.has("browserConsoleLog"), "Field must be absent (not null/empty) when no console evidence exists");
+        assertFalse(json.has("networkTrace"), "Field must be absent (not null/empty) when no network evidence exists");
+    }
+
+    @Test
+    @DisplayName("SDK v1.5.1 -- browserConsoleLog and networkTrace are populated when that evidence is present")
+    void additiveFieldsPopulated_whenNewEvidenceTypesPresent() throws Exception {
+        System.setProperty("reporting.rcaBundle.directory", tempDir.getAbsolutePath());
+
+        Path console = new File(tempDir, "console.log").toPath();
+        Path network = new File(tempDir, "trace-network.json").toPath();
+        Files.write(console, "console output".getBytes(StandardCharsets.UTF_8));
+        Files.write(network, "{}".getBytes(StandardCharsets.UTF_8));
+
+        Path bundleFile = RcaBundleWriter.write(RcaBundleWriter.builder()
+                .methodName("testSomething")
+                .throwable(new RuntimeException("boom"))
+                .evidence(Arrays.asList(
+                        ExecutionEvidence.browserConsole("console", console),
+                        ExecutionEvidence.networkTrace("trace", network))));
+
+        JSONObject json = new JSONObject(new String(Files.readAllBytes(bundleFile), StandardCharsets.UTF_8));
+        assertEquals(console.toString(), json.getString("browserConsoleLog"));
+        assertEquals(network.toString(), json.getString("networkTrace"));
+
+        // Both remain present in the generic evidence array too (existing, unchanged behavior).
+        JSONArray evidence = json.getJSONArray("evidence");
+        assertEquals(2, evidence.length());
+    }
 }

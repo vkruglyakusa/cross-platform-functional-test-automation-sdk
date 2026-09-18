@@ -248,6 +248,18 @@ public class WebDriverFactory {
         String windowSize = YamlConfigReader.get("browser.windowSize", "1920x1080");
         options.addArguments("--window-size=" + windowSize.replace("x", ","));
 
+        // Browser console logging from YAML (SDK v1.5.1 -- Edge is Chromium-based
+        // and accepts the same LoggingPreferences capability as Chrome, but under
+        // the "ms:loggingPrefs" capability name).
+        if (YamlConfigReader.getBoolean("logging.enableBrowserConsoleLogs", true)) {
+            org.openqa.selenium.logging.LoggingPreferences logPrefs =
+                new org.openqa.selenium.logging.LoggingPreferences();
+            logPrefs.enable(org.openqa.selenium.logging.LogType.BROWSER,
+                java.util.logging.Level.ALL);
+            options.setCapability("ms:loggingPrefs", logPrefs);
+            log.debug("[WebDriverFactory] Edge browser log capture enabled");
+        }
+
         WebDriverManager.edgedriver().setup();
         EdgeDriver rawDriver = new EdgeDriver(options);
         if (!headless) {
@@ -286,6 +298,12 @@ public class WebDriverFactory {
 
     private static WebDriver wrapWithEventListener(WebDriver rawDriver) {
         WebEventListener listener = new WebEventListener(rawDriver);
-        return new EventFiringDecorator<WebDriver>(listener).decorate(rawDriver);
+        WebDriver decorated = new EventFiringDecorator<WebDriver>(listener).decorate(rawDriver);
+        // SDK v1.5.1 -- attaches the CDP network-trace recorder (no-op unless
+        // evidence.network.enabled=true, and fail-safe on non-Chromium drivers).
+        // Keyed on the decorated driver so TestBase.captureFailureEvidence (which
+        // only ever sees the decorated instance) can look it up consistently.
+        com.test.automation.sdk.evidence.NetworkTraceRecorder.attachIfEnabled(decorated);
+        return decorated;
     }
 }

@@ -1,7 +1,7 @@
-﻿# Framework Automation SDK -- User Guide
+# Framework Automation SDK -- User Guide
 
-**Version:** 1.5.0
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`
+**Version:** 1.5.1
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the primary installation, configuration, and usage reference for the
@@ -55,6 +55,10 @@ SDK's shared features across Web (Selenium), Mobile (Appium), and pure API
     - [13.3 Automated RCA Bundle (Tier 3 #9)](#133-automated-rca-bundle-tier-3-9----one-json-file-three-artifacts-pre-linked)
 14. [Accessibility Testing](#14-accessibility-testing)
 15. [Retry & Listeners](#15-retry--listeners)
+    - [15.1 Flaky-test quarantine](#151-flaky-test-quarantine-flakytestquarantinelistener)
+    - [15.2 Test impact analysis](#152-test-impact-analysis-testimpactcli)
+    - [15.3 Runtime self-healing locators](#153-runtime-self-healing-locators-healingelementlocator)
+    - [15.4 Visual regression testing](#154-visual-regression-testing-visualregressionchecker)
 16. [Locator Rules -- Non-Negotiable](#16-locator-rules--non-negotiable)
 17. [Complete End-to-End Example](#17-complete-end-to-end-example)
 18. [API Testing (ApiTestBase)](#18-api-testing-apitestbase)
@@ -133,13 +137,26 @@ external runner such as BrowserStack's SDK.
 
 **Option A -- Consumer Template (recommended)**
 
-Clone the consumer template for your track. The web template below is the most
-common starting point; equivalent mobile/API templates follow the same pattern.
+Clone the consumer template that matches your track:
+
+| Track | Canonical repository |
+|---|---|
+| Web (Selenium) | `functional-automation-consumer-template` |
+| API (RestAssured) | `api-functional-automation-consumer-template` |
+| Mobile (Appium) | `mobile-functional-automation-consumer-template` |
+
 Each template is a ready-to-run project with the SDK dependency, folder
-structure, config files, and example tests already in place.
+structure, config files, and example tests already in place for that track.
 
 ```
-git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/framework_automation_consumer_template
+# Web
+git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/functional-automation-consumer-template
+
+# API
+git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/api-functional-automation-consumer-template
+
+# Mobile
+git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/mobile-functional-automation-consumer-template
 ```
 
 Then rename the project:
@@ -162,7 +179,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.5.0</version>
+    <version>1.5.1</version>
 </dependency>
 ```
 
@@ -242,6 +259,28 @@ The SDK `release.ps1` script updates the consumer template's `pom.xml`,
 `README.md`, `GETTING-STARTED.md`, and `CHANGELOG.md` on every release.
 Cloning the template always gives you the latest stable version -- no manual
 version tracking needed.
+
+### Legacy-to-canonical package mapping
+
+The following `@Deprecated` classes are compatibility facades kept only so
+existing consumer code compiles unchanged after tooling was reorganized into
+`com.test.automation.sdk.tools.*`. **New page objects, tests, and examples
+should always import the canonical class directly** -- the legacy FQN is a
+migration aid, not the recommended API.
+
+| Legacy (deprecated) FQN | Canonical FQN |
+|---|---|
+| `com.test.automation.sdk.utility.ElementCrawler` | `com.test.automation.sdk.tools.crawler.web.ElementCrawler` |
+| `com.test.automation.sdk.utility.PageObjectGenerator` | `com.test.automation.sdk.tools.pageobject.PageObjectGenerator` |
+| `com.test.automation.sdk.utility.ElementSearchEngine` | `com.test.automation.sdk.tools.crawler.web.ElementSearchEngine` |
+| `com.test.automation.sdk.utility.CrawlerScenario` | `com.test.automation.sdk.tools.crawler.web.CrawlerScenario` |
+| `com.test.automation.sdk.utility.CrawlerStep` | `com.test.automation.sdk.tools.crawler.web.CrawlerStep` |
+| `com.test.automation.sdk.utility.DataDrivenCrawler` | `com.test.automation.sdk.tools.crawler.web.DataDrivenCrawler` |
+| `com.test.automation.sdk.utility.YamlConfigReader` | `com.test.automation.sdk.config.YamlConfigReader` |
+
+These facades are not removed as part of routine releases -- see the note on
+nested-type imports below for the one case where the facade cannot fully
+stand in for the canonical class.
 
 ### Known migration gotchas
 
@@ -419,37 +458,37 @@ the current BrowserStack execution path for projects that explicitly need it.
 ---
 
 
-## 4.1 Maven Authentication â€” Choose Your Option
+## 4.1 Maven Authentication — Choose Your Option
 
 The SDK feed on Azure Artifacts requires authentication. There are **two supported
 approaches** depending on where the build runs:
 
-| | Option A â€” PAT in `settings.xml` | Option B â€” `MavenAuthenticate@0` pipeline task |
+| | Option A — PAT in `settings.xml` | Option B — `MavenAuthenticate@0` pipeline task |
 |---|---|---|
 | **Use when** | Local developer machine | Azure DevOps CI/CD pipeline |
 | **Credential type** | Personal Access Token stored in `~/.m2/settings.xml` | Pipeline-managed OAuth token (`$(System.AccessToken)`) |
-| **Secrets committed to repo?** | No â€” `settings.xml` is outside the project | No â€” token injected at runtime by Azure DevOps |
-| **Setup per machine?** | Yes â€” one-time per dev workstation | No â€” zero config per agent |
-| **Works in headless CI?** | Only if PAT is injected as a secret variable | Yes â€” native ADO support |
+| **Secrets committed to repo?** | No — `settings.xml` is outside the project | No — token injected at runtime by Azure DevOps |
+| **Setup per machine?** | Yes — one-time per dev workstation | No — zero config per agent |
+| **Works in headless CI?** | Only if PAT is injected as a secret variable | Yes — native ADO support |
 
 ---
 
-## 4.1a Option A â€” PAT Authentication (Local Developer Machine)
+## 4.1a Option A — PAT Authentication (Local Developer Machine)
 
 This is a **one-time setup per workstation**. No pipeline changes needed.
 
-### Step 1 â€” Generate a PAT in Azure DevOps
+### Step 1 — Generate a PAT in Azure DevOps
 
-1. Go to Azure DevOps â†’ click your avatar (top right) â†’ **Personal Access Tokens**
+1. Go to Azure DevOps → click your avatar (top right) → **Personal Access Tokens**
 2. Click **+ New Token**
 3. Fill in:
    - **Name:** `maven-sdk-read`
    - **Organization:** `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
    - **Expiration:** 1 year
-   - **Scopes:** âœ… **Packaging â†’ Read** (read-only â€” for downloading the SDK)
-4. Click **Create** and **copy the token immediately** â€” it won't be shown again
+   - **Scopes:** ✅ **Packaging → Read** (read-only — for downloading the SDK)
+4. Click **Create** and **copy the token immediately** — it won't be shown again
 
-### Step 2 â€” Create or update `%USERPROFILE%\.m2\settings.xml`
+### Step 2 — Create or update `%USERPROFILE%\.m2\settings.xml`
 
 If the file does not exist, create it. If it already exists, add the `<server>` block inside `<servers>`.
 
@@ -512,44 +551,44 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ```
 
 > **Important rules:**
-> - The `<id>` in `settings.xml` must exactly match the `<id>` in the `<repositories>` block in `pom.xml` â€” both are `functional-test-automation-sdk`
+> - The `<id>` in `settings.xml` must exactly match the `<id>` in the `<repositories>` block in `pom.xml` — both are `functional-test-automation-sdk`
 > - The `<username>` must be the org GUID: `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
 > - `*.pkgs.visualstudio.com` must be in `nonProxyHosts` if you use a corporate proxy
-> - **Never commit your PAT** â€” `settings.xml` lives outside the project in `~/.m2/`
+> - **Never commit your PAT** — `settings.xml` lives outside the project in `~/.m2/`
 
-### Step 3 â€” Verify
+### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.0.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.1.jar` downloaded.
 
 ---
 
-## 4.1b Option B â€” `MavenAuthenticate@0` Pipeline Task (Azure DevOps CI/CD)
+## 4.1b Option B — `MavenAuthenticate@0` Pipeline Task (Azure DevOps CI/CD)
 
 This is the **recommended approach for all CI/CD pipelines**. No PATs, no
-`settings.xml` maintenance â€” Azure DevOps injects credentials automatically using
+`settings.xml` maintenance — Azure DevOps injects credentials automatically using
 the pipeline's built-in OAuth token.
 
-> ðŸ“– Official reference: [MavenAuthenticate@0 task](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-authenticate-v0?view=azure-pipelines)
+> 📖 Official reference: [MavenAuthenticate@0 task](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-authenticate-v0?view=azure-pipelines)
 
 ### How it works
 
 The `MavenAuthenticate@0` task writes temporary `<server>` credentials into the
-agent's `~/.m2/settings.xml` before Maven runs. It uses `$(System.AccessToken)` â€”
-the pipeline's own OAuth token â€” so no PAT is stored anywhere.
+agent's `~/.m2/settings.xml` before Maven runs. It uses `$(System.AccessToken)` —
+the pipeline's own OAuth token — so no PAT is stored anywhere.
 
-> â„¹ï¸ **Note:** `MavenAuthenticate@0` obtains and injects the OAuth token
-> internally â€” you do **not** need to declare the `SYSTEM_ACCESSTOKEN` variable
+> ℹ️ **Note:** `MavenAuthenticate@0` obtains and injects the OAuth token
+> internally — you do **not** need to declare the `SYSTEM_ACCESSTOKEN` variable
 > for the task itself to work. Declaring it (Step 1 below) is only required if
 > you *also* run Maven with a custom `settings.xml` via the `-s` switch and
 > reference `${env.SYSTEM_ACCESSTOKEN}` manually (see "Custom `settings.xml`"
 > below). It's included here for consistency and because other tooling in this
 > pipeline (e.g. custom scripts) may need it.
 
-### Step 1 â€” Enable `System.AccessToken` in the pipeline
+### Step 1 — Enable `System.AccessToken` in the pipeline
 
 In your Azure DevOps pipeline YAML, allow the job to use the built-in token:
 
@@ -576,7 +615,7 @@ variables:
   SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 ```
 
-### Step 2 â€” Add `MavenAuthenticate@0` before any `mvn` command
+### Step 2 — Add `MavenAuthenticate@0` before any `mvn` command
 
 ```yaml
 steps:
@@ -588,7 +627,7 @@ steps:
 
 The `artifactsFeeds` value must match the `<id>` in your `pom.xml` `<repositories>` block.
 
-### Step 3 â€” Run your tests with Maven
+### Step 3 — Run your tests with Maven
 
 ```yaml
   - task: Maven@4
@@ -634,7 +673,7 @@ If the pipeline runs in a **different ADO project** than the one hosting the
 `functional-test-automation-sdk` feed, `MavenAuthenticate@0` will still write
 credentials, but Maven will get a 401/403 unless the feed's hosting project
 grants the consuming pipeline's build service identity **Reader** access. Go to
-**Project Settings â†’ Artifacts â†’ Feed Settings â†’ Permissions** on the feed's
+**Project Settings → Artifacts → Feed Settings → Permissions** on the feed's
 project and add the other project's Build Service account
 (`<OtherProject> Build Service (<Org>)`) as **Reader**. See
 [Package permissions in Azure Pipelines](https://learn.microsoft.com/en-us/azure/devops/artifacts/feeds/feed-permissions#pipelines-permissions)
@@ -643,7 +682,7 @@ for details.
 ### `<id>` matching requirement
 
 The value(s) passed to `artifactsFeeds` must exactly match the `<id>` of the
-corresponding `<repository>` block in `pom.xml` â€” this is how Maven knows which
+corresponding `<repository>` block in `pom.xml` — this is how Maven knows which
 injected `<server>` credentials apply to which repository:
 
 ```xml
@@ -667,9 +706,9 @@ variables:
   SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
 steps:
-  # 1. Authenticate the Azure Artifacts feed â€” injects credentials into settings.xml
+  # 1. Authenticate the Azure Artifacts feed — injects credentials into settings.xml
   - task: MavenAuthenticate@0
-    displayName: 'Authenticate Azure Artifacts â€” functional-test-automation-sdk'
+    displayName: 'Authenticate Azure Artifacts — functional-test-automation-sdk'
     inputs:
       artifactsFeeds: functional-test-automation-sdk
 
@@ -691,17 +730,17 @@ steps:
         -DbrowserName=chrome
         -Dheadless=true
         -Dsurefire.suiteXmlFiles=regression_suite.xml
-      publishJUnitResults: false      # disabled â€” we publish TestNG XML directly below
+      publishJUnitResults: false      # disabled — we publish TestNG XML directly below
       javaHomeOption: 'JDKVersion'
       jdkVersionOption: '1.21'
     continueOnError: true             # allow publish steps to run even if tests fail
 
-  # 4. Filter TestNG results â€” remove runMode=N skips before publishing to ADO.
+  # 4. Filter TestNG results — remove runMode=N skips before publishing to ADO.
   #    Without this step ADO counts SKIPs as "Others" and reports ~79% pass rate
   #    even when every executed test passed (0 failures). This step removes SKIP
   #    nodes and corrects the total/skipped attributes on <test> and <testng-results>
   #    so ADO shows 100% pass rate when all executed tests pass.
-  #    NOTE: Allure reads its own JSON artifacts â€” it still shows SKIPs correctly.
+  #    NOTE: Allure reads its own JSON artifacts — it still shows SKIPs correctly.
   - task: PowerShell@2
     displayName: 'Filter TestNG results (remove runMode=N skips from ADO report)'
     condition: always()
@@ -764,7 +803,7 @@ steps:
       testResultsFiles: '**/testng-results.xml'
       mergeTestResults: true
       failTaskOnFailedTests: true
-      testRunTitle: 'Regression Suite â€” $(Build.BuildNumber)'
+      testRunTitle: 'Regression Suite — $(Build.BuildNumber)'
 
   # 6. Publish all test artifacts (screenshots, DOM dumps, logs, Allure, accessibility)
   - task: PublishBuildArtifacts@1
@@ -780,8 +819,8 @@ steps:
 | Scenario | Use |
 |---|---|
 | Developer running tests locally from IDE or terminal | Option A (PAT) |
-| Azure DevOps pipeline â€” same project as SDK feed | Option B (`MavenAuthenticate@0`) |
-| Azure DevOps pipeline â€” different project than SDK feed | Option B + grant build service Reader role |
+| Azure DevOps pipeline — same project as SDK feed | Option B (`MavenAuthenticate@0`) |
+| Azure DevOps pipeline — different project than SDK feed | Option B + grant build service Reader role |
 | GitHub Actions or Jenkins (non-ADO) | Option A with PAT injected as a pipeline secret variable |
 
 ---
@@ -2312,7 +2351,7 @@ a structured report like this so the issue can be triaged by manual QA, the
 product owner, or the development team:
 
 ```markdown
-# Test Automation Blocker Report â€” ADO-<ID>
+# Test Automation Blocker Report — ADO-<ID>
 
 ## What is this file?
 Documents a product defect or technical blocker discovered during automation
@@ -2329,7 +2368,7 @@ Share with: Manual Testers, Product Owner, Development Team
 | Target Test Class | <ClassName>.java |
 | Date Reported | <date> |
 | Reported By | Copilot Automation / <user> |
-| Status | ðŸ”´ BLOCKED â€” Product Defect |
+| Status | 🔴 BLOCKED — Product Defect |
 
 ## Defect Summary
 <One-paragraph description of what is broken and why it blocks the test.>
@@ -2349,8 +2388,8 @@ Share with: Manual Testers, Product Owner, Development Team
 
 | ADO Step | Automated? | Notes |
 |---|---|---|
-| 1 â€” ... | âœ… Yes | |
-| 7 â€” ... | âŒ BLOCKED | Button not rendered â€” see defect above |
+| 1 — ... | ✅ Yes | |
+| 7 — ... | ❌ BLOCKED | Button not rendered — see defect above |
 
 ## Recommended Resolution
 - [ ] Dev Team: ...
@@ -2412,9 +2451,9 @@ Full step-by-step procedure: `.github/instructions/failure-investigation.instruc
 
 ### RCA is Complete When You Can Answer Three Questions
 
-1. **What exactly failed?** â€” exception type + line number from surefire report
-2. **Why did it fail?** â€” root cause confirmed by screenshot, DOM dump, AND log evidence
-3. **What is the minimal change that fixes the root cause?** â€” one targeted action
+1. **What exactly failed?** — exception type + line number from surefire report
+2. **Why did it fail?** — root cause confirmed by screenshot, DOM dump, AND log evidence
+3. **What is the minimal change that fixes the root cause?** — one targeted action
 
 Only after answering all three -- with all three artifacts reviewed -- should you write
 a single line of fix code. If your conclusion from the screenshot/DOM contradicts what
@@ -2427,11 +2466,11 @@ Go directly to the indicated action -- no further investigation needed.
 
 | Screenshot shows | DOM dump confirms | Log confirms | Fix action |
 |---|---|---|---|
-| Element not found / timeout | Attribute **missing** from DOM | Last logged action targeted this element | Run crawler â†’ update `@FindBy` with new `UNIQUE [x]` locator |
-| Element not found / timeout | Attribute present, **value changed** | Last logged action targeted this element | Update `@FindBy` value to match DOM â†’ confirm `UNIQUE [x]` |
-| Element not found / timeout | Attribute present, value unchanged | Retry-exhaustion warning logged | Check for overlay/modal in screenshot â†’ add dismissal step |
+| Element not found / timeout | Attribute **missing** from DOM | Last logged action targeted this element | Run crawler → update `@FindBy` with new `UNIQUE [x]` locator |
+| Element not found / timeout | Attribute present, **value changed** | Last logged action targeted this element | Update `@FindBy` value to match DOM → confirm `UNIQUE [x]` |
+| Element not found / timeout | Attribute present, value unchanged | Retry-exhaustion warning logged | Check for overlay/modal in screenshot → add dismissal step |
 | Validation error / toast visible | N/A | Action logged as completed before validation appeared | Fix test data in Excel or fix pre-condition setup |
-| Wrong field value / assertion mismatch | N/A | Action logged as completed successfully | Compare screenshot actual vs assertion expected â†’ update assertion or Excel |
+| Wrong field value / assertion mismatch | N/A | Action logged as completed successfully | Compare screenshot actual vs assertion expected → update assertion or Excel |
 | Login / session expired page | N/A | Unexpected redirect/URL change logged | Verify environment is up; check login step |
 | Blank / partially loaded page | N/A | No follow-up action logged after page load | Add `waitUntillPageLoad()` after the navigation click preceding failure |
 | Unexpected modal or overlay | Element behind overlay | Click logged but element remained | Add modal dismissal step in page object before the failing interaction |
@@ -2510,13 +2549,209 @@ failure -- fall back to the manual 13.2 workflow. This is intentionally the same
 
 ---
 
+## 13.4 Extended Failure Evidence (v1.5.1) -- Console Log, Network Trace, Report Attachments
+
+SDK v1.5.1 extends the existing screenshot/DOM/log evidence set with two
+additional, **optional** diagnostic artifacts, and makes the screenshot/DOM
+already captured by 13.2/13.3 directly viewable inside Allure and Extent
+instead of only referenced by filesystem path.
+
+### 13.4.1 Reports now show evidence directly
+
+Screenshot and DOM evidence were already captured before v1.5.1; this release
+routes the same already-saved files through the existing generic evidence
+pipeline (`ExecutionEvidence` -> `ExecutionReporting.publishEvidence()`) so:
+
+- The failure screenshot is attached and rendered inline in the **Allure**
+  report, and attached/referenced in the corresponding **Extent** step/test.
+- The exact same file used for RCA is reused -- no duplicate screenshot is
+  captured.
+- Attachment is fail-safe: if Allure/Extent attachment fails for any reason,
+  the original test result and existing filesystem artifact are unaffected;
+  only the report attachment is skipped (logged, not thrown).
+
+**Allure attachment reliability (fixed in v1.5.1).** Earlier v1.5.1 builds
+attached failure evidence from `Listener.onTestFailure()`
+(`ITestListener`). In real consumer environments this could run *after*
+`AllureTestNg`'s own `onTestFailure()` callback had already closed the Allure
+test case (TestNG does not guarantee ordering between multiple
+`ITestListener` implementations), causing `Allure.addAttachment(...)` to
+silently drop the evidence (Allure result showing `attachments: 0`). This is
+now fixed: failure-evidence capture/reporting runs from
+`Listener.afterInvocation()` (`IInvokedMethodListener`), which TestNG's
+`TestInvoker` guarantees runs -- for every registered listener -- before any
+`onTestFailure`/`onTestSuccess` callback fires, keeping the Allure test case
+open long enough to attach evidence. `onTestFailure()` still runs the same
+capture path as an idempotent fallback. `AllureExecutionReporter` also uses
+explicit `stopStep(uuid)` calls (not the ambiguous no-arg `stopStep()`) and
+guards attachment/exception reporting with `getCurrentTestCase().isPresent()`.
+Verified end-to-end against a real consumer project and a real failing
+browser test: a failed test's Allure result now includes the Exception,
+Failure Screenshot, Failure DOM, and Browser Console Log attachments.
+Regression coverage: `ListenerEvidenceCaptureOrderingTest`.
+
+> **Known cosmetic limitation (pre-existing, not fixed in v1.5.1):** Allure's
+> own `AllureLifecycle` may still log benign `"Could not update test case...
+> not found"` ERROR-level messages during `@BeforeMethod` setup/navigation,
+> before the actual `@Test` method runs. This is log noise only -- it does
+> not prevent the failure-evidence attachments described above, does not
+> change the test's pass/fail outcome, and does not corrupt the final
+> failed-test's own Allure result. It predates v1.5.1 and is tracked for a
+> future maintenance release rather than addressed here.
+
+### 13.4.2 Browser console log capture
+
+`com.test.automation.sdk.evidence.BrowserConsoleCapture` captures
+`driver.manage().logs().get(LogType.BROWSER)` on Web test failure into a
+`*_console.log` artifact, attached to Allure/Extent and referenced from the
+RCA bundle (`browserConsoleLog` field, see 13.4.4).
+
+| Browser | Support | Mechanism |
+|---|---|---|
+| Chrome | Supported | `goog:loggingPrefs` capability (pre-existing) |
+| Edge | Supported | `ms:loggingPrefs` capability (added in v1.5.1) |
+| Firefox | Not reliably supported | geckodriver does not implement legacy `LogType.BROWSER`; capture returns empty/no artifact, never fails the test |
+
+Configuration (`evidence.browserConsole.*`, see 13.4.5) defaults to **enabled**
+for failure capture -- retrieval overhead is negligible and the artifact is
+only ever written on failure.
+
+### 13.4.3 Browser network trace capture (opt-in, disabled by default)
+
+`com.test.automation.sdk.evidence.NetworkTraceRecorder` captures request/
+response evidence via Chrome DevTools Protocol (`HasDevTools`), for Chrome and
+Edge only. Firefox is not supported (no CDP).
+
+> **Terminology:** the produced artifact is a **browser network trace**, not
+> a HAR (HTTP Archive) file. It is a simplified, best-effort JSON record --
+> it is not validated against, and does not claim conformance to, the HAR 1.2
+> specification. This SDK never labels the artifact "HAR" in its API,
+> filenames, or documentation.
+
+**CDP version isolation.** All CDP-version-specific code is isolated behind a
+small internal adapter seam in `com.test.automation.sdk.evidence.network`
+(`CdpNetworkAdapter` / `CdpNetworkSession`, resolved via `CdpNetworkAdapters`).
+`NetworkTraceRecorder` itself has no dependency on any specific CDP version --
+it only detects the runtime browser (name/version, via the driver's
+`Capabilities`) and asks each registered adapter whether it supports that
+browser. Today exactly one adapter is registered
+(`CdpV146NetworkAdapter`, pinned to the bundled `selenium-devtools-v146`
+bindings). This isolation is what makes swapping in a newer-CDP-version
+adapter in a future release a self-contained change, not a rewrite of the
+evidence pipeline.
+
+Important limitations -- read before enabling:
+
+- The only currently registered adapter is pinned to the bundled
+  `selenium-devtools-v146` CDP bindings. This is a pragmatic compromise
+  (Selenium does not provide a fully version-agnostic Network domain facade);
+  the Network domain wire schema is stable across nearby CDP versions in
+  practice, but this is **not** dynamic version negotiation. If a browser/CDP
+  combination is incompatible, the adapter's `supports(...)`/`attach(...)`
+  calls fail safely -- capture is skipped with a WARN/DEBUG log message
+  explaining why, and the test is never affected.
+- The generated artifact (`*_network-trace.json`) is a **simplified,
+  non-canonical network trace** -- it captures method/URL/headers/status/
+  statusText/mimeType, but does **not** capture request/response bodies and
+  does **not** populate full HAR-style timing or body-size fields.
+- Because useful network evidence must include traffic from *before* the
+  failure, collection is a lightweight in-memory buffer (bounded by
+  `evidence.network.maxEntries`, oldest entries dropped) that begins at
+  driver creation, not at failure time. The trace file itself is only
+  written on failure; passing tests discard the buffer without producing a
+  file, so disabled/inactive tracing adds no meaningful overhead.
+- Sensitive header/parameter values (`Authorization`, `Cookie`, `Set-Cookie`,
+  API keys, tokens, session identifiers, etc.) are redacted via
+  `SecretRedactor.redactFieldValue()` **before an entry is ever buffered in
+  memory** -- not only when the artifact is written or attached to reports --
+  when `evidence.network.redactSensitiveData` is `true` (default). Since
+  request/response bodies are not captured at all in this release, there is
+  currently no body content to redact; this is a scope limitation of the
+  simplified artifact, not an unaddressed redaction gap.
+- Network tracing is **disabled by default** (`evidence.network.enabled=false`)
+  due to potential performance overhead, artifact size, and sensitive data
+  exposure. Enable it only where useful and reviewed by your team.
+
+| Browser | Support |
+|---|---|
+| Chrome | Supported (CDP, `cdp-v146` adapter) |
+| Edge | Supported (CDP, `cdp-v146` adapter) |
+| Firefox | Not supported |
+
+The JSON artifact's `format` field is set to `sdk-network-trace-v1` -- an
+internal SDK schema identifier, not a HAR version string -- so downstream
+tooling can detect the schema version if the artifact shape changes in a
+future release.
+
+> **v1.5.1 validation status (read before relying on this feature):**
+> consumer-level validation of this release was performed against real
+> Chrome/Edge **153.x**, which is far ahead of the pinned
+> `selenium-devtools-v146` bindings. In that environment, the adapter
+> correctly detected the incompatibility and failed safely (clear WARN log,
+> capture skipped, test/other evidence unaffected) -- exactly the fail-safe
+> behavior this feature is designed to provide. **End-to-end generation of a
+> real `*_network-trace.json` artifact was not validated in that
+> environment** because no compatible Chrome/Edge version was available on
+> the validation machine. Confidence in the capture logic itself (event
+> parsing, redaction, buffering) comes from the SDK's own unit test suite
+> (`NetworkTraceRecorderTest`, `SecretRedactorTest`), not from a live capture
+> against a CDP-v146-compatible browser. Teams enabling this feature should
+> validate it against their own Chrome/Edge version before relying on it.
+
+### 13.4.4 RCA bundle additions
+
+`RcaBundleWriter.toJson()` adds two new **optional** fields, populated only
+when the corresponding evidence exists:
+
+| Field | Contents |
+|---|---|
+| `browserConsoleLog` | Path to the captured `*_console.log` artifact, when present |
+| `networkTrace` | Path to the captured `*_network-trace.json` artifact, when present |
+
+All existing fields (`test.*`, `exception.*`, `evidence`, `recentLogLines`,
+`suggestedNextSteps`) are unchanged. The existing generic `evidence` array
+still lists every evidence type generically. Older RCA consumers that only
+read `screenshot`/`dom`/`executionLog` continue to work unmodified -- this is
+a purely additive change.
+
+### 13.4.5 Configuration
+
+```yaml
+evidence:
+  screenshot:
+    enabled: true
+    attachToReports: true
+
+  browserConsole:
+    enabled: true
+    captureOnFailure: true
+    attachToReports: true
+
+  network:
+    enabled: false
+    captureOnFailure: true
+    attachToReports: true
+    redactSensitiveData: true
+    maxEntries: 500
+```
+
+> Screenshot capture-on-failure itself is governed by `TestBase`'s existing,
+> unconditional-on-failure capture logic, not a separate `captureOnFailure` key --
+> only `enabled`/`attachToReports` are read for the screenshot block.
+
+Resolved through `ConfigurationManager.getEvidenceConfig()`, following the
+SDK's usual precedence: `-D` system property > environment variable >
+`sdk-config.yaml` > default.
+
+---
+
 ## 14. Accessibility Testing
 
 The SDK now includes a built-in accessibility framework with a full 5-layer WCAG
 engine. No extra Maven dependency or custom listener registration is required.
 The feature is **opt-in only** and has zero runtime overhead when disabled.
 
-### 14.0 Underlying engine â€” what jar powers Layer 1
+### 14.0 Underlying engine — what jar powers Layer 1
 
 Layer 1 (static WCAG analysis) is powered by [**axe-core**](https://github.com/dequelabs/axe-core),
 the industry-standard open-source accessibility rules engine from **Deque Systems**,
@@ -2528,21 +2763,21 @@ via its official Selenium Java binding:
 | Vendor | Deque Systems, Inc. |
 | License | MPL-2.0 (Mozilla Public License 2.0) |
 | Entry point used internally | `com.deque.html.axecore.selenium.AxeBuilder` |
-| Versioning scheme | The binding's major.minor tracks the axe-core rules version it embeds â€” `4.10.1` embeds axe-core `4.10.x` rules |
+| Versioning scheme | The binding's major.minor tracks the axe-core rules version it embeds — `4.10.1` embeds axe-core `4.10.x` rules |
 | Source / API docs | [axe-core-maven-html-selenium README](https://github.com/dequelabs/axe-core-maven-html/blob/develop/selenium/README.md) |
 | Deque API reference | [Selenium Java API reference](https://docs.deque.com/devtools-for-web/4/en/java-api-selenium/) |
-| Full rule catalogue | [List of axe 4.10 rules](https://dequeuniversity.com/rules/axe/4.10) â€” rule IDs shown here are what you pass to `accessibility.session.allowed.rules` |
+| Full rule catalogue | [List of axe 4.10 rules](https://dequeuniversity.com/rules/axe/4.10) — rule IDs shown here are what you pass to `accessibility.session.allowed.rules` |
 
-**You do not add this dependency yourself** â€” it ships transitively with the SDK jar
+**You do not add this dependency yourself** — it ships transitively with the SDK jar
 (see `pom.xml`'s `<!-- Accessibility (axe-core) -->` block), so a consumer project's
 `pom.xml` still only needs the single `cross-platform-functional-test-automation-sdk` dependency
-described in [Â§4](#4-maven-dependency).
+described in [§4](#4-maven-dependency).
 
 `AccessibilityChecker` wraps `AxeBuilder` internally and drives it with
-`.withTags(...)` using the tags from `accessibility.wcag.tags` (Â§14.1) â€” it does not
+`.withTags(...)` using the tags from `accessibility.wcag.tags` (§14.1) — it does not
 currently expose `AxeBuilder`'s `include()`/`exclude()`/`withRules()`/`disableRules()`
 chain directly. If you need to scope a scan to a CSS selector or limit it to specific
-rule IDs, use `accessibility.session.allowed.rules` (Â§14.5) to suppress noisy rule IDs
+rule IDs, use `accessibility.session.allowed.rules` (§14.5) to suppress noisy rule IDs
 project-wide, or open an SDK feature request if per-call scoping is needed.
 
 ### 14.1 Enable or disable accessibility scanning
@@ -2564,7 +2799,7 @@ accessibility:
 
 | Layer | Engine area | What it checks |
 |---|---|---|
-| 1 | axe-core | Static WCAG 2.x analysis using `axe-core:selenium` (see Â§14.0 for the exact jar/version). |
+| 1 | axe-core | Static WCAG 2.x analysis using `axe-core:selenium` (see §14.0 for the exact jar/version). |
 | 2 | Interaction | Keyboard navigation, focus handling, touch target size, text spacing, zoom reflow. |
 | 3 | WCAG 2.2 | Focus appearance, dragging movements, target size minimum. |
 | 4 | Structural | Headings, landmarks, page title, language, link text, duplicate IDs. |
@@ -2708,7 +2943,7 @@ Written by `runAccessibilityScan(pageName)` / `assertNoAccessibilityViolations(p
 
 #### Example: interaction-layer JSON (`<timestamp>_<pageName>_interaction_<checkId>.json`)
 
-Written by `WebEventListener`'s per-element scans (Â§14.4) and Layer 2 checks:
+Written by `WebEventListener`'s per-element scans (§14.4) and Layer 2 checks:
 
 ```json
 {
@@ -2792,7 +3027,58 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
 | `Listener` | Emits centralized lifecycle events, captures failure evidence once, publishes it to Allure/Extent/logs, and renames data-driven test entries |
 | `RetryListener` | Automatically retries a failed test once |
 | `WebEventListener` | Emits low-level WebDriver debug/a11y signals; it should not replace business steps in reports |
-| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see Â§15.1 below) |
+| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see �15.1 below) |
+
+### 15.0 `WebEventListener` non-terminal exception classification (v1.5.1)
+
+`WebEventListener.onError(...)` is invoked by Selenium's `EventFiringDecorator`
+for **every** WebDriver-level exception, including ones a consumer immediately
+catches to probe whether an optional element exists (e.g. wrapping
+`driver.findElement(...)` in a try/catch). Before v1.5.1, every such exception
+was logged at ERROR and reported through `ExecutionReporting.actionFailed(...)`,
+which meant legitimate optional-element probing produced false failure noise
+in logs and reports.
+
+As of v1.5.1, `onError(...)` classifies the exception first:
+
+- **Non-terminal** (default: `org.openqa.selenium.NoSuchElementException` only)
+  -> logged at DEBUG, `ExecutionReporting.actionFailed(...)` is **not** called.
+- **Everything else** (`TimeoutException`, `WebDriverException`,
+  `StaleElementReferenceException`, `ElementNotInteractableException`,
+  unexpected runtime exceptions, etc.) -> unchanged ERROR + `actionFailed(...)`
+  behavior.
+
+This is a **logging and action-level reporting change only. The listener
+does not alter exception propagation:**
+
+- `onError(...)` does not return a value, does not rethrow, and does not
+  otherwise intercept control flow. Selenium's `EventFiringDecorator`
+  determines exception propagation independently of this callback, exactly
+  as it did before this change.
+- The listener has no knowledge of whether consumer code will ultimately
+  catch the exception. "Non-terminal" only means *the listener itself won't
+  independently create a failure record for it* -- it does **not** mean the
+  exception can never fail a test.
+- If a `NoSuchElementException` escapes consumer code and ultimately fails
+  the TestNG test, normal test-level failure handling (via `Listener` /
+  `TestBase.captureFailureEvidence(...)`) is completely unaffected and still
+  captures screenshot, DOM, log, and RCA evidence as before.
+
+Extend the non-terminal list via configuration if your project has additional
+exception types that represent expected, non-defect WebDriver conditions:
+
+```yaml
+webdriver:
+  eventListener:
+    nonTerminalExceptions: "org.openqa.selenium.NoSuchElementException"
+```
+
+(comma-separated fully-qualified class names, resolved through
+`ConfigurationManager.getWebEventListenerConfig()` using the SDK's usual
+`-D` > env var > YAML > default precedence). Do not add exception types that
+can represent genuine automation defects (e.g. `StaleElementReferenceException`,
+`ElementNotInteractableException`) unless you have specifically reviewed and
+accepted that tradeoff for your project.
 
 ### 15.1 Flaky-test quarantine (`FlakyTestQuarantineListener`)
 
@@ -2878,6 +3164,132 @@ impact:
 > both count as "referenced") rather than under-approximating -- running a
 > few extra tests is the safe failure mode; silently skipping an affected
 > test is not.
+
+### 15.3 Runtime self-healing locators (`HealingElementLocator`)
+
+**Purpose.** Recovers from a single stale `@FindBy` XPath locator at test
+runtime (e.g. an attribute value changed) without editing the page object,
+by trying a small set of progressively relaxed candidates derived purely
+from that same XPath -- no pre-crawled fingerprint data or external service
+is used. A relaxed candidate is only trusted if it resolves to **exactly
+one** element in the live DOM; matching more than one is treated as "still
+broken" and never silently guessed. This is distinct from the crawler-time
+self-healing described in
+[7.3 Crawler Reliability & Self-Healing Features](#73-crawler-reliability--self-healing-features),
+which stabilizes the page scan during design-time crawling rather than
+during an actual test run.
+
+**When to use it.** Opt in per page object when a screen is known to have
+occasionally-shifting attribute values (e.g. a build-generated suffix) and
+you want a single test run to survive that instead of failing outright. Do
+not use it as a substitute for fixing a genuinely broken/renamed locator --
+every heal is logged as a warning precisely so it gets noticed and cleaned
+up.
+
+**Configuration / required parameters.** No `sdk-config.yaml` toggle exists;
+it is opt-in per page object at the code level -- there is nothing to enable
+globally.
+
+**Dependencies.** None beyond the SDK itself; it only operates on XPath
+`@FindBy` locators (the SDK's mandated locator strategy).
+
+**Enabling it (code example).** Call `TestBase.initElements(driver, this)`
+in the page object constructor instead of `PageFactory.initElements(driver, this)`:
+
+```java
+public class MyPage extends TestBase {
+    @FindBy(xpath = "//input[@id='email']")
+    public WebElement emailField;
+
+    public MyPage(WebDriver driver) {
+        this.driver = driver;
+        TestBase.initElements(driver, this); // instead of PageFactory.initElements(driver, this)
+    }
+}
+```
+
+**Expected behavior/output.** On a primary-locator failure, a successful heal
+logs `[SELF-HEAL] ... healed via relaxed xpath: ...` and publishes a
+`LOCATOR_HEALED` event through `ExecutionReporting` (visible in the
+log/Allure/Extent trail and in analytics via
+`AnalyticsTrendReport.summarizeHealing(...)`, see �13.3). An exhausted heal
+(no unique relaxed candidate found) logs a warning and the original
+`NoSuchElementException` still propagates -- healing never masks a real
+failure.
+
+**Limitations.** Only applies to XPath locators; never caches a healed
+element between lookups (a page that needed healing once is not trusted as
+stable); cannot repair a field whose element was removed from the page
+entirely, only one whose locator became too strict/stale.
+
+**Troubleshooting / validation.** If a test unexpectedly passes despite a UI
+change, check the log for `[SELF-HEAL]` lines -- these indicate the original
+locator should be updated even though the test did not fail. If healing is
+not engaging at all, confirm the page object calls `TestBase.initElements(...)`
+rather than `PageFactory.initElements(...)`.
+
+### 15.4 Visual regression testing (`VisualRegressionChecker`)
+
+**Purpose.** Screenshot-baseline visual regression comparison with no
+external visual-testing service required. The first time a given
+`checkpointName` is checked, the current screenshot is saved as the accepted
+baseline; every subsequent check compares the new screenshot against that
+baseline using `ImageDiffEngine` and reports whether the mismatch stayed
+within tolerance.
+
+**When to use it.** For screens where pixel-level layout/appearance
+regressions matter (e.g. a marketing page, a themed component) and a
+functional assertion alone would not catch a visual regression.
+
+**Configuration.** See the `visual.*` keys documented in
+[�6 Configuration Reference](#6-configuration-reference):
+`visual.enabled`, `visual.baselineDirectory`
+(default `src/test/resources/visual-baselines`, committed to version
+control), `visual.outputDirectory` (default `test-output/visual`),
+`visual.mismatchThresholdPercent`, `visual.pixelColorTolerance`,
+`visual.updateBaselines`, and `visual.failOnMismatch`.
+
+**Required parameters.** A stable `checkpointName` string per call site --
+reusing the same name across runs is what ties a screenshot back to its
+baseline.
+
+**Dependencies.** None beyond the SDK's bundled image I/O (`ImageDiffEngine`);
+no third-party visual-testing subscription is required.
+
+**Code example.**
+
+```java
+public class Test_HomePage extends TestBase {
+    @Test
+    public void homePageLooksCorrect() throws Exception {
+        step("Open the home page", () -> initialization("chrome", "https://example.com"));
+        step("Verify no unexpected visual regression", () -> assertVisualMatch("home-page-hero"));
+    }
+}
+```
+
+**Expected behavior/output.** First run: baseline PNG written under
+`visual.baselineDirectory` and the check passes (nothing to compare yet).
+Subsequent runs: an `actual.png` is written under
+`visual.outputDirectory/<checkpointName>/`; on mismatch beyond
+`visual.mismatchThresholdPercent`, a red-highlighted `diff.png` is written
+alongside it and published as report evidence. When
+`visual.failOnMismatch=true` (default), a mismatch throws an
+`AssertionError`; when `false`, it is logged/reported only.
+
+**Limitations.** Sensitive to legitimate UI changes -- an intentional
+redesign requires a deliberate re-baselining run
+(`visual.updateBaselines=true`) rather than being auto-approved. Comparison
+is pixel-based (via `pixelColorTolerance`), not semantic/DOM-based, so
+anti-aliasing or minor rendering differences across environments can affect
+results.
+
+**Troubleshooting / validation.** If every run reports a mismatch even
+without a real UI change, check `visual.pixelColorTolerance` and confirm the
+screenshot is captured under consistent window size/zoom/OS rendering
+conditions. To accept an intentional UI change, re-run once with
+`visual.updateBaselines=true`, review the new baseline PNG like any other
+committed file, then set it back to `false`.
 
 ---
 
@@ -3154,6 +3566,6 @@ means:
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`*  
 *Maintained by OTI QA Automation Team*
 

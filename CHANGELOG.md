@@ -19,6 +19,203 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **Mobile: configurable UiAutomator2 server launch timeout.** Live emulator
+  validation of the Mobile consumer template surfaced a real
+  `SessionNotCreatedException` ("The instrumentation process cannot be
+  initialized within 30000ms timeout") on cold-started/software-rendered
+  Android emulators, where ART bytecode verification of the UiAutomator2
+  instrumentation APK can exceed Appium's hardcoded 30s default before the
+  server reports ready. `MobileDriverFactory.createLocalAndroidDriver()` now
+  reads a new `android.uiautomator2ServerLaunchTimeoutMs` config key (via a
+  new `MobileConfigReader.getLong(String, long)` helper) and applies it through
+  `UiAutomator2Options.setUiautomator2ServerLaunchTimeout(Duration)`, defaulting
+  to `90000` (90s) instead of Appium's 30s. Documented in
+  `configuration/mobile-config.yaml.example` and mirrored into the Mobile
+  consumer template's `mobile-config.yaml`/`mobile-config.yaml.template`.
+- **Mobile template: invalid XML in `regression_suite.xml`.** The scaffolded
+  suite file contained TestNG-suite XML comments using a literal `--` sequence
+  (`<!-- -- Add test classes below -- -->`), which is invalid anywhere inside
+  an XML comment body per the XML spec and silently failed suite parsing
+  (`SAXParseException`) before any test could run. This had gone undetected
+  because the Mobile template had not previously been executed end-to-end
+  against a real device/emulator. Both invalid comments were corrected.
+
+---
+
+## [1.5.1] — 2026-09-19
+
+### Fixed
+- **Allure attachments silently dropped for failed Web tests.** Real
+  consumer-level validation of v1.5.1 found that `attachments count: 0` was
+  showing up in generated Allure result JSON for failing tests, even though
+  the screenshot/DOM/console-log evidence itself was captured correctly
+  (visible in the RCA bundle and in Extent). Root cause: `Listener`
+  (`ITestListener`) previously dispatched failure evidence capture and
+  `ExecutionReporting.onTestFailed(...)` entirely from `onTestFailure()`. In
+  this SDK's execution model, `AllureTestNg` (auto-registered via
+  `META-INF/services/org.testng.ITestNGListener`, not this SDK's own suite
+  XML) closes/writes its current Allure test case from its own
+  `onTestFailure()` callback — and TestNG does not guarantee which
+  `ITestListener` implementation's `onTestFailure()` runs first. When
+  `AllureTestNg`'s ran first, `Allure.addAttachment(...)` silently failed
+  ("no test is running") because `Allure.getLifecycle().getCurrentTestCase()`
+  was already empty by the time this SDK's `Listener` tried to attach
+  evidence. Fixed by moving the actual capture/report dispatch into
+  `Listener.afterInvocation()` (`IInvokedMethodListener`), which TestNG's
+  `TestInvoker` guarantees runs -- for every registered listener -- immediately
+  after the test method returns/throws and **before** any
+  `ITestListener#onTestFailure`/`onTestSuccess` callback fires for any
+  listener. This ordering guarantee is intrinsic to the TestNG lifecycle, not
+  dependent on listener registration order, so it reliably keeps the Allure
+  test case open long enough to attach evidence. `onTestFailure()` still
+  calls the same capture path as a defensive fallback (guarded by a
+  `sdk.failureEvidenceCaptured` result attribute to avoid double-reporting)
+  in case `afterInvocation()` is ever skipped for a given result.
+  `AllureExecutionReporter.attachEvidence()`/`attachException()` also gained
+  an explicit `getCurrentTestCase().isPresent()` guard (matching the existing
+  guard already used by `applyTestMetadata()`) as defense in depth.
+  Verified end-to-end against a real consumer project and a real failing
+  browser test: the failed test's Allure result now shows 4 real attachments
+  (Exception, Failure Screenshot, Failure DOM, Browser Console Log) instead
+  of 0.
+- **`AllureA11yReporter` used the ambiguous no-arg `Allure.getLifecycle().stopStep()`**
+  instead of `stopStep(uuid)` for all three severity levels (`info`/`warn`/`fail`).
+  The no-arg overload pops whatever is currently on top of Allure's internal
+  step/test-case stack, which is only safe if nothing else could have been
+  pushed after the matching `startStep(uuid, ...)` call — not a reliable
+  assumption once accessibility reporting is interleaved with other Allure
+  step activity. Changed all three methods to call `stopStep(uuid)` with the
+  same UUID used to start the step, matching the pattern already used
+  correctly in `AllureExecutionReporter.finishStep()`.
+- **`WebEventListener.onError()` false-failure reporting.** Every decorated
+  WebDriver exception — including expected, consumer-caught probes such as
+  `NoSuchElementException` used to check whether an optional element exists —
+  was previously logged at ERROR and reported through
+  `ExecutionReporting.actionFailed(...)`, producing large volumes of false
+  failure noise in reports and logs and making genuine errors harder to spot.
+  `onError()` now classifies the decorated exception before deciding how to
+  report it:
+  - **This affects logging and action-level reporting only. The listener
+    does not alter exception propagation** — `onError()` does not return a
+    value, does not rethrow, and does not otherwise intercept control flow;
+    Selenium's `EventFiringDecorator` determines exception propagation
+    independently of this callback, exactly as before this change.
+  - **Non-terminal** exceptions (default: `org.openqa.selenium.NoSuchElementException`
+    only) are logged at DEBUG and do **not** call `ExecutionReporting.actionFailed(...)`.
+    Only the listener-level logging/reporting decision changed. If the exception
+    ultimately escapes consumer code and fails the TestNG test, normal
+    test-level failure handling (screenshot/DOM/log/RCA capture) is unaffected
+    and still runs.
+  - All other exceptions (`TimeoutException`, `WebDriverException`,
+    `StaleElementReferenceException`, `ElementNotInteractableException`,
+    unexpected runtime exceptions, etc.) keep the existing ERROR +
+    `actionFailed(...)` behavior unchanged.
+  - The non-terminal list is extensible via the new
+    `webdriver.eventListener.nonTerminalExceptions` configuration key (comma-
+    separated fully-qualified class names, resolved through
+    `ConfigurationManager`'s existing system-property > env var > YAML >
+    default precedence). `WebEventListener.isNonTerminal(Throwable)` is
+    package-visible for testing.
+
+### Added
+- **Failure screenshots now attach directly to Allure and Extent.** Screenshot
+  capture itself was already implemented pre-1.5.1; this release routes the
+  already-saved artifact through the existing generic evidence pipeline
+  (`ExecutionEvidence` → `ExecutionReporting.publishEvidence()` →
+  `AllureExecutionReporter`/`ExtentExecutionReporter`) so the same file is both
+  preserved on disk for RCA and visible directly inside the Allure/Extent
+  reports, with no duplicate capture.
+- **Browser console log capture (`com.test.automation.sdk.evidence.BrowserConsoleCapture`).**
+  For failed Web tests, captures `driver.manage().logs().get(LogType.BROWSER)`
+  into a readable `*_console.log` artifact, attached to Allure/Extent and
+  referenced from the RCA bundle. Supported on Chrome (existing
+  `goog:loggingPrefs` capability) and Edge (new `ms:loggingPrefs` capability
+  added to `WebDriverFactory.getEdgeDriver()`); not reliably supported on
+  Firefox (geckodriver does not implement legacy `LogType.BROWSER`). The
+  capture is fully fail-safe: unsupported browsers, retrieval errors, and
+  empty logs never affect the test result. Controlled by
+  `evidence.browserConsole.enabled` / `.captureOnFailure` / `.attachToReports`
+  (enabled by default).
+- **Browser network trace capture (`com.test.automation.sdk.evidence.NetworkTraceRecorder`).**
+  Optional, **disabled by default** (`evidence.network.enabled=false`) network
+  evidence for Chrome/Edge via Chrome DevTools Protocol. All CDP-version-specific
+  code is isolated behind a small internal adapter seam
+  (`com.test.automation.sdk.evidence.network.CdpNetworkAdapter`/`CdpNetworkSession`,
+  resolved via `CdpNetworkAdapters`) — `NetworkTraceRecorder` itself has no
+  dependency on any specific CDP version. Today exactly one adapter is
+  registered (`CdpV146NetworkAdapter`, pinned to the bundled
+  `selenium-devtools-v146` Java bindings — CDP's Network domain wire schema is
+  stable enough in practice across nearby versions, but this is a pragmatic
+  compromise, not true version-negotiated support), and it detects the
+  runtime browser name/version to decline unsupported/incompatible
+  browsers safely rather than attempting and failing. Not supported on
+  Firefox. When enabled, buffers request/response events in memory (bounded
+  by `evidence.network.maxEntries`, oldest entries dropped) from driver
+  creation, and on failure writes a simplified **browser network trace**
+  JSON artifact (`*_network-trace.json`, not a HAR/HAR-shaped file — this SDK
+  does not claim HAR compliance) containing method/URL/headers/status/
+  mimeType. On passing tests, the buffer is discarded without ever
+  generating a file (`WebEventListener.afterQuit()` calls
+  `NetworkTraceRecorder.detachQuietly()`), so disabled/inactive tracing adds
+  no meaningful overhead. Sensitive headers/params (`Authorization`,
+  `Cookie`, `Set-Cookie`, API keys, tokens, session identifiers, etc.) are
+  redacted via `SecretRedactor.redactFieldValue()` **before an entry is ever
+  buffered in memory** — not only when the artifact is written — controlled
+  by `evidence.network.redactSensitiveData` (default `true`). Request/response
+  bodies are not captured in this release, so there is no body content to
+  redact yet; this is a documented scope limitation, not an unaddressed gap.
+- **RCA bundle: optional `browserConsoleLog`/`networkTrace` fields.**
+  `RcaBundleWriter.toJson()` adds these two fields only when the corresponding
+  evidence is present; all existing fields are unchanged and the existing
+  generic `evidence` array still includes every evidence type. Older RCA
+  consumers that only read `screenshot`/`dom`/`executionLog` continue to work
+  unmodified.
+- **`SecretRedactor`: field-name-based redaction for network evidence.** New
+  `isSensitiveFieldName(String)` / `redactFieldValue(String, String)` helpers
+  redact HTTP header/query-parameter values by name (denylist), independent of
+  the existing free-text `redactMessage(String)` regex-based redaction used
+  for log messages.
+
+### Configuration
+- New `evidence.screenshot.*`, `evidence.browserConsole.*`, `evidence.network.*`
+  keys (`enabled`, `captureOnFailure`, `attachToReports`, plus
+  `redactSensitiveData` and `maxEntries` for network) exposed via
+  `ConfigurationManager.getEvidenceConfig()`.
+- New `webdriver.eventListener.nonTerminalExceptions` key exposed via
+  `ConfigurationManager.getWebEventListenerConfig()`.
+
+### Known limitations
+- Network trace capture is Chrome/Edge only (CDP-based, via the `cdp-v146`
+  adapter); Firefox has no network evidence support in this release.
+- The generated network trace artifact is a simplified, non-canonical JSON
+  document — explicitly not a HAR file, not validated against the HAR 1.2
+  schema, and missing timing/body-size fields. Its `format` field is
+  `sdk-network-trace-v1`, an internal SDK schema identifier.
+- The only registered CDP adapter is pinned to `v146` bindings; a future
+  Selenium/Chrome upgrade that breaks wire-format compatibility would
+  require adding a new adapter (isolated to the `evidence.network` package)
+  rather than changing `NetworkTraceRecorder` itself.
+- Request/response bodies are not captured, so body-content redaction is not
+  applicable yet.
+- **End-to-end network trace generation was not validated in this release's
+  consumer-level testing.** The validation environment ran real Chrome/Edge
+  153.x, far ahead of the pinned `selenium-devtools-v146` bindings. The
+  adapter correctly detected the incompatibility and failed safely (WARN
+  logged, capture skipped, test/other evidence unaffected) — this is the
+  intended fail-safe behavior — but a real `*_network-trace.json` artifact
+  was never produced during that validation. Confidence in the capture logic
+  itself is based on the SDK's own unit tests (`NetworkTraceRecorderTest`,
+  `SecretRedactorTest`), not a live capture. Teams enabling this feature
+  should validate it against their own Chrome/Edge version.
+- `AllureLifecycle` may emit benign `"Could not update test case... not
+  found"` ERROR-level log messages during `@BeforeMethod` setup/navigation,
+  before the actual `@Test` method starts. This is cosmetic log noise only:
+  it does not prevent failure-evidence attachment (see the Allure fix above),
+  does not change test outcome, and does not corrupt the final failed test's
+  own Allure result. It is pre-existing (predates v1.5.1) and is tracked for
+  a future maintenance release rather than fixed here.
+
 ---
 
 ## [1.5.0] — 2026-09-18

@@ -1,9 +1,9 @@
 # Framework Automation SDK
 
-![SDK](https://img.shields.io/badge/SDK-cross--platform--functional--test--automation--sdk:1.5.0-blue)
+![SDK](https://img.shields.io/badge/SDK-cross--platform--functional--test--automation--sdk:1.5.1-blue)
 
 > **Reusable Selenium + Appium + RestAssured framework layer for OTI QA Automation**  
-> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`
+> Java 20+ * Maven * `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`
 
 This SDK is a single JAR that consumer automation projects depend on.
 It provides one shared framework layer for:
@@ -61,7 +61,9 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 | **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade: one execution event stream fans out to logs, Allure, Extent, reusable evidence references, and authoritative TestNG suite/test/class/method metadata |
 | **AllureReportGenerator** | `sdk.reporting.AllureReportGenerator` | Optional post-run `allure generate` / `allure open` automation that never changes test pass/fail outcomes |
 | **AnalyticsExecutionReporter / AnalyticsTrendReport** | `sdk.reporting.*` | Cross-run JSONL event store plus aggregators for pass/fail trends, flaky-test detection, and healed-locator frequency |
-| **RcaBundleWriter** | `sdk.reporting.RcaBundleWriter` | Writes one JSON RCA bundle per failure, pre-linking screenshot, DOM dump, log tail, and exception chain |
+| **RcaBundleWriter** | `sdk.reporting.RcaBundleWriter` | Writes one JSON RCA bundle per failure, pre-linking screenshot, DOM dump, log tail, exception chain, and (v1.5.1+) optional browser console log / network trace references |
+| **BrowserConsoleCapture** *(v1.5.1)* | `sdk.evidence.BrowserConsoleCapture` | Fail-safe capture of browser console/JS errors on Web failure (Chrome/Edge; Firefox unsupported), attached to Allure/Extent/RCA |
+| **NetworkTraceRecorder** *(v1.5.1)* | `sdk.evidence.NetworkTraceRecorder` | Opt-in CDP-based browser network trace evidence for Chrome/Edge failures (not a canonical HAR document), disabled by default, with header/param redaction |
 | **HealingElementLocator** | `sdk.healing.HealingElementLocator` | Opt-in runtime self-healing wrapper for XPath `@FindBy` locators; only accepts uniquely resolved relaxed candidates |
 | **VisualRegressionChecker** | `sdk.visual.VisualRegressionChecker` | Baseline-vs-actual screenshot comparison powered by `ImageDiffEngine`, with no external visual-testing service |
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
@@ -79,19 +81,48 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 | **MobilePageObjectGenerator** | `sdk.mobile.crawler.MobilePageObjectGenerator` | Standalone runner for `MobileElementCrawler` |
 | **AbstractMobileLocatorInvestigator** | `sdk.tools.locator.AbstractMobileLocatorInvestigator` | Mobile analogue of `AbstractLocatorInvestigator` -- declarative role/login/crawl-step shape for Appium crawl scripts -- see [SDK-USER-GUIDE.md §7.4](SDK-USER-GUIDE.md#74-mobile-appium-crawler--abstractmobilelocatorinvestigator) |
 
+### v1.5.1 Web failure-evidence support matrix
+
+| Evidence | Status |
+|---|---|
+| Screenshot / DOM / execution log / RCA bundle | **Supported** |
+| Non-terminal `WebEventListener` handling (`NoSuchElementException`) | **Supported** |
+| Allure attachment of failure evidence | **Supported** (fixed in v1.5.1 -- see CHANGELOG) |
+| Extent attachment of failure evidence | **Supported** |
+| Browser console log -- Chrome/Edge | **Supported** |
+| Browser console log -- Firefox | **Unsupported** (geckodriver has no `LogType.BROWSER`) |
+| Network trace -- Chrome/Edge, compatible CDP version | **Supported with limitation** (opt-in, disabled by default, pinned `cdp-v146` adapter) |
+| Network trace -- Firefox | **Unsupported** (no CDP) |
+| Network trace end-to-end generation on Chrome/Edge 153 | **Not fully validated** in this release's consumer-level testing -- CDP v146 vs. 153 mismatch was detected and failed safely, but no real `*_network-trace.json` was produced; see SDK-USER-GUIDE.md §13.4.3 |
+
 ---
 
 ## Quick Start -- Using the SDK in a Consumer Project
 
 ### Option A -- Start from the consumer template for your track (recommended)
 
+Each track has its own canonical consumer template repository:
+
+| Track | Canonical repository |
+|---|---|
+| Web (Selenium) | `functional-automation-consumer-template` |
+| API (RestAssured) | `api-functional-automation-consumer-template` |
+| Mobile (Appium) | `mobile-functional-automation-consumer-template` |
+
 ```bash
-git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/framework_automation_consumer_template
+# Web
+git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/functional-automation-consumer-template
+
+# API
+git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/api-functional-automation-consumer-template
+
+# Mobile
+git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/mobile-functional-automation-consumer-template
 ```
 
-The template already has the SDK dependency, suite XMLs, config files, and folder
-structure. If you are starting an API-only or mobile project, use the matching
-consumer template for that track or follow Option B below.
+Each template already has the SDK dependency, suite XMLs, config files, and
+folder structure for its track. Use the matching template for the track you
+are starting, or follow Option B below to add the SDK to an existing project.
 
 ### Option B -- Add to an existing Maven project
 
@@ -110,7 +141,7 @@ consumer template for that track or follow Option B below.
 <dependency>
   <groupId>com.test.automation</groupId>
   <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-<version>1.5.0</version>
+<version>1.5.1</version>
 </dependency>
 ```
 
@@ -399,4 +430,4 @@ cross-platform-functional-test-automation-sdk/
 ---
 
 *Maintained by OTI QA Automation Team*  
-*SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`*
+*SDK: `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`*

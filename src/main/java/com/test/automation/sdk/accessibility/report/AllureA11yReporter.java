@@ -38,8 +38,9 @@ public class AllureA11yReporter implements A11yReporter {
         StepResult step = new StepResult();
         step.setName(truncate(title, 200));
         step.setStatus(Status.PASSED);
-        Allure.getLifecycle().startStep(UUID.randomUUID().toString(), step);
-        Allure.getLifecycle().stopStep();
+        String uuid = UUID.randomUUID().toString();
+        Allure.getLifecycle().startStep(uuid, step);
+        Allure.getLifecycle().stopStep(uuid);
     }
 
     @Override
@@ -52,7 +53,7 @@ public class AllureA11yReporter implements A11yReporter {
         Allure.getLifecycle().startStep(uuid, step);
         Allure.addAttachment("Accessibility Warning Detail", "text/html",
                 message != null ? message : "", ".html");
-        Allure.getLifecycle().stopStep();
+        Allure.getLifecycle().stopStep(uuid);
     }
 
     @Override
@@ -65,7 +66,7 @@ public class AllureA11yReporter implements A11yReporter {
         Allure.getLifecycle().startStep(uuid, step);
         Allure.addAttachment("Accessibility Violation Detail", "text/html",
                 message != null ? message : "", ".html");
-        Allure.getLifecycle().stopStep();
+        Allure.getLifecycle().stopStep(uuid);
     }
 
     /** Removes HTML tags so step names render cleanly in Allure. */

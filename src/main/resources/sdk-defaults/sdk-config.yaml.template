@@ -175,6 +175,60 @@ reporting:
     stackTraceFrames: 15                # leading stack frames per exception/cause (-Dreporting.rcaBundle.stackTraceFrames)
 
 # ------------------------------------------------------------
+# SDK v1.5.1: extended Web failure evidence -- screenshot, browser console log,
+# and (opt-in) browser network trace. See SDK-USER-GUIDE.md Section 13.4.
+# All evidence is attached to Allure/Extent and referenced from the RCA
+# bundle (rcaBundle above) when present. A capture/attachment failure never
+# fails the test; it only means that evidence entry is skipped.
+# ------------------------------------------------------------
+evidence:
+  screenshot:
+    enabled: true                       # (-Devidence.screenshot.enabled)
+    attachToReports: true               # attach to Allure/Extent            (-Devidence.screenshot.attachToReports)
+    # NOTE: screenshot capture-on-failure itself is governed by TestBase's existing
+    # capture logic (unconditional on failure), not a separate captureOnFailure key.
+
+  # Browser console log (JS errors/warnings). Supported on Chrome and Edge;
+  # not reliably supported on Firefox (geckodriver limitation) -- capture is
+  # fail-safe there and simply produces no artifact.
+  browserConsole:
+    enabled: true                       # (-Devidence.browserConsole.enabled)
+    captureOnFailure: true              # (-Devidence.browserConsole.captureOnFailure)
+    attachToReports: true               # (-Devidence.browserConsole.attachToReports)
+
+  # Browser network trace evidence via Chrome DevTools Protocol (NOT a HAR
+  # file -- this SDK does not claim HAR compliance; see SDK-USER-GUIDE.md
+  # Section 13.4.3). Chrome/Edge only (no Firefox support). Disabled by
+  # default -- can add overhead, produce large artifacts, and may capture
+  # sensitive request/response data. The generated artifact
+  # (`*_network-trace.json`) is a simplified, non-canonical network trace
+  # (method/URL/headers/status/mimeType only -- no bodies, timings, or body
+  # sizes). All CDP-version-specific code is isolated behind an internal
+  # adapter seam (com.test.automation.sdk.evidence.network) so the pinned
+  # CDP version can be replaced in a future release without touching the
+  # rest of the evidence pipeline.
+  network:
+    enabled: false                      # (-Devidence.network.enabled)
+    captureOnFailure: true              # (-Devidence.network.captureOnFailure)
+    attachToReports: true               # (-Devidence.network.attachToReports)
+    redactSensitiveData: true           # masks Authorization/Cookie/tokens/etc. (-Devidence.network.redactSensitiveData)
+    maxEntries: 500                     # bounded in-memory buffer, oldest dropped (-Devidence.network.maxEntries)
+
+# ------------------------------------------------------------
+# SDK v1.5.1: WebEventListener.onError() reporting classification.
+# NoSuchElementException is treated as a "non-terminal" listener event by
+# default -- logged at DEBUG and NOT reported via ExecutionReporting.actionFailed(...),
+# since it is routinely used by consumer code to probe for optional elements.
+# This affects listener-level logging/reporting ONLY -- the listener does not
+# alter exception propagation -- and a final TestNG test failure is still
+# fully captured (screenshot/
+# DOM/log/RCA) as usual. See SDK-USER-GUIDE.md Section 15.0 for details.
+# ------------------------------------------------------------
+webdriver:
+  eventListener:
+    nonTerminalExceptions: "org.openqa.selenium.NoSuchElementException"  # comma-separated FQCNs (-Dwebdriver.eventListener.nonTerminalExceptions)
+
+# ------------------------------------------------------------
 # Zero-config visual regression testing: TestBase.assertVisualMatch(checkpointName)
 # captures a screenshot and compares it against a stored baseline using a
 # tolerant pixel diff (com.test.automation.sdk.visual.ImageDiffEngine) -- no

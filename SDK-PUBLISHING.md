@@ -113,6 +113,31 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
 mvn clean deploy -DskipTests
 ```
 
+`mvn deploy` uploads only the packaged jar and pom -- `mvn package`/`install`
+never includes `.git`, `.idea`, `target` (other than the final jar itself),
+`allure-results`, `test-output`, or runtime logs, since those are not part of
+the Maven build inputs. No extra cleanup step is required for the published
+Maven artifact.
+
+### Clean source export (if a full source snapshot is ever needed)
+
+If a full clean source snapshot of a release is needed for archival, offline
+handoff, or review (as opposed to the published Maven artifact), export it
+with `git archive` against the release tag rather than copying or zipping the
+working directory directly:
+
+```bash
+git archive --format=zip -o cross-platform-functional-test-automation-sdk-v1.5.0.zip v1.5.0
+```
+
+`git archive` only includes files tracked in the git tree at that tag/commit,
+so `.git`, `.idea`, `target`, `allure-results`, `test-output`, and runtime
+logs are excluded automatically -- they are untracked/gitignored working
+files, never committed. Do not create a release archive by copying the
+working directory (e.g. `Copy-Item -Recurse` or a plain `zip` of the folder),
+since that would pick up local build/IDE/test-output artifacts that were
+never meant to ship.
+
 ---
 
 ## 5. Version Bump Process

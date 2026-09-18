@@ -184,6 +184,29 @@ public final class ConfigurationManager {
         return new RcaBundleConfig();
     }
 
+    /**
+     * Typed, read-only view over the SDK v1.5.1 failure-evidence pipeline
+     * ({@code evidence.*}): screenshot/browser-console/network capture and
+     * report-attachment toggles. Screenshot and DOM capture remain the
+     * pre-v1.5.1 mandatory RCA evidence and are always attempted on failure
+     * regardless of these flags; these settings additionally control whether
+     * they (and the new console/network evidence) are attached to Allure/Extent.
+     */
+    public static EvidenceConfig getEvidenceConfig() {
+        return new EvidenceConfig();
+    }
+
+    /**
+     * Typed, read-only view over {@link com.test.automation.sdk.listener.WebEventListener}'s
+     * non-terminal-exception classification (SDK v1.5.1): exception class names that
+     * must not independently create an {@code ExecutionReporting.actionFailed(...)}
+     * record when observed by {@code onError()} -- see that class's javadoc for the
+     * distinction between "non-terminal at listener level" and "final test failure".
+     */
+    public static WebEventListenerConfig getWebEventListenerConfig() {
+        return new WebEventListenerConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -535,6 +558,98 @@ public final class ConfigurationManager {
          */
         public boolean relaxedHttpsValidation() {
             return resolveBoolean("api.relaxedHttpsValidation", false);
+        }
+    }
+
+    /**
+     * Typed, read-only view over the SDK v1.5.1 failure-evidence pipeline.
+     * All keys follow the {@code evidence.<kind>.<setting>} shape shown in the
+     * v1.5.1 spec and are resolved through the standard system property &gt;
+     * environment variable &gt; project YAML &gt; default precedence chain.
+     */
+    public static final class EvidenceConfig {
+        private EvidenceConfig() {
+        }
+
+        /** Master screenshot-evidence switch. Screenshots remain part of the core RCA trio. */
+        public boolean screenshotEnabled() {
+            return resolveBoolean("evidence.screenshot.enabled", true);
+        }
+
+        /** Whether the failure screenshot is attached directly to Allure/Extent (in addition to the filesystem artifact). */
+        public boolean screenshotAttachToReports() {
+            return resolveBoolean("evidence.screenshot.attachToReports", true);
+        }
+
+        /**
+         * Master browser-console-capture switch. Enabled by default: retrieval
+         * has negligible overhead on supported browsers and is skipped (fail-safe,
+         * not fatal) on browsers/log types that do not support it -- see
+         * {@code com.test.automation.sdk.evidence.BrowserConsoleCapture}.
+         */
+        public boolean browserConsoleEnabled() {
+            return resolveBoolean("evidence.browserConsole.enabled", true);
+        }
+
+        /** Whether console capture only runs on test failure (the only supported mode in v1.5.1). */
+        public boolean browserConsoleCaptureOnFailure() {
+            return resolveBoolean("evidence.browserConsole.captureOnFailure", true);
+        }
+
+        /** Whether the captured console log is attached to Allure/Extent. */
+        public boolean browserConsoleAttachToReports() {
+            return resolveBoolean("evidence.browserConsole.attachToReports", true);
+        }
+
+        /**
+         * Master network-trace switch. Disabled by default -- performance
+         * overhead, artifact size, and browser-specific implementation
+         * differences (Chrome DevTools Protocol only; Firefox unsupported --
+         * see {@code com.test.automation.sdk.evidence.NetworkTraceRecorder}).
+         */
+        public boolean networkEnabled() {
+            return resolveBoolean("evidence.network.enabled", false);
+        }
+
+        /** Whether the buffered trace is only persisted to disk on test failure (recommended, avoids unnecessary I/O for passing tests). */
+        public boolean networkCaptureOnFailure() {
+            return resolveBoolean("evidence.network.captureOnFailure", true);
+        }
+
+        /** Whether the persisted network trace is attached to Allure/Extent. */
+        public boolean networkAttachToReports() {
+            return resolveBoolean("evidence.network.attachToReports", true);
+        }
+
+        /** Whether sensitive headers/cookies/tokens/query-params are masked before the trace is persisted/attached. */
+        public boolean networkRedactSensitiveData() {
+            return resolveBoolean("evidence.network.redactSensitiveData", true);
+        }
+
+        /** Maximum number of buffered network request/response pairs retained per test session before oldest entries are dropped. */
+        public int networkMaxEntries() {
+            return resolveInt("evidence.network.maxEntries", 500);
+        }
+    }
+
+    /**
+     * Typed, read-only view over {@link com.test.automation.sdk.listener.WebEventListener}'s
+     * non-terminal-exception classification.
+     */
+    public static final class WebEventListenerConfig {
+        private WebEventListenerConfig() {
+        }
+
+        /**
+         * Comma-separated list of fully-qualified exception class names that must
+         * not independently create a listener-level {@code ExecutionReporting.actionFailed(...)}
+         * record. Defaults to {@code org.openqa.selenium.NoSuchElementException} only --
+         * additional types (e.g. {@code StaleElementReferenceException}) require
+         * explicit configuration since they can represent genuine automation defects.
+         */
+        public String nonTerminalExceptions() {
+            return resolve("webdriver.eventListener.nonTerminalExceptions",
+                    "org.openqa.selenium.NoSuchElementException");
         }
     }
 }

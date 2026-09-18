@@ -145,18 +145,36 @@ public final class ExecutionReporting {
             if (item == null || item.getPath() == null) {
                 continue;
             }
-            ExecutionEventType type = "screenshot".equalsIgnoreCase(item.getType())
-                    ? ExecutionEventType.SCREENSHOT_CAPTURED
-                    : ("pageSource".equalsIgnoreCase(item.getType())
-                        ? ExecutionEventType.PAGE_SOURCE_CAPTURED
-                        : ("apiPayload".equalsIgnoreCase(item.getType())
-                            ? ExecutionEventType.API_PAYLOAD_CAPTURED
-                            : ExecutionEventType.DOM_CAPTURED));
+            ExecutionEventType type = resolveEvidenceEventType(item.getType());
             emit(baseEvent(ensureState(), type, ExecutionStatus.INFO)
                     .message(item.getName())
                     .addEvidence(item)
                     .build());
         }
+    }
+
+    /**
+     * Maps an {@link ExecutionEvidence#getType()} string to the neutral event type
+     * used to publish it. Unknown/legacy types fall back to {@code DOM_CAPTURED},
+     * matching the pre-v1.5.1 default so existing evidence producers keep working.
+     */
+    private static ExecutionEventType resolveEvidenceEventType(String evidenceType) {
+        if ("screenshot".equalsIgnoreCase(evidenceType)) {
+            return ExecutionEventType.SCREENSHOT_CAPTURED;
+        }
+        if ("pageSource".equalsIgnoreCase(evidenceType)) {
+            return ExecutionEventType.PAGE_SOURCE_CAPTURED;
+        }
+        if ("apiPayload".equalsIgnoreCase(evidenceType)) {
+            return ExecutionEventType.API_PAYLOAD_CAPTURED;
+        }
+        if ("browserConsole".equalsIgnoreCase(evidenceType)) {
+            return ExecutionEventType.BROWSER_CONSOLE_CAPTURED;
+        }
+        if ("networkTrace".equalsIgnoreCase(evidenceType)) {
+            return ExecutionEventType.NETWORK_TRACE_CAPTURED;
+        }
+        return ExecutionEventType.DOM_CAPTURED;
     }
 
     public static void info(TestBase owner, String message) {

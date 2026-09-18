@@ -172,6 +172,13 @@ public final class RcaBundleWriter {
         json.put("evidence", evidenceToJson(context.evidence));
         json.put("recentLogLines", tailSdkLog());
 
+        // SDK v1.5.1 -- additive, optional convenience references to the new evidence
+        // kinds, alongside the existing generic "evidence" array. Purely additive: a
+        // bundle consumer that only understands screenshot/DOM/log continues to work
+        // unchanged, since these fields are simply absent when no such evidence exists.
+        putIfNotEmpty(json, "browserConsoleLog", findEvidencePath(context.evidence, "browserConsole"));
+        putIfNotEmpty(json, "networkTrace", findEvidencePath(context.evidence, "networkTrace"));
+
         JSONArray steps = new JSONArray();
         steps.put("Open the screenshot referenced under evidence[type=screenshot] -- what did the browser show?");
         steps.put("Open the DOM dump referenced under evidence[type=dom] -- is the expected element present with the expected attributes?");
@@ -251,6 +258,19 @@ public final class RcaBundleWriter {
             log.debug("RcaBundleWriter: could not tail sdk.log: " + e.getMessage());
         }
         return lines;
+    }
+
+    /** Returns the file path of the first evidence item of {@code evidenceType}, or {@code null}. */
+    private static String findEvidencePath(List<ExecutionEvidence> evidence, String evidenceType) {
+        if (evidence == null) {
+            return null;
+        }
+        for (ExecutionEvidence item : evidence) {
+            if (item != null && item.getPath() != null && evidenceType.equalsIgnoreCase(item.getType())) {
+                return item.getPath().toString();
+            }
+        }
+        return null;
     }
 
     private static void putIfNotEmpty(JSONObject json, String key, String value) {

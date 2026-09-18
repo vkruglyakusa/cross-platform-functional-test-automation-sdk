@@ -97,6 +97,16 @@ class ExecutionReportingArtifactCompatibilityTest {
         assertTrue(logOutput.contains("TEST_FAILED"), logOutput);
         assertTrue(logOutput.contains("Verify links"), logOutput);
         assertTrue(logOutput.contains("Intentional reporting failure"), logOutput);
+
+        // SDK v1.5.1 -- additional, optional diagnostic evidence must also reach
+        // both Allure and Extent, reusing the same generic evidence pipeline as
+        // screenshot/DOM (no separate attachment mechanism was introduced).
+        assertTrue(attachmentBodies.stream().anyMatch(body -> body.contains("Uncaught TypeError")),
+                "Expected browser console log attachment content");
+        assertTrue(attachmentBodies.stream().anyMatch(body -> body.contains("\"method\": \"GET\"")),
+                "Expected network trace attachment content");
+        assertTrue(extentHtml.contains("Browser Console Log"), "Extent report missing browser console evidence reference");
+        assertTrue(extentHtml.contains("Network Trace"), "Extent report missing network trace evidence reference");
     }
 
     private void writeReportingConfig(Path workDir) throws IOException {
@@ -199,7 +209,7 @@ class ExecutionReportingArtifactCompatibilityTest {
         try (Stream<Path> files = Files.list(dir)) {
             return files
                     .filter(Files::isRegularFile)
-                    .filter(path -> !path.getFileName().toString().endsWith(".json"))
+                    .filter(path -> !path.getFileName().toString().endsWith("-result.json"))
                     .map(path -> {
                         try {
                             return Files.readString(path, StandardCharsets.UTF_8);
@@ -301,11 +311,17 @@ class FailingExecutionReportingProbe {
             Files.createDirectories(evidenceDir);
             Path screenshot = evidenceDir.resolve("failure.png");
             Path dom = evidenceDir.resolve("failure_DOM.html");
+            Path console = evidenceDir.resolve("failure_console.log");
+            Path network = evidenceDir.resolve("failure_network-trace.json");
             FileUtils.writeStringToFile(screenshot.toFile(), "fake image body", StandardCharsets.UTF_8.name());
             FileUtils.writeStringToFile(dom.toFile(), "<html>failure dom</html>", StandardCharsets.UTF_8.name());
+            FileUtils.writeStringToFile(console.toFile(), "Uncaught TypeError: x is not a function", StandardCharsets.UTF_8.name());
+            FileUtils.writeStringToFile(network.toFile(), "{\"log\":{\"entries\":[{\"request\":{\"method\": \"GET\"}}]}}", StandardCharsets.UTF_8.name());
             ExecutionReporting.onTestFailed(testNgResult, expected, java.util.Arrays.asList(
                     ExecutionEvidence.screenshot("Failure Screenshot", screenshot),
-                    ExecutionEvidence.domDump("Failure DOM", dom)));
+                    ExecutionEvidence.domDump("Failure DOM", dom),
+                    ExecutionEvidence.browserConsole("Browser Console Log", console),
+                    ExecutionEvidence.networkTrace("Network Trace", network)));
         }
         ExecutionReporting.onSuiteFinished(ProbeResults.mockSuite(PassingExecutionReportingProbe.SUITE_NAME));
 

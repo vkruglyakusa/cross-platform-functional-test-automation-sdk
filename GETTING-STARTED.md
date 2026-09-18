@@ -1,6 +1,6 @@
-﻿# Getting Started -- Cross-Platform Functional Test Automation SDK
+# Getting Started -- Cross-Platform Functional Test Automation SDK
 
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.0`
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`
 
 This is the single first-day setup guide for a brand-new consumer project.
 Follow the shared steps first, then continue with the track(s) you need:
@@ -55,7 +55,7 @@ mvn clean install -DskipTests
 ```
 
 This places the jar in:
-`~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.5.0/`
+`~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.5.1/`
 
 ---
 
@@ -67,7 +67,7 @@ This places the jar in:
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.5.0</version>
+    <version>1.5.1</version>
 </dependency>
 ```
 
@@ -338,6 +338,31 @@ If compile and the smoke test both succeed, your setup is complete.
 | API requests all return `401` / `403` | `api.authTokenEnvVar` name is wrong or the named env var is unset | Fix the environment variable name or export the variable before running tests. |
 | API payload evidence is missing | `api.logRequestsAndResponses=false` or wrong `api.outputDirectory` | Re-enable evidence capture or check the configured directory. |
 | `NullPointerException` inside `ExtentManager` on an API-only project | `configuration/config.properties` is missing entirely | Add a minimal file with `extReportDir=test-output/reports`. |
+
+---
+
+## Track Summary -- Onboarding Reference
+
+A single reference table for the starting point of each track. See
+[README.md Quick Start](README.md#quick-start----using-the-sdk-in-a-consumer-project)
+for the clone commands.
+
+| | Web | API | Mobile |
+|---|---|---|---|
+| **Canonical template** | `functional-automation-consumer-template` | `api-functional-automation-consumer-template` | `mobile-functional-automation-consumer-template` |
+| **Required SDK version** | `1.5.1` or newer | `1.5.1` or newer | `1.5.1` or newer |
+| **Config files** | `sdk-config.yaml`, `log4j2.xml`, `config.properties` | `sdk-config.yaml`, `log4j2.xml`, `config.properties` (for `extReportDir` only) | `sdk-config.yaml` (`appium:`/`android:`/`ios:` sections), `log4j2.xml`, `browserstack.yml` (BrowserStack only) |
+| **First local execution** | `mvn test -Dtest=Test_WebSmoke -Denvironment=stg -DbrowserName=chrome` (Step 7A/8) | `mvn test -Dtest=Test_ApiSmoke -Denvironment=stg` (Step 7D/8) | `mvn test -Dtest=Test_MobileSmoke -DmobileOS=android` against a running emulator/device + Appium server (Step 7B/8) |
+| **CI starting point** | `azure-pipelines.yml.template` in the template repo -- rename to `azure-pipelines.yml` and wire up the pipeline | Same `azure-pipelines.yml.template` pattern | Same `azure-pipelines.yml.template` pattern; requires a device/emulator farm or BrowserStack App Automate in the pipeline agent |
+| **Reporting/evidence output** | `test-output/screenshots`, `test-output/reports`, `test-output/crawler`, Allure results (if enabled) | `test-output/api` (request/response evidence), `test-output/reports` | `test-output/screenshots`, `test-output/reports`, RCA bundles under `test-output/rca-bundles` |
+| **Read next** | [`SDK-USER-GUIDE.md`](SDK-USER-GUIDE.md), [`TESTBASE-API.md`](TESTBASE-API.md) | [`API-TESTBASE-API.md`](API-TESTBASE-API.md), [`SDK-USER-GUIDE.md` �18](SDK-USER-GUIDE.md#18-api-testing-apitestbase) | [`MOBILE-USER-GUIDE.md`](MOBILE-USER-GUIDE.md), [`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md) |
+
+> **Validation status:** the SDK unit test suite (701/701) and the Web and API
+> templates have each passed a live end-to-end smoke run. The Mobile template
+> has been validated for local compilation and for local Appium session
+> creation/app launch against a real emulator; a full green end-to-end mobile
+> test run and a real CI pipeline execution have not yet been performed. See
+> `CHANGELOG.md` for details.
 
 ---
 

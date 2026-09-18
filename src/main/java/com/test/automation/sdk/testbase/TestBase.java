@@ -499,6 +499,35 @@ public class TestBase {
 		if (domPath != null) {
 			evidence.add(ExecutionEvidence.domDump("Failure DOM", domPath));
 		}
+
+		// SDK v1.5.1 -- additional, optional diagnostic evidence. Never replaces the
+		// screenshot/DOM/log RCA trio above; both capture calls are individually
+		// fail-safe (unsupported browser / retrieval error -> null, no exception).
+		String captureName = resolveCaptureName(result);
+		com.test.automation.sdk.config.ConfigurationManager.EvidenceConfig evidenceConfig =
+			    com.test.automation.sdk.config.ConfigurationManager.getEvidenceConfig();
+
+		if (evidenceConfig.browserConsoleEnabled() && evidenceConfig.browserConsoleCaptureOnFailure()) {
+			java.nio.file.Path consolePath = com.test.automation.sdk.evidence.BrowserConsoleCapture.capture(
+			        driver, getScreenshotOutputDirectory(), captureName);
+			if (consolePath != null) {
+			    evidence.add(ExecutionEvidence.browserConsole("Browser Console Log", consolePath));
+			}
+		}
+
+		if (evidenceConfig.networkEnabled() && evidenceConfig.networkCaptureOnFailure()) {
+			java.nio.file.Path networkPath = com.test.automation.sdk.evidence.NetworkTraceRecorder.detachAndWrite(
+			        driver, getScreenshotOutputDirectory(), captureName);
+			if (networkPath != null) {
+			    evidence.add(ExecutionEvidence.networkTrace("Network Trace", networkPath));
+			}
+		} else {
+			// Not needed for evidence, but avoids leaking a buffered recorder/CDP
+			// session past this test when network capture is enabled globally but
+			// captureOnFailure is turned off for this run.
+			com.test.automation.sdk.evidence.NetworkTraceRecorder.detachQuietly(driver);
+		}
+
 		return evidence;
 	}
 

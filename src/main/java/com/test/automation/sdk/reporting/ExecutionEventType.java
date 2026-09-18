@@ -24,5 +24,9 @@ public enum ExecutionEventType {
     DOM_CAPTURED,
     PAGE_SOURCE_CAPTURED,
     API_PAYLOAD_CAPTURED,
+    /** SDK v1.5.1 -- browser console log evidence captured for a failed Web test. */
+    BROWSER_CONSOLE_CAPTURED,
+    /** SDK v1.5.1 -- browser network trace evidence captured for a failed Web test (not a canonical HAR document). */
+    NETWORK_TRACE_CAPTURED,
     EXCEPTION
 }
