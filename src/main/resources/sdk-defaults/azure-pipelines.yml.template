@@ -57,6 +57,15 @@ steps:
       jdkVersionOption: '1.21'
     continueOnError: true
 
+  # -- 3b. Generate Allure report -------------------------------------------
+  #    Requires the Allure commandline tool to be available on the agent
+  #    (e.g. via a prior `npm install -g allure-commandline` step or a
+  #    preinstalled self-hosted agent image). continueOnError keeps the
+  #    pipeline green if the Allure CLI is not yet provisioned.
+  - script: allure generate target/allure-results --clean -o target/allure-report
+    displayName: 'Generate Allure report'
+    continueOnError: true
+
   # -- 4. Filter TestNG results (remove runMode=N skips) -------------------
   #    Without this step ADO counts SKIPs as "Others" and reports ~79% pass
   #    rate even when every executed test passed (0 failures).
@@ -135,3 +144,12 @@ steps:
     inputs:
       PathtoPublish: 'test-output'
       ArtifactName: 'test-output'
+
+  # -- 7. Publish Allure report artifact ------------------------------------
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Allure report'
+    condition: succeededOrFailed()
+    continueOnError: true
+    inputs:
+      PathtoPublish: 'target/allure-report'
+      ArtifactName: 'allure-report'
