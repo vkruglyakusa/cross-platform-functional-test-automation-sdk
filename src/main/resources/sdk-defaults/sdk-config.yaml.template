@@ -159,6 +159,21 @@ reporting:
     enabled: true                    # master on/off switch                        (-Dreporting.analytics.enabled)
     directory: "test-output/analytics"  # one *.jsonl file written per run          (-Dreporting.analytics.directory)
 
+  # ------------------------------------------------------------
+  # Tier 3 (#9): automated RCA-to-fix bundle. On every test failure,
+  # com.test.automation.sdk.reporting.RcaBundleWriter consolidates test
+  # identity, the exception chain, evidence paths (screenshot/DOM dump), and
+  # a fresh tail of reporting.logsDir/sdk.log into ONE JSON file under
+  # rcaBundle.directory -- so a human or Copilot (see fix-failed-test.prompt.md)
+  # never has to hunt down three separate artifacts before starting RCA.
+  # Write failures never affect test execution (this writer simply skips itself).
+  # ------------------------------------------------------------
+  rcaBundle:
+    enabled: true                       # master on/off switch                     (-Dreporting.rcaBundle.enabled)
+    directory: "test-output/rca-bundles"  # one *.json file written per failure    (-Dreporting.rcaBundle.directory)
+    logTailLines: 80                    # trailing sdk.log lines embedded per bundle (-Dreporting.rcaBundle.logTailLines)
+    stackTraceFrames: 15                # leading stack frames per exception/cause (-Dreporting.rcaBundle.stackTraceFrames)
+
 # ------------------------------------------------------------
 # Zero-config visual regression testing: TestBase.assertVisualMatch(checkpointName)
 # captures a screenshot and compares it against a stored baseline using a

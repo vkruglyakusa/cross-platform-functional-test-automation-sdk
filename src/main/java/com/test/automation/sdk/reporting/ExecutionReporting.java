@@ -100,6 +100,7 @@ public final class ExecutionReporting {
                 .throwable(throwable)
                 .build());
         publishEvidence(evidence);
+        writeRcaBundle(current, throwable, evidence);
         String detail = current.lastSuccessfulStepName == null || current.lastSuccessfulStepName.isEmpty()
                 ? "Test failed"
                 : "Test failed after last completed step [" + current.lastSuccessfulStepName + "]";
@@ -110,6 +111,30 @@ public final class ExecutionReporting {
                 .evidence(evidence)
                 .build());
         clear();
+    }
+
+    /**
+     * Tier 3 (#9) automated RCA-to-fix loop: consolidates identity, exception
+     * chain, evidence paths, and a fresh SDK log tail into one JSON file per
+     * failure. Never throws -- see {@link RcaBundleWriter#write}.
+     */
+    private static void writeRcaBundle(ExecutionState current, Throwable throwable, List<ExecutionEvidence> evidence) {
+        try {
+            RcaBundleWriter.write(RcaBundleWriter.builder()
+                    .testCaseName(current.testCaseName)
+                    .className(current.className)
+                    .methodName(current.methodName)
+                    .suiteName(current.suiteName)
+                    .testNgTestName(current.testNgTestName)
+                    .platform(current.platform)
+                    .browser(current.browser)
+                    .device(current.device)
+                    .lastCompletedStep(current.lastSuccessfulStepName)
+                    .throwable(throwable)
+                    .evidence(evidence));
+        } catch (Exception e) {
+            // Never let bundle assembly affect test-failure reporting itself.
+        }
     }
 
     public static void publishEvidence(List<ExecutionEvidence> evidence) {

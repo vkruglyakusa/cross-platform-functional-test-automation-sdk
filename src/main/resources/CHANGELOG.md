@@ -39,6 +39,27 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   certificates, missing `config.properties` in pure-API projects).
 
 ### Added
+- **Tier 3 (#9): automated RCA-to-fix bundle
+  (`com.test.automation.sdk.reporting.RcaBundleWriter`).** On every test
+  failure, `ExecutionReporting.onTestFailed` now writes one consolidated
+  JSON file under `reporting.rcaBundle.directory` (default
+  `test-output/rca-bundles`) combining test identity (case/class/method/
+  suite/platform/browser/device/environment), the full exception cause
+  chain (type/message/leading stack frames, configurable via
+  `reporting.rcaBundle.stackTraceFrames`), the already-captured screenshot
+  and DOM-dump evidence paths, and -- the key gap this closes -- a
+  pre-fetched tail of `reporting.logsDir/sdk.log`
+  (`reporting.rcaBundle.logTailLines`, default 80 lines) so a human or
+  Copilot never has to separately locate and search the log file. New
+  `ConfigurationManager.RcaBundleConfig` typed view
+  (`reporting.rcaBundle.enabled`/`directory`/`logTailLines`/
+  `stackTraceFrames`), documented in `sdk-config.yaml.template`. Never
+  throws or blocks test execution -- a write failure simply skips that
+  bundle, matching `AnalyticsExecutionReporter`'s philosophy. Extended
+  `fix-failed-test.prompt.md` (Step 2) to check for the newest matching
+  bundle first and fall back to manual 3-artifact discovery only when none
+  is found. New `SDK-USER-GUIDE.md` section 13.3. 8 new unit tests
+  (`RcaBundleWriterTest`).
 - **API testing module (`com.test.automation.sdk.api`).** New standalone
   `ApiTestBase` -- deliberately does *not* extend `TestBase`/require a
   `WebDriver` -- built on RestAssured (the HTTP library already used by this

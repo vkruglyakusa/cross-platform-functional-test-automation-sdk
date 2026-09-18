@@ -42,6 +42,7 @@ beyond what is described here.
 13. [Reports & Screenshots](#13-reports--screenshots)
     - [13.1 Gap & Blocker Reports -- Configurable Output](#131-gap--blocker-reports--configurable-output)
     - [13.2 Failure RCA Workflow](#132-failure-rca-workflow)
+    - [13.3 Automated RCA Bundle (Tier 3 #9)](#133-automated-rca-bundle-tier-3-9----one-json-file-three-artifacts-pre-linked)
 14. [Accessibility Testing](#14-accessibility-testing)
 15. [Retry & Listeners](#15-retry--listeners)
 16. [Locator Rules -- Non-Negotiable](#16-locator-rules--non-negotiable)
@@ -2298,6 +2299,61 @@ the log file continuously throughout execution.
 getScreenShot("label");           // saves PNG to reporting.screenshotsDir
 saveDomDump(driver, "label");     // saves HTML to reporting.domDumpsDir
 ```
+
+---
+
+## 13.3 Automated RCA Bundle (Tier 3 #9) -- One JSON File, Three Artifacts Pre-Linked
+
+The workflow above requires manually locating three separate files before RCA can
+start. `com.test.automation.sdk.reporting.RcaBundleWriter` closes that gap: on
+**every** test failure it automatically writes one consolidated JSON file that
+already contains everything Section 13.2's "Evidence Sources" table asks you to
+collect -- so you (or Copilot, via `fix-failed-test.prompt.md`) never have to hunt
+artifacts down by hand before starting.
+
+### What's in the Bundle
+
+| Field | Contents |
+|---|---|
+| `test.testCaseName` / `className` / `methodName` / `suiteName` / `testNgTestName` | Test identity, sourced from the same execution-state TestNG already tracks |
+| `test.platform` / `browser` / `device` / `environment` | Runtime context at the moment of failure |
+| `test.lastCompletedStep` | The last `step(...)` that finished successfully before the failure |
+| `exception.chain` | Full cause chain -- exception type, message, and up to `reporting.rcaBundle.stackTraceFrames` leading stack frames per level |
+| `evidence` | `{type, name, path}` entries pointing at the already-captured screenshot and DOM dump (see 13.2) |
+| `recentLogLines` | The trailing `reporting.rcaBundle.logTailLines` lines of `reporting.logsDir/sdk.log`, pre-fetched at write time -- no need to open/grep the log separately |
+| `suggestedNextSteps` | A short checklist reminding the reader to review the screenshot, DOM dump, and log tail together before proposing a fix |
+
+Bundles are written to `reporting.rcaBundle.directory` (default
+`test-output/rca-bundles`), one JSON file per failure, named
+`<testCaseName>_<timestamp>.json`.
+
+### Using the Bundle
+
+```powershell
+# Find the newest bundle for a failing test
+Get-ChildItem "test-output\rca-bundles" -Filter "*<testCaseName>*" |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+```
+
+Opening the JSON still requires opening the screenshot and DOM dump files it
+references -- a JSON summary of "there is a screenshot" is not a substitute for
+looking at the image -- but it removes the separate step of locating and searching
+the log file. `fix-failed-test.prompt.md` checks for a bundle first and falls back
+to manual artifact discovery only when one is not found (feature disabled, or the
+failure happened outside a TestNG-managed run).
+
+### Configuration
+
+| Key | Default | Meaning |
+|---|---|---|
+| `reporting.rcaBundle.enabled` | `true` | Master on/off switch. A write failure never fails the test -- the writer just disables itself for that failure. |
+| `reporting.rcaBundle.directory` | `test-output/rca-bundles` | Output directory, one JSON file per failure |
+| `reporting.rcaBundle.logTailLines` | `80` | Trailing `sdk.log` lines embedded per bundle |
+| `reporting.rcaBundle.stackTraceFrames` | `15` | Leading stack frames captured per exception/cause in the chain |
+
+Never throws; disabled or write failures simply mean no bundle is written for that
+failure -- fall back to the manual 13.2 workflow. This is intentionally the same
+"capture never blocks test execution" philosophy as `AnalyticsExecutionReporter`.
 
 ---
 

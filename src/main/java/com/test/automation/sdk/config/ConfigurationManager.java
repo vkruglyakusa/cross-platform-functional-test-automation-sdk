@@ -172,6 +172,18 @@ public final class ConfigurationManager {
         return new ApiConfig();
     }
 
+    /**
+     * Typed, read-only view over the automated RCA-to-fix bundle feature
+     * ({@link com.test.automation.sdk.reporting.RcaBundleWriter}): on every
+     * test failure, consolidates the screenshot path, DOM dump path, a tail
+     * of the shared SDK log, and the exception/step context into a single
+     * JSON file -- so a human or Copilot can propose a fix from one
+     * artifact instead of hunting down three separate files.
+     */
+    public static RcaBundleConfig getRcaBundleConfig() {
+        return new RcaBundleConfig();
+    }
+
     /** Typed, read-only view over platform-neutral (common) configuration. */
     public static final class CommonConfig {
         private CommonConfig() {
@@ -267,6 +279,35 @@ public final class ConfigurationManager {
         /** Directory one JSON-lines file per run is written to. */
         public String directory() {
             return resolve("reporting.analytics.directory", "test-output/analytics");
+        }
+    }
+
+    /**
+     * Typed, read-only view over the automated RCA-to-fix bundle
+     * configuration.
+     */
+    public static final class RcaBundleConfig {
+        private RcaBundleConfig() {
+        }
+
+        /** Master on/off switch for the whole feature. Defaults to enabled -- write failures never fail a test. */
+        public boolean enabled() {
+            return resolveBoolean("reporting.rcaBundle.enabled", true);
+        }
+
+        /** Directory one JSON file per failure is written to. */
+        public String directory() {
+            return resolve("reporting.rcaBundle.directory", "test-output/rca-bundles");
+        }
+
+        /** Number of trailing lines pulled from the shared SDK log file into each bundle. */
+        public int logTailLines() {
+            return resolveInt("reporting.rcaBundle.logTailLines", 80);
+        }
+
+        /** Number of leading stack-trace frames included per exception/cause in each bundle. */
+        public int stackTraceFrames() {
+            return resolveInt("reporting.rcaBundle.stackTraceFrames", 15);
         }
     }
 
