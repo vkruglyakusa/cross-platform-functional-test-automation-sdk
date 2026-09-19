@@ -35,7 +35,7 @@ Tell me what you need to change:
   - Update a locator in a page object
   - Add a new field/method to a page object
   - Refactor or rename something
-- **Target class**: e.g. `Test_LoginPage` or `PoletopLoginPage`
+- **Target class**: e.g. `Test_LoginPage` or `ExampleLoginPage`
 - **Source** (optional): ADO test case ID or description of change
 
 If the source is an ADO test case, run `#ado-sync-test` first to detect drift before making changes.

@@ -112,11 +112,31 @@ evidence for RCA.
 > [!]? **Only open artifacts produced by the re-run in Step 1.
 > Delete or ignore any artifact files with an older timestamp.**
 
+**Check for an auto-generated RCA bundle first.** Every test failure since Tier 3 (#9)
+automatically writes one consolidated JSON file to `test-output/rca-bundles/` (config:
+`reporting.rcaBundle.*`), built by `com.test.automation.sdk.reporting.RcaBundleWriter`
+at the moment of failure. It contains the test identity, the full exception/cause
+chain, the screenshot + DOM dump paths, a pre-fetched tail of `sdk.log` (already the
+right lines -- no grepping needed), and `suggestedNextSteps`. Find the newest file
+matching the test case name/method:
+
+```powershell
+Get-ChildItem "test-output\rca-bundles" -Filter "*<testName>*" |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+```
+
+If present, read it FIRST -- it still requires opening the screenshot and DOM dump
+files it references (a JSON summary is not a substitute for looking at the actual
+image/HTML), but it removes the need to separately locate the log file and search it:
+`recentLogLines` in the bundle already is the relevant tail. If no bundle is found
+(feature disabled, or failure occurred outside a TestNG-managed run), fall back to
+locating the three artifacts manually as below.
+
 | Artifact | Location | Open and examine |
 |---|---|---|
-| **Screenshot** | `test-output/screenshots/<testCaseName>_<timestamp>.png` | What did the browser show at the moment of failure? |
-| **DOM dump** | `test-output/screenshots/<testCaseName>_<timestamp>_DOM.html` | Is the expected element in the DOM? With correct attributes? |
-| **Log file** | `test-output/logs/<testCaseName>_<timestamp>.log` OR `target/surefire-reports/<TestClassName>-output.txt` OR console output | What was the last action logged before failure? Any retry exhaustion? Any redirect? |
+| **Screenshot** | `test-output/screenshots/<testCaseName>_<timestamp>.png` (path also in bundle `evidence[type=screenshot].path`) | What did the browser show at the moment of failure? |
+| **DOM dump** | `test-output/screenshots/<testCaseName>_<timestamp>_DOM.html` (path also in bundle `evidence[type=dom].path`) | Is the expected element in the DOM? With correct attributes? |
+| **Log file** | `test-output/logs/sdk.log` (or bundle `recentLogLines`) OR `target/surefire-reports/<TestClassName>-output.txt` OR console output | What was the last action logged before failure? Any retry exhaustion? Any redirect? |
 
 **Required output after artifact review (state findings before proposing any fix):**
 ```

@@ -19,12 +19,556 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Fixed
+- **Mobile: configurable UiAutomator2 server launch timeout.** Live emulator
+  validation of the Mobile consumer template surfaced a real
+  `SessionNotCreatedException` ("The instrumentation process cannot be
+  initialized within 30000ms timeout") on cold-started/software-rendered
+  Android emulators, where ART bytecode verification of the UiAutomator2
+  instrumentation APK can exceed Appium's hardcoded 30s default before the
+  server reports ready. `MobileDriverFactory.createLocalAndroidDriver()` now
+  reads a new `android.uiautomator2ServerLaunchTimeoutMs` config key (via a
+  new `MobileConfigReader.getLong(String, long)` helper) and applies it through
+  `UiAutomator2Options.setUiautomator2ServerLaunchTimeout(Duration)`, defaulting
+  to `90000` (90s) instead of Appium's 30s. Documented in
+  `configuration/mobile-config.yaml.example` and mirrored into the Mobile
+  consumer template's `mobile-config.yaml`/`mobile-config.yaml.template`.
+- **Mobile template: invalid XML in `regression_suite.xml`.** The scaffolded
+  suite file contained TestNG-suite XML comments using a literal `--` sequence
+  (`<!-- -- Add test classes below -- -->`), which is invalid anywhere inside
+  an XML comment body per the XML spec and silently failed suite parsing
+  (`SAXParseException`) before any test could run. This had gone undetected
+  because the Mobile template had not previously been executed end-to-end
+  against a real device/emulator. Both invalid comments were corrected.
+
 ---
 
-## [1.2.1] — 2026-09-13
+## [1.5.1] — 2026-09-19
 
 ### Fixed
-- Pinned the BrowserStack Java SDK dependency to `1.74.1` so Maven resolves the same tested provider adapter version in local builds, CI, and downstream consumer templates.
+- **Allure attachments silently dropped for failed Web tests.** Real
+  consumer-level validation of v1.5.1 found that `attachments count: 0` was
+  showing up in generated Allure result JSON for failing tests, even though
+  the screenshot/DOM/console-log evidence itself was captured correctly
+  (visible in the RCA bundle and in Extent). Root cause: `Listener`
+  (`ITestListener`) previously dispatched failure evidence capture and
+  `ExecutionReporting.onTestFailed(...)` entirely from `onTestFailure()`. In
+  this SDK's execution model, `AllureTestNg` (auto-registered via
+  `META-INF/services/org.testng.ITestNGListener`, not this SDK's own suite
+  XML) closes/writes its current Allure test case from its own
+  `onTestFailure()` callback — and TestNG does not guarantee which
+  `ITestListener` implementation's `onTestFailure()` runs first. When
+  `AllureTestNg`'s ran first, `Allure.addAttachment(...)` silently failed
+  ("no test is running") because `Allure.getLifecycle().getCurrentTestCase()`
+  was already empty by the time this SDK's `Listener` tried to attach
+  evidence. Fixed by moving the actual capture/report dispatch into
+  `Listener.afterInvocation()` (`IInvokedMethodListener`), which TestNG's
+  `TestInvoker` guarantees runs -- for every registered listener -- immediately
+  after the test method returns/throws and **before** any
+  `ITestListener#onTestFailure`/`onTestSuccess` callback fires for any
+  listener. This ordering guarantee is intrinsic to the TestNG lifecycle, not
+  dependent on listener registration order, so it reliably keeps the Allure
+  test case open long enough to attach evidence. `onTestFailure()` still
+  calls the same capture path as a defensive fallback (guarded by a
+  `sdk.failureEvidenceCaptured` result attribute to avoid double-reporting)
+  in case `afterInvocation()` is ever skipped for a given result.
+  `AllureExecutionReporter.attachEvidence()`/`attachException()` also gained
+  an explicit `getCurrentTestCase().isPresent()` guard (matching the existing
+  guard already used by `applyTestMetadata()`) as defense in depth.
+  Verified end-to-end against a real consumer project and a real failing
+  browser test: the failed test's Allure result now shows 4 real attachments
+  (Exception, Failure Screenshot, Failure DOM, Browser Console Log) instead
+  of 0.
+- **`AllureA11yReporter` used the ambiguous no-arg `Allure.getLifecycle().stopStep()`**
+  instead of `stopStep(uuid)` for all three severity levels (`info`/`warn`/`fail`).
+  The no-arg overload pops whatever is currently on top of Allure's internal
+  step/test-case stack, which is only safe if nothing else could have been
+  pushed after the matching `startStep(uuid, ...)` call — not a reliable
+  assumption once accessibility reporting is interleaved with other Allure
+  step activity. Changed all three methods to call `stopStep(uuid)` with the
+  same UUID used to start the step, matching the pattern already used
+  correctly in `AllureExecutionReporter.finishStep()`.
+- **`WebEventListener.onError()` false-failure reporting.** Every decorated
+  WebDriver exception — including expected, consumer-caught probes such as
+  `NoSuchElementException` used to check whether an optional element exists —
+  was previously logged at ERROR and reported through
+  `ExecutionReporting.actionFailed(...)`, producing large volumes of false
+  failure noise in reports and logs and making genuine errors harder to spot.
+  `onError()` now classifies the decorated exception before deciding how to
+  report it:
+  - **This affects logging and action-level reporting only. The listener
+    does not alter exception propagation** — `onError()` does not return a
+    value, does not rethrow, and does not otherwise intercept control flow;
+    Selenium's `EventFiringDecorator` determines exception propagation
+    independently of this callback, exactly as before this change.
+  - **Non-terminal** exceptions (default: `org.openqa.selenium.NoSuchElementException`
+    only) are logged at DEBUG and do **not** call `ExecutionReporting.actionFailed(...)`.
+    Only the listener-level logging/reporting decision changed. If the exception
+    ultimately escapes consumer code and fails the TestNG test, normal
+    test-level failure handling (screenshot/DOM/log/RCA capture) is unaffected
+    and still runs.
+  - All other exceptions (`TimeoutException`, `WebDriverException`,
+    `StaleElementReferenceException`, `ElementNotInteractableException`,
+    unexpected runtime exceptions, etc.) keep the existing ERROR +
+    `actionFailed(...)` behavior unchanged.
+  - The non-terminal list is extensible via the new
+    `webdriver.eventListener.nonTerminalExceptions` configuration key (comma-
+    separated fully-qualified class names, resolved through
+    `ConfigurationManager`'s existing system-property > env var > YAML >
+    default precedence). `WebEventListener.isNonTerminal(Throwable)` is
+    package-visible for testing.
+
+### Added
+- **Failure screenshots now attach directly to Allure and Extent.** Screenshot
+  capture itself was already implemented pre-1.5.1; this release routes the
+  already-saved artifact through the existing generic evidence pipeline
+  (`ExecutionEvidence` → `ExecutionReporting.publishEvidence()` →
+  `AllureExecutionReporter`/`ExtentExecutionReporter`) so the same file is both
+  preserved on disk for RCA and visible directly inside the Allure/Extent
+  reports, with no duplicate capture.
+- **Browser console log capture (`com.test.automation.sdk.evidence.BrowserConsoleCapture`).**
+  For failed Web tests, captures `driver.manage().logs().get(LogType.BROWSER)`
+  into a readable `*_console.log` artifact, attached to Allure/Extent and
+  referenced from the RCA bundle. Supported on Chrome (existing
+  `goog:loggingPrefs` capability) and Edge (new `ms:loggingPrefs` capability
+  added to `WebDriverFactory.getEdgeDriver()`); not reliably supported on
+  Firefox (geckodriver does not implement legacy `LogType.BROWSER`). The
+  capture is fully fail-safe: unsupported browsers, retrieval errors, and
+  empty logs never affect the test result. Controlled by
+  `evidence.browserConsole.enabled` / `.captureOnFailure` / `.attachToReports`
+  (enabled by default).
+- **Browser network trace capture (`com.test.automation.sdk.evidence.NetworkTraceRecorder`).**
+  Optional, **disabled by default** (`evidence.network.enabled=false`) network
+  evidence for Chrome/Edge via Chrome DevTools Protocol. All CDP-version-specific
+  code is isolated behind a small internal adapter seam
+  (`com.test.automation.sdk.evidence.network.CdpNetworkAdapter`/`CdpNetworkSession`,
+  resolved via `CdpNetworkAdapters`) — `NetworkTraceRecorder` itself has no
+  dependency on any specific CDP version. Today exactly one adapter is
+  registered (`CdpV146NetworkAdapter`, pinned to the bundled
+  `selenium-devtools-v146` Java bindings — CDP's Network domain wire schema is
+  stable enough in practice across nearby versions, but this is a pragmatic
+  compromise, not true version-negotiated support), and it detects the
+  runtime browser name/version to decline unsupported/incompatible
+  browsers safely rather than attempting and failing. Not supported on
+  Firefox. When enabled, buffers request/response events in memory (bounded
+  by `evidence.network.maxEntries`, oldest entries dropped) from driver
+  creation, and on failure writes a simplified **browser network trace**
+  JSON artifact (`*_network-trace.json`, not a HAR/HAR-shaped file — this SDK
+  does not claim HAR compliance) containing method/URL/headers/status/
+  mimeType. On passing tests, the buffer is discarded without ever
+  generating a file (`WebEventListener.afterQuit()` calls
+  `NetworkTraceRecorder.detachQuietly()`), so disabled/inactive tracing adds
+  no meaningful overhead. Sensitive headers/params (`Authorization`,
+  `Cookie`, `Set-Cookie`, API keys, tokens, session identifiers, etc.) are
+  redacted via `SecretRedactor.redactFieldValue()` **before an entry is ever
+  buffered in memory** — not only when the artifact is written — controlled
+  by `evidence.network.redactSensitiveData` (default `true`). Request/response
+  bodies are not captured in this release, so there is no body content to
+  redact yet; this is a documented scope limitation, not an unaddressed gap.
+- **RCA bundle: optional `browserConsoleLog`/`networkTrace` fields.**
+  `RcaBundleWriter.toJson()` adds these two fields only when the corresponding
+  evidence is present; all existing fields are unchanged and the existing
+  generic `evidence` array still includes every evidence type. Older RCA
+  consumers that only read `screenshot`/`dom`/`executionLog` continue to work
+  unmodified.
+- **`SecretRedactor`: field-name-based redaction for network evidence.** New
+  `isSensitiveFieldName(String)` / `redactFieldValue(String, String)` helpers
+  redact HTTP header/query-parameter values by name (denylist), independent of
+  the existing free-text `redactMessage(String)` regex-based redaction used
+  for log messages.
+
+### Configuration
+- New `evidence.screenshot.*`, `evidence.browserConsole.*`, `evidence.network.*`
+  keys (`enabled`, `captureOnFailure`, `attachToReports`, plus
+  `redactSensitiveData` and `maxEntries` for network) exposed via
+  `ConfigurationManager.getEvidenceConfig()`.
+- New `webdriver.eventListener.nonTerminalExceptions` key exposed via
+  `ConfigurationManager.getWebEventListenerConfig()`.
+
+### Known limitations
+- Network trace capture is Chrome/Edge only (CDP-based, via the `cdp-v146`
+  adapter); Firefox has no network evidence support in this release.
+- The generated network trace artifact is a simplified, non-canonical JSON
+  document — explicitly not a HAR file, not validated against the HAR 1.2
+  schema, and missing timing/body-size fields. Its `format` field is
+  `sdk-network-trace-v1`, an internal SDK schema identifier.
+- The only registered CDP adapter is pinned to `v146` bindings; a future
+  Selenium/Chrome upgrade that breaks wire-format compatibility would
+  require adding a new adapter (isolated to the `evidence.network` package)
+  rather than changing `NetworkTraceRecorder` itself.
+- Request/response bodies are not captured, so body-content redaction is not
+  applicable yet.
+- **End-to-end network trace generation was not validated in this release's
+  consumer-level testing.** The validation environment ran real Chrome/Edge
+  153.x, far ahead of the pinned `selenium-devtools-v146` bindings. The
+  adapter correctly detected the incompatibility and failed safely (WARN
+  logged, capture skipped, test/other evidence unaffected) — this is the
+  intended fail-safe behavior — but a real `*_network-trace.json` artifact
+  was never produced during that validation. Confidence in the capture logic
+  itself is based on the SDK's own unit tests (`NetworkTraceRecorderTest`,
+  `SecretRedactorTest`), not a live capture. Teams enabling this feature
+  should validate it against their own Chrome/Edge version.
+- `AllureLifecycle` may emit benign `"Could not update test case... not
+  found"` ERROR-level log messages during `@BeforeMethod` setup/navigation,
+  before the actual `@Test` method starts. This is cosmetic log noise only:
+  it does not prevent failure-evidence attachment (see the Allure fix above),
+  does not change test outcome, and does not corrupt the final failed test's
+  own Allure result. It is pre-existing (predates v1.5.1) and is tracked for
+  a future maintenance release rather than fixed here.
+
+---
+
+## [1.5.0] — 2026-09-18
+
+### Documentation
+- **SDK documentation finalization pass for the current 1.4.8 working tree.**
+  Expanded the authoritative dependency/version baseline, corrected stale
+  version examples, documented every `sdk-config.yaml.template` key and the
+  `ConfigurationManager` typed views, modernized `GETTING-STARTED.md` for
+  Web/Mobile/API onboarding, documented the unified mobile `sdk-config.yaml`
+  path vs. deprecated `mobile-config.yaml`, added the missing bundled
+  `src/main/resources/GETTING-STARTED.md` mirror, and re-synced all root/resource
+  documentation mirrors that had drifted out of sync.
+- **README.md audit and fixes.** Root `README.md` had zero mentions of the
+  API testing module (`ApiTestBase`) or the mobile module (`MobileTestBase`,
+  `MobileDriverFactory`, `MobileElementCrawler`, `MobilePageObjectGenerator`,
+  `AbstractMobileLocatorInvestigator`) despite both being fully implemented
+  and documented elsewhere -- added rows to the "What's Inside" component
+  table, links to `API-TESTBASE-API.md`/`MOBILE-USER-GUIDE.md`/
+  `MOBILE-TESTBASE-API.md` in the Documentation table, and corresponding
+  entries in the Repository Layout tree.
+- **Closed a real documentation gap**: a prior `[Unreleased]` entry claimed
+  `SDK-USER-GUIDE.md` gained a new section 7.4 ("Mobile (Appium) Crawler &
+  AbstractMobileLocatorInvestigator") -- that section was never actually
+  written. Added it now, with a working example and TOC entry.
+- Added API-testing-specific rows to `SDK-USER-GUIDE.md` section 19
+  ("Troubleshooting"), which previously covered only web/Selenium failure
+  modes (connection errors, auth header misconfiguration, JSON schema
+  validation failures, TLS handshake errors on self-signed non-prod
+  certificates, missing `config.properties` in pure-API projects).
+
+### Added
+- **Tier 3 (#9): automated RCA-to-fix bundle
+  (`com.test.automation.sdk.reporting.RcaBundleWriter`).** On every test
+  failure, `ExecutionReporting.onTestFailed` now writes one consolidated
+  JSON file under `reporting.rcaBundle.directory` (default
+  `test-output/rca-bundles`) combining test identity (case/class/method/
+  suite/platform/browser/device/environment), the full exception cause
+  chain (type/message/leading stack frames, configurable via
+  `reporting.rcaBundle.stackTraceFrames`), the already-captured screenshot
+  and DOM-dump evidence paths, and -- the key gap this closes -- a
+  pre-fetched tail of `reporting.logsDir/sdk.log`
+  (`reporting.rcaBundle.logTailLines`, default 80 lines) so a human or
+  Copilot never has to separately locate and search the log file. New
+  `ConfigurationManager.RcaBundleConfig` typed view
+  (`reporting.rcaBundle.enabled`/`directory`/`logTailLines`/
+  `stackTraceFrames`), documented in `sdk-config.yaml.template`. Never
+  throws or blocks test execution -- a write failure simply skips that
+  bundle, matching `AnalyticsExecutionReporter`'s philosophy. Extended
+  `fix-failed-test.prompt.md` (Step 2) to check for the newest matching
+  bundle first and fall back to manual 3-artifact discovery only when none
+  is found. New `SDK-USER-GUIDE.md` section 13.3. 8 new unit tests
+  (`RcaBundleWriterTest`).
+- **API testing module (`com.test.automation.sdk.api`).** New standalone
+  `ApiTestBase` -- deliberately does *not* extend `TestBase`/require a
+  `WebDriver` -- built on RestAssured (the HTTP library already used by this
+  org's existing legacy API automation projects) for pure REST API test
+  classes. Provides `given()` (a preconfigured `RequestSpecification` with
+  per-environment base URL resolution, timeouts, and an optional single auth
+  header sourced from an environment variable), `get`/`post`/`put`/`patch`/`delete`
+  convenience wrappers, and assertion helpers (`assertStatusCode`,
+  `assertJsonPath`, `assertResponseTimeUnder`, `assertMatchesJsonSchema`).
+  Every call is timed and reported through `ExecutionReporting`
+  (`actionStarted`/`actionCompleted`/`actionFailed`) and -- when
+  `api.logRequestsAndResponses` is enabled (default) -- request/response JSON
+  is captured to `api.outputDirectory` and published as evidence (new
+  `ExecutionEventType.API_PAYLOAD_CAPTURED`, new
+  `ExecutionEvidence.apiPayload(...)`), so API test runs show up in
+  Allure/Extent reports, the cross-run analytics store, and the flaky-test
+  quarantine exactly like Web/Mobile runs, with no extra wiring. Reuses
+  `TestBase`'s static, driver-free `currentTestCaseName` ThreadLocal for test
+  attribution and `Excel_Reader` for `@DataProvider`-driven test data, so no
+  functionality is duplicated. New `ApiConfig` in `ConfigurationManager` and a
+  new `api:` block (extending the existing `api:` mailinator section) in
+  `sdk-config.yaml.template`. New owner-less `ExecutionReporting.info/warning/
+  validation(String, ...)` overloads (mirroring the existing owner-less
+  `actionStarted`/`actionCompleted`/`actionFailed`), since `ApiTestBase` has
+  no `TestBase` instance to report against. New `rest-assured` and
+  `json-schema-validator` (5.5.0) SDK dependencies. 12 new unit tests
+  (`ApiTestBaseTest`, `ApiConfigTest`); documented in `SDK-USER-GUIDE.md`
+  section 18.
+- **Test impact analysis (`com.test.automation.sdk.impact`).** New standalone
+  `TestImpactCli` (`mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"`)
+  maps files changed since `impact.baseRef` (default `HEAD~1`, via
+  `git diff --name-only`) to the test classes transitively affected by that
+  change, using a compiler-free static source-reference heuristic
+  (`JavaSourceIndexer`: indexes every class under `impact.mainSourceDir` /
+  `impact.testSourceDir`, then records simple-name token matches as
+  reference edges) -- no bytecode/JaCoCo instrumentation required. Writes a
+  filtered TestNG suite (`ImpactSuiteWriter`) to `impact.outputSuiteFile`
+  (default `test-output/impact/impact_suite.xml`) runnable via
+  `mvn test -Dsurefire.suiteXmlFiles=...`. Deliberately over-approximates
+  (extra tests, never fewer) and falls back to recommending a full-suite run
+  whenever a changed file can't be resolved to a known class (non-Java file,
+  or outside the indexed roots) -- coverage is never silently narrowed. New
+  `TestImpactConfig` in `ConfigurationManager` (5 keys) and a new `impact:`
+  block in `sdk-config.yaml.template`. 12 new unit tests
+  (`JavaSourceIndexerTest`, `TestImpactAnalyzerTest`, `ImpactSuiteWriterTest`);
+  documented in `SDK-USER-GUIDE.md` section 15.2.
+- **Zero-config visual regression testing (`com.test.automation.sdk.visual`).**
+  New `TestBase.assertVisualMatch(checkpointName)` captures the current page
+  screenshot and compares it against a stored PNG baseline for that
+  checkpoint using a tolerant pixel diff (`ImageDiffEngine`: per-channel
+  color tolerance absorbs anti-aliasing/compression noise; a mismatch
+  percentage above `visual.mismatchThresholdPercent` fails the check). The
+  first check for a given checkpoint name saves the screenshot as the
+  accepted baseline -- no separate "record baseline" step, and no external
+  visual-testing service required. Baselines live under
+  `visual.baselineDirectory` (default `src/test/resources/visual-baselines`,
+  inside the consumer project's source tree) so they can be committed and
+  code-reviewed like any other test asset; a deliberate
+  `-Dvisual.updateBaselines=true` run re-baselines every checkpoint after an
+  intentional UI change. On mismatch, a red-highlighted diff image is
+  attached to the execution report (Allure/Extent/log) via the existing
+  `ExecutionReporting` pipeline, and (when `visual.failOnMismatch=true`, the
+  default) an `AssertionError` is thrown. New `VisualRegressionConfig` in
+  `ConfigurationManager` (7 keys, full system-property/env/YAML precedence)
+  and a new `visual:` block in `sdk-config.yaml.template`. 12 new unit tests
+  (  `ImageDiffEngineTest`, `VisualRegressionCheckerTest`); documented in
+  `TESTBASE-API.md` section 34.
+- **Flaky-test quarantine (`com.test.automation.sdk.flaky`).** New opt-in
+  `FlakyTestQuarantineListener` (TestNG `ITestListener`) uses the cross-run
+  historical analytics already written by `reporting.analytics`
+  (`AnalyticsTrendReport`) to distinguish a genuinely intermittent test from a
+  first-time regression or a consistently broken test. A failing test is only
+  quarantined (its final TestNG result reclassified from FAILED to SKIPPED)
+  when it has a mixed pass/fail history with at least
+  `flaky.minRunsForQuarantine` (default `5`) recorded runs, a historical
+  failure rate at or below `flaky.maxFailureRatePercent` (default `80`), and
+  `flaky.quarantine.enabled=true` is explicitly set (default `false` --
+  disabled by default since this is an opinionated behavior change). A clear
+  warning is always logged/reported via `ExecutionReporting` on quarantine, so
+  the outcome is visible, never silent. New `FlakyTestRegistry` (classification
+  logic) and `FlakyQuarantineConfig` in `ConfigurationManager` (3 keys), plus a
+  new `flaky:` block in `sdk-config.yaml.template`. Must be declared *after*
+  `Listener` in `<listeners>` so the genuine failure is recorded before
+  reclassification. 10 new unit tests (`FlakyTestRegistryTest`,
+  `FlakyTestQuarantineListenerTest`); documented in `SDK-USER-GUIDE.md`
+  section 15.1.
+- **Runtime self-healing locators (`com.test.automation.sdk.healing`).**
+  New opt-in `TestBase.initElements(driver, this)` (drop-in alternative to
+  `PageFactory.initElements(driver, this)`) wires every `@FindBy` field to a
+  `HealingElementLocator`. When a primary XPath locator can no longer find any
+  element, a small set of progressively relaxed XPath candidates is generated
+  directly from that same locator (`LocatorRelaxationEngine`: drop-one-predicate,
+  keep-one-predicate-alone, and exact-to-`contains()` variants) -- no pre-crawled
+  fingerprint or external service required. A candidate is only trusted if it
+  resolves to **exactly one** element (the same uniqueness bar the crawler
+  enforces at design time); anything ambiguous is treated as still-broken. Every
+  heal attempt (success or exhaustion) is published through
+  `ExecutionReporting`, so it is visible in the log/Allure/Extent report trail
+  rather than a silent side effect. Existing page objects that keep calling
+  `PageFactory.initElements(driver, this)` directly are completely unaffected.
+  17 new unit tests (`LocatorRelaxationEngineTest`, `HealingElementLocatorTest`).
+- **Cross-run analytics event store (`com.test.automation.sdk.reporting`).**
+  A new `AnalyticsExecutionReporter` is now wired into the default
+  `CompositeExecutionReporter` chain alongside the existing log/Allure/Extent
+  reporters, so every `ExecutionEvent` (test start/pass/fail/skip, step
+  events, healed-locator actions, etc.) is additionally appended as one JSON
+  line to a per-JVM-run file under `test-output/analytics/` (default;
+  configurable via `reporting.analytics.enabled` / `reporting.analytics.directory`
+  in `sdk-config.yaml`, an environment variable, or a `-D` system property,
+  following the SDK's usual config-precedence rules). Because runs accumulate
+  as separate files in that directory, a new `AnalyticsTrendReport` utility can
+  read the whole directory back and aggregate: `summarizeTestOutcomes(Path)`
+  returns pass/fail/skip counts per test (keyed by
+  `ClassName.methodName[testCaseName]`) and flags tests that both passed and
+  failed across runs as flaky (`TestOutcome#isFlaky()`); `summarizeHealing(Path)`
+  aggregates `LOCATOR_HEALED` events per locator into healed-vs-exhausted
+  counts, surfacing which locators are healing frequently (a signal that the
+  underlying page object should be fixed rather than relying on healing
+  indefinitely). The reporter never affects test execution: it disables itself
+  permanently on any write failure, and the aggregator silently skips
+  malformed lines/files instead of aborting. 13 new unit tests
+  (`AnalyticsExecutionReporterTest`, `AnalyticsTrendReportTest`).
+- **Mobile/web crawler & prompt-doc feature parity
+  (`com.test.automation.sdk.tools.locator`).** Added
+  `AbstractMobileLocatorInvestigator`, a mobile (Appium) analogue of the
+  existing web-only `AbstractLocatorInvestigator`: extends `MobileTestBase`,
+  drives `MobileElementCrawler` / `MobilePageObjectGenerator`, and exposes the
+  same declarative shape (`registerRoles`/`registerRole`, `loginAs`,
+  `defineCrawlSteps`, `crawlScreen(...)` in place of `crawlPage(...)`,
+  `shouldSkip`, fail-fast role blacklisting) so mobile crawl scripts can be
+  written with the same pattern as web ones. New unit tests
+  (`AbstractMobileLocatorInvestigatorTest`). Also closed a documentation gap
+  where mobile workflows existed in code but were not reflected in
+  consumer-facing docs/prompts: `SDK-USER-GUIDE.md` gained a new section 7.4
+  ("Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator") plus table/TOC
+  entries, and `create-test.prompt.md`, `fix-broken-locator.prompt.md`, and
+  `start.prompt.md` now ask for **Platform** (web/android/ios) and branch their
+  crawler commands, locator-priority guidance, and page-object examples between
+  web (`@FindBy`) and mobile (`@AndroidFindBy`/`@iOSXCUITFindBy`) accordingly.
+
+---
+
+## [1.4.8] — 2026-09-17
+<!-- Add entries here during development; move to a version heading on release -->
+
+### Fixed
+- **OBS-10: TestNG suite identity in unified reporting.**
+  The SDK now resolves the business-facing suite name once from live TestNG
+  runtime metadata (`ISuite.getName()` / `ITestContext`) instead of relying on
+  Maven/Surefire synthetic naming. Unified execution events now carry
+  suite/test/class/method metadata, SDK logs emit real suite start/completion
+  lines, Allure receives the same `parentSuite` / `suite` / `subSuite`
+  mapping, and Extent records the same authoritative suite identity without
+  changing OBS-8 step reporting, OBS-9 report generation, or the 1 Azure Test
+  Case ID = 1 `@Test` contract. Added 5 OBS-10 regression tests; 584 total
+  tests pass in `mvn clean test`.
+
+---
+
+## [1.4.7] — 2026-09-16
+<!-- Add entries here during development; move to a version heading on release -->
+
+### Added
+- **OBS-9: automatic Allure HTML report generation after test execution.**
+  Consumers previously had to manually run
+  `allure generate .\allure-results --clean -o .\allure-report` /
+  `allure open .\allure-report` after every run. The SDK now does this
+  automatically at the end of the whole execution (`Listener.onFinish(ISuite)`,
+  guarded to run exactly once even with multiple `<suite>` blocks or parallel
+  test threads), via the new internal `AllureReportGenerator` service.
+  Configured entirely through the existing `sdk-config.yaml` /
+  `ConfigurationManager` precedence chain (system property > env var > YAML >
+  default) under a new `reporting.allure.*` section: `enabled`,
+  `generateAfterExecution`, `openAfterGeneration` (**defaults to `false` --
+  opening a browser is never automatic**, matching CI/service/headless-safe
+  behavior out of the box), `resultsDirectory`, `reportDirectory`,
+  `generationTimeoutSeconds`. Requires the Allure commandline to be installed
+  separately; if it isn't found, generation is skipped with a clear log
+  message and test execution is completely unaffected either way -- report
+  generation success/failure is always independent from the underlying
+  TestNG/Maven test result. See `SDK-USER-GUIDE.md`, "Allure Reporting".
+
+---
+
+## [1.4.2] — 2026-09-16
+<!-- Add entries here during development; move to a version heading on release -->
+
+### Fixed
+- **`MobileDriverFactory` had no way to pin an exact device/simulator when
+  more than one is attached at once.** `deviceName` is a descriptive
+  capability only -- it does not select which device UiAutomator2/XCUITest
+  actually uses. With, e.g., an emulator AND a physical device attached
+  simultaneously, an unpinned local session could silently land on whichever
+  device Appium happened to pick (observed to vary run-to-run), producing
+  intermittent failures that looked like a session-startup defect
+  (`SessionNotCreatedException` during `MainActivity` startup) or a locator/
+  page-object defect ("OS propagation failure"), when the real cause was the
+  session simply running against a different, unintended device/OS state than
+  the test config assumed. Added optional `android.udid` / `ios.udid` config
+  keys (exact `adb devices` serial, or simulator UDID) that set the `udid`
+  capability when present; unset by default for the common single-device
+  case. Root-caused while revalidating consumer test scenarios in
+  external consumer project with both an emulator and a physical device connected.
+
+---
+
+## [1.4.1] — 2026-09-16
+<!-- Add entries here during development; move to a version heading on release -->
+
+### Fixed
+- **`ElementCrawler.collectFromShadowRoots()` produced unusable locators for
+  shadow-in-shadow (nested) web components**, e.g. Coveo Atomic's
+  `<custom-search-box>` whose own shadow root contains another shadow host
+  `<atomic-search-box>`. The single `shadowHostXpath` field previously held a
+  light-DOM XPath computed for the *inner* host too, but an inner host lives
+  inside a shadow root and is not reachable via XPath from `document` at all --
+  the generated locator would never resolve. `ElementInfo` now carries a real
+  hop chain: `shadowHostXpath` (outermost light-DOM host) + new
+  `shadowIntermediateCss` (`List<String>`, one CSS hop per nested shadow host)
+  + `shadowRelativeCss` (final level), with a new `describeShadowResolution()`
+  helper that prints the exact `driver.findElement(...).getShadowRoot()...`
+  chain. Existing single-level shadow-DOM behavior (the common case,
+  `shadowIntermediateCss` empty) is unchanged -- root-caused while automating
+  a consumer-reported issue in the `external consumer project` consumer project (consumer application global
+  header search).
+- **Shadow-root enumeration raced ahead of Web Component hydration**, causing
+  a transient `null`/empty read immediately after a shadow host was
+  discovered (e.g. right after opening a modal containing a lazily-hydrated
+  custom element). Added a bounded poll (`waitForShadowRootHydration`, max 8s,
+  250ms interval, 2 consecutive stable child-count reads) before enumerating
+  each shadow root's interactive elements. Falls back to whatever is present
+  after the timeout so a legitimately empty or unusually slow widget never
+  hangs the crawler.
+
+### Added
+- **`TestBase.findInNestedShadowDom(By hostLocator, String... intermediateAndFinalCss)`**
+  -- companion to the existing `findInShadowDom` for shadow-in-shadow nesting;
+  resolves a chain of CSS hops through successive `getShadowRoot()` calls, one
+  per nested shadow host, ending at the target element. Mirrors the new
+  `ElementInfo.shadowIntermediateCss` chain emitted by `ElementCrawler`.
+
+---
+
+## [1.4.0] — 2026-09-16
+
+### Added
+- `MobileDriverFactory` (local Android sessions): new optional `android.httpProxy`
+  ("host:port") config key. When set, applies the W3C `proxy` capability so UiAutomator2
+  automatically runs `adb shell settings put global http_proxy ...` on the emulator/device at
+  session start. This is needed when the host machine itself requires a corporate/network
+  proxy for internet access -- without it, the emulator has no outbound HTTP(S) egress at all,
+  and the app under test shows a generic "network connectivity issue" that is easy to
+  misdiagnose as an app/locator/test defect rather than an environment/network configuration
+  gap. Root-caused and validated live against the reference mobile application in `external consumer project`: setting
+  the device's global `http_proxy` to match the host's corporate proxy took the app from a
+  persistent "Network connectivity issue" error banner to fully loading real API-backed content.
+  Left unset by default (opt-in) since most networks have direct internet access.
+
+---
+
+## [1.3.1] — 2026-09-14
+
+### Fixed
+- `MobileDriverFactory` (local Android/iOS sessions): now explicitly sets `noReset=true` /
+  `fullReset=false` by default (configurable via `android.noReset`/`android.fullReset` and
+  `ios.noReset`/`ios.fullReset`). Previously, since an `app` capability (`appPath`) was always
+  supplied but `noReset` was never set, Appium's own default caused every local test run to
+  reinstall the APK/IPA and wipe app data before each session -- forcing a cold start on every
+  run. This produced materially different behavior than a manually-driven session on the same
+  device (different cache/auth state, slower/lazier remote-content loading), and was the actual
+  root cause of a "a dynamic mobile list never loads" failure in external consumer project that
+  reproduced 100% of the time under automation but never manually -- confirming an app-state
+  difference, not a genuine content/timing bug.
+
+---
+
+## [1.3.0] — 2026-09-14
+
+### Added
+- `MobileElementCrawler`: pre-crawl wait for loading indicators (Android `ProgressBar` /
+  iOS `ActivityIndicator`, plus configurable extra classes) to disappear before snapshotting,
+  bounded by a configurable timeout (`-Dpog.mobile.loadingWaitTimeoutSeconds` /
+  `mobile-config.yaml` `crawler.loadingWaitTimeoutSeconds`, default 15s). Fixes the crawler
+  silently snapshotting a still-spinning screen for slow/lazily-populated agency lists
+  (found via live investigation of external consumer project's "Sample Workflow" menu).
+- `MobileCrawlerStep`: new `Action.SWIPE` with `swipeDown()`/`swipeUp()` factories.
+- `MobileDataDrivenCrawler`: new `crawlWithScrollDiscovery(SwipeDirection, int maxSwipeAttempts)`
+  that repeatedly swipes + re-crawls + merges elements until no new elements appear or the
+  attempt cap is hit, so items positioned below the fold of a long scrollable list (e.g. the application-specific
+  "Driver Complaint"/"Lost Property" menu items) are actually discovered instead of silently
+  missing from the crawl report. State-fingerprint dedup is disabled for the duration of scroll
+  discovery, since it deliberately ignores plain-text-only elements and would otherwise abort
+  merging after the first swipe on text-only list screens.
+
+---
+
+## [1.2.1] — 2026-09-11
+
+### Fixed
+- **PageObjectGenerator illegal field names:** generated field names are now sanitized before being written into a page object -- names starting with a digit (e.g. scraped text `"123"`) are prefixed (`el123`), and names that collide with a Java reserved keyword (e.g. scraped text `"Public"` -> `public`) or with the generated class's own boilerplate fields (`log`, `driver`) are suffixed (`publicField`), preventing generated `.java` files from failing to compile.
 
 ---
 
@@ -56,7 +600,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [1.1.3] — 2026-09-10
 
 ### Fixed
-- **Dependency baseline alignment (Poletop migration finding):** centralized the
+- **Dependency baseline alignment (Example migration finding):** centralized the
   approved framework stack in `pom.xml` with explicit `appium.version`,
   `selenium.version`, compiler-release, and Surefire properties; enforced the
   Java contract as **20 or newer** via `maven-enforcer-plugin`; and made
@@ -146,7 +690,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   placeholder so an already-promoted (genuinely empty) section is no longer
   miscounted as "has content".
 - **`RunMode.resolve()` defaulted to `BROWSERSTACK` when no execution-target
-  property was configured** (OBS-1, Poletop consumer-validation finding). A
+  property was configured** (OBS-1, Example consumer-validation finding). A
   local-only consumer upgrading the SDK -- or simply forgetting to set
   `-Drun.mode`/`-DtestInBrowserstack` -- could silently attempt a remote
   BrowserStack session instead of running locally. Unspecified execution now
@@ -158,7 +702,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   values, instead of the raw `Enum.valueOf` message.
 - **Standard failure screenshots were written to a hidden, double-nested
   `<reporting.screenshotsDir>/screenshots/` folder** instead of directly to
-  `reporting.screenshotsDir` (OBS-3, Poletop consumer-validation finding),
+  `reporting.screenshotsDir` (OBS-3, Example consumer-validation finding),
   while the paired DOM dump was written one level up in the correct,
   configured directory -- so a failure's screenshot and DOM evidence ended up
   in different folders. `TestBase.getScreenShot(WebDriver, ITestResult)` is
@@ -169,7 +713,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   source/binary compatibility.
 - **`Excel_Reader.getDataFromSheet` threw a raw `NegativeArraySizeException(-1)`**
   for a missing sheet or a sheet with no data rows below the header (OBS-6,
-  Poletop consumer-validation finding), instead of describing the actual
+  Example consumer-validation finding), instead of describing the actual
   test-data problem. It now validates the sheet exists and has at least one
   data row and one column before allocating the result array, and raises a
   descriptive `IllegalStateException` naming the workbook, sheet, and the
@@ -177,7 +721,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ### Documentation
 - **Added a "Known migration gotchas" subsection** (SDK-USER-GUIDE.md Section 4a)
-  covering two recurring consumer-migration issues surfaced by the Poletop
+  covering two recurring consumer-migration issues surfaced by the Example
   consumer-validation pass: (1) a `@Deprecated` top-level facade class cannot
   preserve imports of its nested types (Java requires the canonical declaring
   class for nested-type imports -- e.g. `ElementCrawler.ElementInfo` must be
@@ -621,7 +1165,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   `CSVUtils`, `PropertiesReader`, `QueryExcelFile`, `MailinatorEmailReader`,
   `MobileConfigReader`) were updated to reference `config.SdkConfig` directly.
   Searched all known consumer projects
-  (`mobile-functional-automation-consumer-template`, `311-Automation-SDK`) --
+  (`mobile-functional-automation-consumer-template`, `external consumer project`) --
   neither referenced the legacy classes directly, so this is not expected to
   break any current consumer, but IS a breaking change for anyone who does
   (`com.test.automation.sdk.testbase.SdkConfig` /
@@ -641,15 +1185,15 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   real device/emulator to do anything and were never wired into the automated `mvn test`
   run. None of these had any external references; pure deletion, no code changes
   elsewhere needed. 451/451 tests still passing, zero regressions.
-- `mobile.uiActions.*` (7 concrete 311-app page objects: `HomePage`,
-  `NavigationUtility`, `NewServiceRequestPage`, `NotificationsPage`,
-  `PermissionControllerPopUp`, `TermsOfUsePage`, `UserDataPolicyPage`) --
+- `mobile.uiActions.*` (7 concrete reference-app page objects: `HomePage`,
+  `NavigationUtility`, `FeatureListPage`, `NotificationsPage`,
+  `PermissionDialog`, `TermsPage`, `PrivacyPage`) --
   Phase 5 of `docs/proposals/unified-sdk-architect-review.md`, section C.6.
   App-specific page objects have no architectural justification inside a
   reusable SDK (the mature web SDK correctly has zero page objects of its
   own). `mobile-functional-automation-consumer-template`'s
   `OnboardingAndHomeSmokeTest` directly imported `NavigationUtility` and
-  `NewServiceRequestPage`, and `NavigationUtility` itself instantiates the
+  `FeatureListPage`, and `NavigationUtility` itself instantiates the
   other 5 classes internally -- all 7 were coordinated-migrated (not just
   deprecated) into that consumer template's own `com.yourcompany.automation.uiActions`
   package first, and its two imports updated, before deleting the SDK-side
@@ -805,7 +1349,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 >   collector for screenshot correlation, richer confidence gradient) are still open.
 > - **Next step tomorrow:** re-run `mvn deploy` (credentials now fixed) to actually publish
 >   `cross-platform-functional-test-automation-sdk:1.0.0` to Azure Artifacts, then begin
->   converting the Poletop project to depend on this new unified SDK (per explicit user
+>   converting the Example project to depend on this new unified SDK (per explicit user
 >   request -- neither consumer template has been touched yet; both still point at the
 >   old, separate `functional-test-automation-sdk`/`mobile-functional-test-automation-sdk`
 >   artifacts).
@@ -832,7 +1376,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   reference docs web consumers already had. 4 new tests
   (`InstructionExtractorTest`); 387 total passing (was 383).
 - **Root vs. bundled documentation drift (full audit + resync):** `.github/copilot-instructions.md`
-  had been left as stale, Poletop-project-specific content since the web+mobile merge
+  had been left as stale, Example-project-specific content since the web+mobile merge
   commit while the correct, generic, SDK-authored template already existed at
   `src/main/resources/sdk-instructions/copilot-instructions.md` -- root now matches the
   bundle. Also resynced (now byte-identical again): `CHANGELOG.md`, `README.md`
@@ -1133,7 +1677,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   - `DataDrivenCrawler.pageStateLabel(String url)` — extracts human-readable route label from
     both Angular hash-routed (`#/route`) and standard URLs.
   `WebDriverWait` until `driver.getCurrentUrl()` contains the given substring. Use after
-  `loginAsPoletopUser()` or any SAML/SSO flow to confirm the redirect has completed before
+  `loginAsExampleUser()` or any SAML/SSO flow to confirm the redirect has completed before
   proceeding with navigation. Throws `TimeoutException` if the timeout elapses.
 - **`TestBase.scanReservationsByButtonTitle(String baseUrl, List<String> reservationIds, String buttonTitle, int renderWaitMs)`** —
   navigates to each reservation ID in sequence and returns those where the details page
@@ -1151,8 +1695,8 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   directory tree; added full blocker report format so users know what to expect.
 - **Copilot instructions** (`test-case-gap.instructions.md`,
   `formal-testcase-to-script.instructions.md`) — updated to reflect new naming convention.
-- **`PoletopLoginPage.loginAsPoletopUser()`** (consumer) — now blocks until the SAML
-  handshake completes (browser exits `accounts*.nyc.gov`) before returning, eliminating
+- **`ExampleLoginPage.loginAsExampleUser()`** (consumer) — now blocks until the SAML
+  handshake completes (browser exits `accounts.example.com`) before returning, eliminating
   the hang-on-login race condition in investigator methods.
 
 ---
@@ -1189,7 +1733,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 
 ### Tests
 - 300/300 passing (all existing tests pass; new methods covered by manual validation
-  against Poletop ADO-233505 scenario).
+  against Example ADO-233505 scenario).
 
 ---
 
@@ -1349,7 +1893,7 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
   `test-creation`, `page-object-creation`, `locator-strategy`, `formal-testcase-to-script`,
   `test-fix`, `test-case-gap` + all 6 test prompts
 - **`sdk-instructions/copilot-instructions.md`** -- rewritten as a generic, project-agnostic
-  bootstrap; removed all Poletop-specific package names and paths; consumers update the
+  bootstrap; removed all Example-specific package names and paths; consumers update the
   `## Project Identity` section for their own project
 - **`sdk-development.instructions.md`** rule added: CHANGELOG.md and README.md must be
   updated on every SDK change before `mvn deploy`
@@ -1648,7 +2192,7 @@ Three resolution mechanisms implemented in `collectLabelAssociations()`:
 - **`test-fix.instructions.md`** -- Rule 0 ADO Pre-Fix Check with full decision table
 - **`PageObjectGenerator`** -- project-agnostic output: `uiActionsPackage`, `outputSrc`,
   `outputReport` resolved at runtime via `-Dpog.*` system properties ->
-  `sdk-config.yaml crawler.pageObject.*` -> built-in Poletop defaults (backward compat)
+  `sdk-config.yaml crawler.pageObject.*` -> built-in Example defaults (backward compat)
 - **`sdk-config.yaml.template`** -- new `crawler:` section
 - **`YamlConfigReader`** -- three new default keys for `crawler.pageObject.*`
 - **`SDK-USER-GUIDE.md`** -- Sections 6.2 and 7 updated for project-agnostic crawler config

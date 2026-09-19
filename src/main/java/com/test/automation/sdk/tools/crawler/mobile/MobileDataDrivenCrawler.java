@@ -95,6 +95,52 @@ public class MobileDataDrivenCrawler {
         return skippedDuplicateScreens;
     }
 
+    /**
+     * Scroll-and-merge discovery: repeatedly swipes the current screen and re-crawls, merging
+     * newly discovered elements after each swipe, until either {@code maxSwipeAttempts} is
+     * reached or two consecutive swipes contribute no new merged elements (list has reached its
+     * end / fully rendered). Added after live investigation of the external consumer project "New
+     * Service Request" menu, where target items ("Driver Complaint"/"Lost Property") sit well
+     * below the fold of a long, lazily-populated agency list that a single-snapshot crawl would
+     * never discover.
+     *
+     * @param direction        swipe direction to reveal further content (typically {@code DOWN}).
+     * @param maxSwipeAttempts upper bound on swipes, so a genuinely infinite/looping list can't hang the crawl.
+     * @return the deduplicated, merged list of every native element observed across all swipes.
+     */
+    public List<MobileElementInfo> crawlWithScrollDiscovery(MobileCrawlerStep.SwipeDirection direction, int maxSwipeAttempts) {
+        // Structural state-fingerprint dedup (used by crawlFlow/crawlAndMerge) deliberately ignores
+        // plain-text elements (see structuralIdentity()) -- but scrollable menus like an application-specific "New
+        // Service Request" list are exactly plain-text TextView items with no resource-id/content-desc.
+        // Leaving dedup enabled here would make every post-swipe screen look identical (same
+        // non-text chrome, ignored text) and abort merging after the very first swipe. Disable it
+        // for the duration of scroll discovery, then restore the caller's original setting.
+        boolean originalDedup = stateDeduplicationEnabled;
+        stateDeduplicationEnabled = false;
+        try {
+            crawlAndMerge("Initial screen (before scroll discovery)");
+            int sizeBeforeSwipe = mergedElementsByKey.size();
+
+            for (int attempt = 1; attempt <= maxSwipeAttempts; attempt++) {
+                MobileCrawlerStep swipeStep = direction == MobileCrawlerStep.SwipeDirection.DOWN
+                        ? MobileCrawlerStep.swipeDown() : MobileCrawlerStep.swipeUp();
+                executeStep(swipeStep);
+                crawlAndMerge("Scroll discovery swipe #" + attempt);
+
+                int sizeAfterSwipe = mergedElementsByKey.size();
+                if (sizeAfterSwipe == sizeBeforeSwipe) {
+                    log.info("Scroll discovery stopping after {} swipe(s) -- no new elements found (list end reached)", attempt);
+                    break;
+                }
+                sizeBeforeSwipe = sizeAfterSwipe;
+            }
+
+            return new ArrayList<>(mergedElementsByKey.values());
+        } finally {
+            stateDeduplicationEnabled = originalDedup;
+        }
+    }
+
     private void crawlAndMerge(String stepLabel) {
         MobileScreenSnapshot snapshot = elementCrawler.crawlCurrentScreen();
         String fingerprint = computeStateFingerprint(snapshot.getNativeElements());
@@ -148,6 +194,11 @@ public class MobileDataDrivenCrawler {
     }
 
     private void executeStep(MobileCrawlerStep step) {
+        if (step.getAction() == MobileCrawlerStep.Action.SWIPE) {
+            performSwipe(step.getSwipeDirection());
+            waitBriefly();
+            return;
+        }
         By by = resolveBy(step);
         WebElement element = driver.findElement(by);
         switch (step.getAction()) {
@@ -162,6 +213,23 @@ public class MobileDataDrivenCrawler {
                 throw new IllegalArgumentException("Unsupported crawler step action: " + step.getAction());
         }
         waitBriefly();
+    }
+
+    /** Full-screen swipe using the driver's own window size (20%-80% vertically), matching the
+     *  swipe geometry convention already used by consumer projects' {@code TestBase.swipeWithinContainer}. */
+    private void performSwipe(MobileCrawlerStep.SwipeDirection direction) {
+        try {
+            org.openqa.selenium.Dimension size = driver.manage().window().getSize();
+            int centerX = size.getWidth() / 2;
+            int top = (int) (size.getHeight() * 0.2);
+            int bottom = (int) (size.getHeight() * 0.8);
+            int startY = direction == MobileCrawlerStep.SwipeDirection.DOWN ? bottom : top;
+            int endY = direction == MobileCrawlerStep.SwipeDirection.DOWN ? top : bottom;
+            com.test.automation.sdk.mobile.actions.MobileActions.swipe(
+                    driver, centerX, startY, centerX, endY, java.time.Duration.ofMillis(400));
+        } catch (Exception e) {
+            log.warn("Swipe gesture failed during crawl", e);
+        }
     }
 
     private By resolveBy(MobileCrawlerStep step) {

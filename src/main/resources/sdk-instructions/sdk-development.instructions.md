@@ -139,10 +139,10 @@ running the full release pipeline:**
 |---|---|---|
 | `functional-test-automation-sdk` | `master` | `origin master` |
 | `functional-automation-consumer-template` | `master` | `origin master` |
-| `Poletop_Automation` | `trunk` | `origin trunk` AND `origin master` |
+| `Example_Automation` | `trunk` | `origin trunk` AND `origin master` |
 | `maven-repository` | `trunk` | `origin trunk` |
 
-> **Poletop_Automation is special:** it has BOTH `trunk` and `master` branches on the remote.
+> **Example_Automation is special:** it has BOTH `trunk` and `master` branches on the remote.
 > Every push to `trunk` must also be pushed to `master` to keep them in sync.
 > Always run:
 > ```bash
@@ -164,7 +164,7 @@ git status --short                       # must be EMPTY after push
   ```bash
   git push origin trunk:master --force
   ```
-- `trunk` is always the authoritative branch for `Poletop_Automation`.
+- `trunk` is always the authoritative branch for `Example_Automation`.
 - After force-push, verify both branches point to the same commit:
   ```bash
   git log --oneline origin/master -3
@@ -177,7 +177,7 @@ After any SDK release, ALL of these must be updated and pushed:
 - [ ] `functional-test-automation-sdk` `master` -- source + tests + CHANGELOG + README + pom.xml
 - [ ] `maven-repository` `trunk` AND `master` -- new version JARs committed and pushed to BOTH branches
 - [ ] `functional-automation-consumer-template` `master` -- pom.xml version bump, InstructionExtractor rerun
-- [ ] `Poletop_Automation` `trunk` AND `master` -- pom.xml version bump, InstructionExtractor rerun
+- [ ] `Example_Automation` `trunk` AND `master` -- pom.xml version bump, InstructionExtractor rerun
 - [ ] Any other consumer projects registered with the team
 
 > **`maven-repository` requires pushing to BOTH `trunk` and `master`** every release.

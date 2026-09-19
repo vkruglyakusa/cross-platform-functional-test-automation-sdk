@@ -1,7 +1,7 @@
 # Accessibility Testing Strategy — Vendor Research & Architecture Proposal
 
 **Status:** DRAFT — for review. Research-backed, not yet implemented.
-**Author context:** produced during joint research session with @vkruglyak_NYC.
+**Author context:** produced during joint research session with the architecture team.
 **Scope:** compare our SDK's existing accessibility implementation against leading
 commercial/OSS accessibility platforms, and propose architecture improvements
 **without** replacing our SDK with a vendor product.

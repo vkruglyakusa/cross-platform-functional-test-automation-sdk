@@ -1,5 +1,5 @@
 ﻿# SDK Release Script (Windows PowerShell)
-# Usage: scripts\release.ps1 [-ProxyHost bcpxy.nycnet] [-ProxyPort 8080] [-AssumeYes] [-TemplatePath <dir>] [-SkipTemplate]
+# Usage: scripts\release.ps1 [-ProxyHost proxy.example.com] [-ProxyPort 8080] [-AssumeYes] [-TemplatePath <dir>] [-SkipTemplate]
 #   -AssumeYes: skip the interactive "docs may need updating" confirmation prompt
 #               (required for non-interactive/automated runs; use only when you have
 #               already verified docs don't need updating for this release)
@@ -18,7 +18,7 @@
 #   3. Update SDK README.md        -- version badge, dependency snippet, footer
 #   4. Promote SDK CHANGELOG.md    -- move [Unreleased] -> [version] -- date
 #   5. Git commit SDK docs         -- single commit: "docs: release vX.Y.Z"
-#   6. Deploy                      -- Maven deploy to Azure Artifacts + local repo
+#   6. Deploy                      -- Maven deploy to GitHub Packages + local repo
 #   7. Update consumer template    -- pom.xml, README.md, GETTING-STARTED.md, CHANGELOG.md
 #                                     ONLY if the template's pom.xml actually depends on
 #                                     THIS SDK's artifactId (read from this repo's own
@@ -321,7 +321,7 @@ if ($SkipTemplate) {
     #     SDK's artifactId. Multiple, independently-versioned SDKs
     #     (e.g. the legacy `functional-test-automation-sdk` vs this
     #     `cross-platform-functional-test-automation-sdk`) can share the same
-    #     groupId and the same Azure Artifacts feed name, but a template that
+    #     groupId and the same package registry, but a template that
     #     depends on a DIFFERENT SDK must never have its version bumped to
     #     match this release -- that silently corrupts an unrelated dependency.
     $tplPomCheck = "$TemplatePath\pom.xml"
@@ -440,7 +440,7 @@ Write-Host "============================================"
 Write-Host "  SUCCESS: SDK v$version released"
 Write-Host ""
 Write-Host "  Doc gate    : CHANGELOG [Unreleased] verified, key docs checked"
-Write-Host "  Deploy      : Azure Artifacts + local .m2"
+Write-Host "  Deploy      : GitHub Packages + local .m2"
 Write-Host "  Template    : pom.xml, README, SDK-USER-GUIDE, GETTING-STARTED, CHANGELOG updated"
 Write-Host ""
 Write-Host "  Push both repos to remote:"

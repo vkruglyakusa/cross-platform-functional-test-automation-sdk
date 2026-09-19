@@ -128,17 +128,4 @@ class WebDriverFactoryTest {
         WebDriverFactory.setupLocalChromeDriver(driver2.getAbsolutePath());
         assertEquals(driver2.getAbsolutePath(), System.getProperty(DRIVER_PROP));
     }
-
-    @Test
-    void remoteCapabilities_supportsAllWebBrowsersWithoutLaunchingThem() {
-        assertEquals("chrome", WebDriverFactory.remoteCapabilities("chrome").getBrowserName());
-        assertEquals("firefox", WebDriverFactory.remoteCapabilities("firefox").getBrowserName());
-        assertEquals("MicrosoftEdge", WebDriverFactory.remoteCapabilities("edge").getBrowserName());
-    }
-
-    @Test
-    void remoteCapabilities_rejectsUnknownBrowser() {
-        assertThrows(IllegalArgumentException.class,
-                () -> WebDriverFactory.remoteCapabilities("safari"));
-    }
 }

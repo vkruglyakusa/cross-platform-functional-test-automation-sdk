@@ -314,19 +314,27 @@ public class ElementCrawler {
     }
 
     // JS: finds every open shadow-root HOST element in the document, recursing into
-    // nested shadow roots (shadow-in-shadow), in document order. Closed shadow roots
-    // are invisible to any script (including this one) and cannot be discovered --
-    // this is a hard platform limitation, not a gap in the crawler.
+    // nested shadow roots (shadow-in-shadow), in document order. Each discovered host
+    // is tagged with a transient "data-scrawl-shadow-id" attribute plus its parent
+    // host's id (or null for a top-level, light-DOM host) so the Java side can rebuild
+    // the exact parent -> child nesting chain afterwards. Closed shadow roots are
+    // invisible to any script (including this one) and cannot be discovered -- this is
+    // a hard platform limitation, not a gap in the crawler.
     private static final String SHADOW_HOST_FINDER_JS =
         "return (function(){" +
-        "  var hosts=[];" +
-        "  function walk(root){" +
+        "  var hosts=[]; var counter=0;" +
+        "  function walk(root, parentId){" +
         "    var all=root.querySelectorAll('*');" +
         "    for(var i=0;i<all.length;i++){" +
-        "      if(all[i].shadowRoot){ hosts.push(all[i]); walk(all[i].shadowRoot); }" +
+        "      if(all[i].shadowRoot){" +
+        "        var myId='scrawl-'+(counter++);" +
+        "        all[i].setAttribute('data-scrawl-shadow-id', myId);" +
+        "        hosts.push({host: all[i], hostId: myId, parentId: parentId});" +
+        "        walk(all[i].shadowRoot, myId);" +
+        "      }" +
         "    }" +
         "  }" +
-        "  walk(document);" +
+        "  walk(document, null);" +
         "  return hosts;" +
         "})();";
 
@@ -339,11 +347,17 @@ public class ElementCrawler {
      * <p>
      * XPath cannot cross a shadow boundary -- this is a W3C spec limitation, not
      * a crawler gap -- so elements found here are tagged
-     * {@link ElementInfo#inShadowDom} = true with a two-part locator instead of a
+     * {@link ElementInfo#inShadowDom} = true with a chained locator instead of a
      * single XPath: {@link ElementInfo#shadowHostXpath} (light-DOM xpath to the
-     * host element) plus {@link ElementInfo#shadowRelativeCss} (CSS selector
-     * resolved via {@code host.getShadowRoot()}, since shadow roots only support
-     * CSS selectors in Selenium/W3C, never XPath).
+     * <em>outermost</em> shadow-root host), an optional
+     * {@link ElementInfo#shadowIntermediateCss} chain of CSS hops for
+     * shadow-in-shadow nesting (e.g. a Coveo Atomic-style {@code <custom-search-box>}
+     * whose shadow root contains another shadow host such as
+     * {@code <atomic-search-box>}), and a final {@link ElementInfo#shadowRelativeCss}
+     * resolved inside the innermost shadow root. Resolution is:
+     * {@code host.getShadowRoot().findElement(hop1).getShadowRoot().findElement(hop2)...
+     * .findElement(shadowRelativeCss)} -- all CSS, since shadow roots only support CSS
+     * lookups in Selenium/W3C, never XPath.
      * <p>
      * Closed shadow roots (host.shadowRoot === null from outside) cannot be
      * discovered or traversed by any script or WebDriver command -- this is an
@@ -351,14 +365,25 @@ public class ElementCrawler {
      */
     private List<ElementInfo> collectFromShadowRoots() {
         List<ElementInfo> result = new ArrayList<>();
+        List<WebElement> hostsToClean = new ArrayList<>();
         try {
             Object raw = ((JavascriptExecutor) driver).executeScript(SHADOW_HOST_FINDER_JS);
             if (!(raw instanceof List)) return result;
             @SuppressWarnings("unchecked")
-            List<WebElement> hosts = (List<WebElement>) raw;
-            log.info("collectFromShadowRoots: found " + hosts.size() + " open shadow-root host(s)");
+            List<Map<String, Object>> hostEntries = (List<Map<String, Object>>) raw;
+            log.info("collectFromShadowRoots: found " + hostEntries.size() + " open shadow-root host(s)");
 
-            for (WebElement host : hosts) {
+            // hostId -> full chain of hops needed to reach that host's OWN shadow root
+            // (light-DOM xpath for the outermost host, plus a CSS hop per nested host).
+            Map<String, ShadowChain> chainByHostId = new LinkedHashMap<>();
+
+            for (Map<String, Object> entry : hostEntries) {
+                WebElement host = (WebElement) entry.get("host");
+                String hostId   = String.valueOf(entry.get("hostId"));
+                Object parentIdRaw = entry.get("parentId");
+                String parentId = parentIdRaw == null ? null : String.valueOf(parentIdRaw);
+                hostsToClean.add(host);
+
                 try {
                     org.openqa.selenium.SearchContext shadowRoot;
                     try {
@@ -366,7 +391,25 @@ public class ElementCrawler {
                     } catch (Exception e) {
                         continue; // closed root, or getShadowRoot() unsupported for this node
                     }
-                    String hostXpath = getJsXPath(host);
+
+                    // Build this host's chain from its parent's chain (empty/top-level
+                    // hosts get a fresh chain rooted at their own light-DOM xpath).
+                    ShadowChain parentChain = parentId == null ? null : chainByHostId.get(parentId);
+                    ShadowChain myChain;
+                    if (parentChain == null) {
+                        myChain = new ShadowChain(getJsXPath(host), new ArrayList<>());
+                    } else {
+                        myChain = parentChain.withNestedHop(bestShadowCssSelector(host, host.getTagName()));
+                    }
+                    chainByHostId.put(hostId, myChain);
+
+                    // Web Components (Coveo Atomic, Lit/Stencil, LWC, etc.) frequently
+                    // attach an EMPTY open shadow root synchronously, then populate it
+                    // asynchronously once the component hydrates. A single lookup right
+                    // after discovery can race ahead of hydration and miss everything
+                    // (or worse, return elements right as they're being replaced) --
+                    // poll for a stable child count before enumerating.
+                    waitForShadowRootHydration(shadowRoot);
 
                     for (String tag : INTERACTIVE_TAGS) {
                         List<WebElement> found;
@@ -378,17 +421,17 @@ public class ElementCrawler {
                         for (WebElement el : found) {
                             ElementInfo info = buildInfo(el);
                             if (info == null) continue;
-                            info.inShadowDom       = true;
-                            info.shadowHostXpath   = hostXpath;
-                            info.shadowRelativeCss = bestShadowCssSelector(el, tag);
+                            info.inShadowDom            = true;
+                            info.shadowHostXpath         = myChain.outerHostXpath;
+                            info.shadowIntermediateCss   = new ArrayList<>(myChain.nestedHostCss);
+                            info.shadowRelativeCss       = bestShadowCssSelector(el, tag);
                             // Standalone XPath strategies computed by buildInfo() are always
                             // STALE for shadow-DOM elements (XPath cannot cross a shadow
                             // boundary) -- replace with a single explanatory entry so the
                             // report doesn't show a wall of misleading STALE rows.
                             info.allXpaths = new LinkedHashMap<>();
-                            info.allXpaths.put("SHADOW DOM (host + relative CSS)",
-                                "host: " + hostXpath + "  ->  shadowRoot.findElement(By.cssSelector(\""
-                                    + info.shadowRelativeCss + "\"))");
+                            info.allXpaths.put("SHADOW DOM (host chain + relative CSS)",
+                                info.describeShadowResolution());
                             info.xpath = "";
                             result.add(info);
                         }
@@ -399,8 +442,69 @@ public class ElementCrawler {
             }
         } catch (Exception e) {
             log.warn("collectFromShadowRoots: " + e.getMessage());
+        } finally {
+            // Strip the transient linking attribute -- it was only needed to rebuild
+            // the parent/child nesting chain above and must not leak into the live page.
+            for (WebElement host : hostsToClean) {
+                try {
+                    ((JavascriptExecutor) driver).executeScript(
+                        "arguments[0].removeAttribute('data-scrawl-shadow-id');", host);
+                } catch (Exception ignored) {
+                    // Element may have detached/re-rendered already -- nothing to clean up.
+                }
+            }
         }
         return result;
+    }
+
+    /** Immutable snapshot of the shadow-host chain leading up to (but not including) a given shadow root. */
+    private static final class ShadowChain {
+        final String outerHostXpath;
+        final List<String> nestedHostCss;
+
+        ShadowChain(String outerHostXpath, List<String> nestedHostCss) {
+            this.outerHostXpath = outerHostXpath;
+            this.nestedHostCss = nestedHostCss;
+        }
+
+        ShadowChain withNestedHop(String css) {
+            List<String> combined = new ArrayList<>(nestedHostCss);
+            combined.add(css);
+            return new ShadowChain(outerHostXpath, combined);
+        }
+    }
+
+    /**
+     * Bounded poll (not an arbitrary sleep): waits for a shadow root's child element
+     * count to stop changing across two consecutive checks, up to a short timeout.
+     * Handles Web Components that attach an empty open shadow root synchronously and
+     * fill it in asynchronously after connectedCallback/hydration. If the shadow root
+     * is legitimately empty (or hydration is unusually slow), this returns once the
+     * timeout elapses so the crawler never hangs on one widget.
+     */
+    private void waitForShadowRootHydration(org.openqa.selenium.SearchContext shadowRoot) {
+        final long timeoutMs = 8000;
+        final long pollMs = 250;
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        int lastCount = -1;
+        int stableStreak = 0;
+        try {
+            while (System.currentTimeMillis() < deadline) {
+                int count = shadowRoot.findElements(By.cssSelector("*")).size();
+                if (count > 0 && count == lastCount) {
+                    stableStreak++;
+                    if (stableStreak >= 2) return; // stable for ~500ms -- treat as hydrated
+                } else {
+                    stableStreak = 0;
+                }
+                lastCount = count;
+                Thread.sleep(pollMs);
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.warn("waitForShadowRootHydration: " + e.getMessage());
+        }
     }
 
     /**
@@ -1831,14 +1935,42 @@ public class ElementCrawler {
          * True when this element lives inside an <em>open</em> shadow root (Web
          * Components, Lit/Stencil, Salesforce Lightning/LWC, etc.). XPath cannot
          * cross a shadow boundary, so standalone {@code xpath} is empty for these
-         * elements -- use {@link #shadowHostXpath} + {@link #shadowRelativeCss}
-         * via {@code host.getShadowRoot().findElement(By.cssSelector(...))}.
+         * elements -- use {@link #shadowHostXpath} plus (if non-empty)
+         * {@link #shadowIntermediateCss} plus {@link #shadowRelativeCss}. See
+         * {@link #describeShadowResolution()} for the exact resolution chain.
          */
         public boolean inShadowDom = false;
-        /** Light-DOM XPath to the shadow-root HOST element, when isInShadowDom=true. */
+        /** Light-DOM XPath to the <em>outermost</em> shadow-root HOST element, when inShadowDom=true. */
         public String  shadowHostXpath = "";
-        /** CSS selector for this element relative to its enclosing shadow root. */
+        /**
+         * CSS selectors for any <em>nested</em> shadow-root hosts between the outermost
+         * host ({@link #shadowHostXpath}) and the shadow root that directly contains this
+         * element (shadow-in-shadow, e.g. Coveo Atomic's {@code <custom-search-box>} whose
+         * shadow root contains another shadow host {@code <atomic-search-box>}). Each entry
+         * is resolved via {@code .getShadowRoot().findElement(By.cssSelector(hop))} in order.
+         * Empty when the element is only one shadow level deep (the common case).
+         */
+        public List<String> shadowIntermediateCss = new ArrayList<>();
+        /** CSS selector for this element relative to its immediately-enclosing shadow root. */
         public String  shadowRelativeCss = "";
+
+        /**
+         * Human-readable Java/Selenium resolution chain for a shadow-DOM element, for use
+         * in reports and as a starting point when hand-writing a Page Object method. Handles
+         * both the common single-level case and shadow-in-shadow nesting.
+         */
+        public String describeShadowResolution() {
+            if (!inShadowDom) return "";
+            StringBuilder sb = new StringBuilder();
+            sb.append("driver.findElement(By.xpath(\"").append(shadowHostXpath).append("\"))")
+              .append(".getShadowRoot()");
+            for (String hop : shadowIntermediateCss) {
+                sb.append(".findElement(By.cssSelector(\"").append(hop).append("\"))")
+                  .append(".getShadowRoot()");
+            }
+            sb.append(".findElement(By.cssSelector(\"").append(shadowRelativeCss).append("\"))");
+            return sb.toString();
+        }
 
         /** Best unique, non-dynamic XPath -- set by buildAllXPaths(). */
         public String xpath        = "";
@@ -1899,7 +2031,9 @@ public class ElementCrawler {
                  + (isHidden      ? " | HIDDEN"               : "")
                  + (isTableHeader ? " | TABLE-HEADER=" + tableColumnText : "")
                  + (isMapWidget   ? " | MAP-WIDGET=" + mapProvider : "")
-                 + (inShadowDom   ? " | SHADOW-DOM host=" + shadowHostXpath + " css=" + shadowRelativeCss : "")
+                 + (inShadowDom   ? " | SHADOW-DOM host=" + shadowHostXpath
+                                        + (shadowIntermediateCss.isEmpty() ? "" : " nested=" + shadowIntermediateCss)
+                                        + " css=" + shadowRelativeCss : "")
                  + (!labelText.isEmpty()  ? " | label='"     + labelText  + "'" : "")
                  + (!pageState.isEmpty()  ? " | page="       + pageState        : "")
                  + (!stepTag.isEmpty()    ? " | step="       + stepTag          : "")

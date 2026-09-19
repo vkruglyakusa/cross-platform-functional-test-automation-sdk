@@ -40,6 +40,9 @@ This class provides the full Selenium helper library -- never use raw Selenium A
 29. [Collection Utilities](#29-collection-utilities)
 30. [URL Waits & Reservation Scanner](#30-url-waits--reservation-scanner)
 31. [Map Widgets (Google Maps / Leaflet / Mapbox GL / OpenLayers / Bing Maps)](#31-map-widgets-google-maps--leaflet--mapbox-gl--openlayers--bing-maps)
+32. [Shadow DOM (Web Components / Lit / Stencil / Salesforce Lightning-LWC)](#32-shadow-dom-web-components--lit--stencil--salesforce-lightning-lwc)
+33. [Runtime Self-Healing Locators](#33-runtime-self-healing-locators)
+34. [Visual Regression Testing](#34-visual-regression-testing)
 
 ---
 
@@ -444,7 +447,7 @@ verifyText("Application Submitted", actual);
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `randomEmailAddress` | `randomEmailAddress()` | Generates a random `test<6-digits>@doitt.nyc.gov` email. |
+| `randomEmailAddress` | `randomEmailAddress()` | Generates a random `test<6-digits>@example.com` email. |
 | `randomEmailAddress` | `randomEmailAddress(String domain)` | Generates a random email on the provided domain. |
 | `randomPassword` | `randomPassword()` | Generates a random `test<6-digits>` password string. |
 | `newUniqueUsername` | `newUniqueUsername()` | Generates a timestamp-based unique username (`user<yyMMddhhmmssMs>`). |
@@ -799,13 +802,13 @@ flow to confirm the redirect has completed and the app is active before proceedi
 **Throws:** `TimeoutException` if the URL does not contain `partial` within the timeout.
 
 ```java
-// After loginAsPoletopUser() — confirm SAML redirect completed
-loginPage.loginAsPoletopUser(email, password);
+// After loginAsExampleUser() — confirm SAML redirect completed
+loginPage.loginAsExampleUser(email, password);
 waitForUrlContains("dashboard", 30);
 waitUntillPageLoad();
 ```
 
-> **Note:** `PoletopLoginPage.loginAsPoletopUser()` already calls this internally.
+> **Note:** `ExampleLoginPage.loginAsExampleUser()` already calls this internally.
 > Use `waitForUrlContains` directly only when building a custom login flow or
 > investigating with `LocatorInvestigator`.
 
@@ -819,7 +822,7 @@ tooling and test data discovery — requires the driver to already be logged in.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `baseUrl` | `String` | App base URL (e.g. `"https://poletop-stg.csc.nycnet/"`) |
+| `baseUrl` | `String` | App base URL (e.g. `"https://test.example.com/"`) |
 | `reservationIds` | `List<String>` | List of reservation ID strings to check |
 | `buttonTitle` | `String` | Exact `title=` attribute value (e.g. `"Add SIF"`, `"Start Construction"`) |
 | `renderWaitMs` | `int` | Max ms to wait for Angular to render action buttons (recommended: 1500–2000) |
@@ -832,7 +835,7 @@ tooling and test data discovery — requires the driver to already be logged in.
 - Catches and logs exceptions per ID without stopping the scan.
 
 ```java
-loginPage.loginAsPoletopUser(email, password);
+loginPage.loginAsExampleUser(email, password);
 
 List<String> ids = new ArrayList<String>();
 for (int i = 12000; i <= 12100; i++) ids.add(String.valueOf(i));
@@ -880,21 +883,137 @@ if (pin != null) {
 
 ## 32. Shadow DOM (Web Components / Lit / Stencil / Salesforce Lightning-LWC)
 
-Convenience wrapper for resolving elements inside an **open** shadow root, where
+Convenience wrappers for resolving elements inside an **open** shadow root, where
 a single XPath cannot express the lookup (see SDK-USER-GUIDE.md section 7.2 for
 background on why XPath cannot cross a shadow boundary).
 
 | Method | Signature | Description |
 |---|---|---|
 | `findInShadowDom` | `WebElement findInShadowDom(By hostLocator, String cssSelector)` | Finds the shadow-root HOST element via `hostLocator` in the light DOM, then resolves `cssSelector` inside `host.getShadowRoot()`. Only CSS selectors are supported inside a shadow root -- never XPath. |
+| `findInNestedShadowDom` | `WebElement findInNestedShadowDom(By hostLocator, String... intermediateAndFinalCss)` | For shadow-in-shadow nesting (e.g. Coveo Atomic's `<custom-search-box>` containing another shadow host `<atomic-search-box>`). Resolves the outermost host via `hostLocator`, then chains a `getShadowRoot().findElement(By.cssSelector(...))` call per entry in `intermediateAndFinalCss` -- every entry except the last resolves an intermediate nested shadow host; the last entry resolves the target element itself. |
 
 ```java
 WebElement submit = findInShadowDom(By.xpath("//my-form-component"), "button#submit");
 submit.click();
+
+// Shadow-in-shadow nesting:
+WebElement textarea = findInNestedShadowDom(
+    By.cssSelector("custom-search-box"),
+    "atomic-search-box",           // intermediate nested shadow host
+    "textarea[part='textarea']");  // target element, innermost shadow root
 ```
+
+**Hydration timing:** Web Components frequently attach an empty open shadow root
+synchronously and populate it asynchronously after hydration. A lookup called
+immediately after a click that reveals the component (e.g. opening a modal) can
+race ahead of hydration and transiently return `null`/throw. If so, wrap the
+lookup in a short `FluentWait` poll rather than assuming the locator is wrong --
+`ElementCrawler` itself now does exactly this (`waitForShadowRootHydration`,
+bounded at 8s) before enumerating a shadow root's contents.
 
 **Limitation:** *closed* shadow roots (`attachShadow({mode: 'closed'})`) cannot be
 discovered or traversed by any script or WebDriver command -- an intentional
 browser security boundary with no workaround.
 
-*API Reference updated for SDK v1.9.0*
+---
+
+## 33. Runtime Self-Healing Locators
+
+Opt-in alternative to `PageFactory.initElements(driver, this)` powered by
+`com.test.automation.sdk.healing.HealingElementLocator`. It lets a page object
+recover automatically when a primary `@FindBy` XPath locator stops matching
+anything (e.g. an attribute value changed slightly after a UI update), without
+waiting for a human to re-run the crawler and ship a fix.
+
+| Method | Signature | Description |
+|---|---|---|
+| `initElements` | `static void initElements(WebDriver driver, Object page)` | Drop-in replacement for `PageFactory.initElements(driver, this)`. Wires every `@FindBy` field on `page` to a self-healing `ElementLocator` instead of Selenium's stock one. |
+
+```java
+public class LoginPage extends TestBase {
+    @FindBy(xpath = "//input[@formcontrolname='email']")
+    public WebElement emailField;
+
+    public LoginPage(WebDriver driver) {
+        this.driver = driver;
+        initElements(driver, this);   // instead of PageFactory.initElements(driver, this)
+        PageContext.currentPage.set("LoginPage");
+    }
+}
+```
+
+**How healing works:** when the primary XPath locator throws
+`NoSuchElementException`, the SDK generates a small, ranked set of *relaxed*
+candidates from that same XPath (`LocatorRelaxationEngine`):
+
+1. **Drop-one-predicate** -- for a compound `[A and B]` predicate, try `[A]` and
+   `[B]` alone (and, for 3+ operands, every "drop exactly one" combination).
+2. **Exact-to-`contains()`** -- convert `@attr='value'` to
+   `contains(@attr,'value')`, and `normalize-space(.)='value'` /
+   `text()='value'` to a `contains(...)` variant.
+
+A relaxed candidate is only trusted if it resolves to **exactly one** element in
+the live DOM -- the same uniqueness bar the crawler enforces at design time.
+Matching zero or more-than-one elements is treated as "still broken": the
+original `NoSuchElementException` propagates normally, so a genuinely broken
+test still fails clearly.
+
+**Reporting:** every heal attempt (success or exhaustion) is published through
+`ExecutionReporting` (`LOCATOR_HEALED` action), so it shows up in the
+log/Allure/Extent report trail -- never a silent side effect that could mask a
+real product regression.
+
+**Scope of this release:** web (Selenium) only; no pre-crawled fingerprint data
+is required. Existing page objects that keep calling
+`PageFactory.initElements(driver, this)` directly are completely unaffected.
+Mobile (Appium) self-healing is tracked as future work.
+
+## 34. Visual Regression Testing
+
+Zero-config screenshot-baseline visual regression, powered by
+`com.test.automation.sdk.visual.VisualRegressionChecker` /
+`ImageDiffEngine`. No external visual-testing service is required -- baselines
+are plain PNG files under `visual.baselineDirectory` (default
+`src/test/resources/visual-baselines`), so approving an intentional UI change
+is just a normal file diff/commit like any other test asset.
+
+| Method | Signature | Description |
+|---|---|---|
+| `assertVisualMatch` | `VisualComparisonResult assertVisualMatch(String checkpointName)` | Captures the current page screenshot and compares it against the stored baseline for `checkpointName`. |
+
+```java
+public void testDashboardLooksCorrect() {
+    dashboardPage.navigateTo();
+    assertVisualMatch("dashboard-page");
+}
+```
+
+**First run for a checkpoint:** the screenshot is saved as the accepted
+baseline and the call passes -- there is no separate "record baseline" step.
+
+**Every subsequent run:** the new screenshot is compared to that baseline
+using a tolerant pixel diff (`visual.pixelColorTolerance` absorbs harmless
+anti-aliasing/compression noise). If the mismatch percentage exceeds
+`visual.mismatchThresholdPercent` (default `0.1`%), a red-highlighted diff
+image is attached to the execution report and, when `visual.failOnMismatch`
+is `true` (the default), an `AssertionError` is thrown.
+
+**Re-baselining after an intentional UI change:** run once with
+`-Dvisual.updateBaselines=true` to overwrite every checkpoint's stored
+baseline with the current screenshots, then commit the updated baseline PNGs.
+
+**Configuration** (`sdk-config.yaml`, all overridable via `-D` / env var):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `visual.enabled` | `true` | Master on/off switch |
+| `visual.baselineDirectory` | `src/test/resources/visual-baselines` | Where accepted baselines live |
+| `visual.outputDirectory` | `test-output/visual` | Where this run's actual/diff images are written |
+| `visual.mismatchThresholdPercent` | `0.1` | Max acceptable mismatch % before a check fails |
+| `visual.pixelColorTolerance` | `12` | Max per-channel (0-255) delta still considered "the same pixel" |
+| `visual.updateBaselines` | `false` | When `true`, every check overwrites the baseline instead of comparing |
+| `visual.failOnMismatch` | `true` | When `false`, mismatches are only reported/logged, not thrown |
+
+**Scope of this release:** compares full-page/viewport screenshots (whatever
+`TakesScreenshot` returns for the current driver); element-scoped visual
+checks and automatic per-run screenshot cropping are tracked as future work.

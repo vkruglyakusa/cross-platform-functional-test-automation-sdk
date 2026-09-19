@@ -125,6 +125,25 @@ public final class MobileConfigReader {
         return ConfigurationManager.resolve(dottedKey, defaultValue);
     }
 
+    /**
+     * Same resolution chain as {@link #get(String, String)}, parsed as a
+     * {@code long}. Returns {@code defaultValue} if the resolved value is
+     * absent or is not a valid number.
+     */
+    public static long getLong(String dottedKey, long defaultValue) {
+        String value = get(dottedKey, null);
+        if (value == null || value.isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            log.warn("[MobileConfigReader] Invalid numeric value for '{}': '{}' -- using default {}",
+                    dottedKey, value, defaultValue);
+            return defaultValue;
+        }
+    }
+
     private void loadDefaults() {
         flatMap.put("appium.localUrl", "http://127.0.0.1:4723/");
         flatMap.put("android.automationName", "UiAutomator2");

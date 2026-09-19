@@ -52,10 +52,28 @@ public final class ExecutionLogReporter implements ExecutionReporter {
     }
 
     private String format(ExecutionEvent event) {
+        if (event.getType() == ExecutionEventType.SUITE_STARTED) {
+            return "Suite started: " + SecretRedactor.redactMessage(event.getSuiteName());
+        }
+        if (event.getType() == ExecutionEventType.SUITE_COMPLETED) {
+            return "Suite completed: " + SecretRedactor.redactMessage(event.getSuiteName());
+        }
         StringBuilder sb = new StringBuilder();
         sb.append(event.getType());
         if (!event.getExecutionId().isEmpty()) {
             sb.append(" | executionId=").append(event.getExecutionId());
+        }
+        if (!event.getSuiteName().isEmpty()) {
+            sb.append(" | suite=").append(SecretRedactor.redactMessage(event.getSuiteName()));
+        }
+        if (!event.getTestNgTestName().isEmpty()) {
+            sb.append(" | testngTest=").append(SecretRedactor.redactMessage(event.getTestNgTestName()));
+        }
+        if (!event.getClassName().isEmpty()) {
+            sb.append(" | class=").append(SecretRedactor.redactMessage(event.getClassName()));
+        }
+        if (!event.getMethodName().isEmpty()) {
+            sb.append(" | method=").append(SecretRedactor.redactMessage(event.getMethodName()));
         }
         if (!event.getTestName().isEmpty()) {
             sb.append(" | test=").append(SecretRedactor.redactMessage(event.getTestName()));

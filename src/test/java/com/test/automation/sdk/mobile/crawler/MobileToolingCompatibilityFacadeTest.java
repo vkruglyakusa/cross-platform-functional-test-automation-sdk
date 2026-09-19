@@ -44,10 +44,10 @@ class MobileToolingCompatibilityFacadeTest {
                 Collections.<String, List<com.test.automation.sdk.utility.ElementCrawler.ElementInfo>>emptyMap());
 
         String report = MobileCrawlerReportWriter.render("LoginScreen", snapshot);
-        String pageObject = MobilePageObjectGenerator.generate("PoletopLoginPage", snapshot);
+        String pageObject = MobilePageObjectGenerator.generate("ExampleLoginPage", snapshot);
 
         assertTrue(report.contains("LoginScreen"));
-        assertTrue(pageObject.contains("PoletopLoginPage"));
+        assertTrue(pageObject.contains("ExampleLoginPage"));
         assertTrue(pageObject.contains("@AndroidFindBy"));
     }
 

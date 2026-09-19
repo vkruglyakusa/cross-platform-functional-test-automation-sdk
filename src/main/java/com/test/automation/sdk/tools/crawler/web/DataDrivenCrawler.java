@@ -72,7 +72,7 @@ import com.test.automation.sdk.tools.crawler.web.ElementCrawler.ElementInfo;
  *       CrawlerStep.clickByText("Next")
  *                  .describe("Step 2: Click Next")
  *   );
- *   List<ElementInfo> elements = crawler.crawlTestCase(url, "TC-311: Noise Complaint", steps);
+ *   List<ElementInfo> elements = crawler.crawlTestCase(url, "TC-SAMPLE-001: Sample Workflow", steps);
  *
  * MULTI-SCENARIO MODE
  * -------------------

@@ -3,7 +3,7 @@
 **Status:** **APPROVED (2026-09-02)** — reviewed and signed off; implementation started.
 Final decision: **Java 20** for both this SDK and `functional-test-automation-sdk`
 (desktop SDK bumped off its former Java 8 pin for ecosystem-wide alignment).
-**Author context:** produced during joint research session with @vkruglyak_NYC.
+**Author context:** produced during joint research session with the architecture team.
 **Scope:** whether/how to add mobile app (Android/iOS) automation capability to the
 QA automation ecosystem, and where it should live.
 
@@ -19,7 +19,7 @@ starts.
 
 ## 2. Constraints (given, non-negotiable unless stated otherwise)
 
-- The current SDK is **production-critical** (Poletop and other consumers depend on
+- The current SDK is **production-critical** (Example and other consumers depend on
   it) and must not be destabilized.
 - The current SDK is pinned to **Java 8** language level.
 - Local Appium setup (Android SDK / Xcode, device provisioning, emulator/simulator
@@ -36,8 +36,8 @@ through plain `RemoteWebDriver.executeScript("mobile: ...")` calls, staying on J
 with zero new dependencies.
 
 **Correction based on real prior art:** the team already has a working mobile
-automation project — **`311_Mobile_Automation`** (Azure DevOps, `OTI QA Automation`
-project, `trunk` branch) — built for the NYC 311 app. It **does** use the official
+automation project — **`external-mobile-consumer`** (Azure DevOps, `Automation Engineering`
+project, `trunk` branch) — built for the reference mobile application. It **does** use the official
 `io.appium:java-client` (`9.4.0`), `AppiumDriver`/`AndroidDriver`/`IOSDriver`, and the
 full `@AndroidFindBy`/`@iOSXCUITFindBy` + `PageFactory`/`AppiumFieldDecorator` page
 object pattern — the same ergonomics as the desktop SDK's `@FindBy`, just
@@ -52,7 +52,7 @@ setting was effectively already unenforced for this mobile project.
 SDK's Java 8 pin is specific to *that* codebase and its consumers, not a
 cross-ecosystem rule. This new mobile SDK should **target Java 11+ (JDK 17 or 20 LTS
 recommended)** and use the **official `io.appium:java-client`**, matching the
-`311_Mobile_Automation` precedent, rather than the raw `executeScript` workaround.
+`external-mobile-consumer` precedent, rather than the raw `executeScript` workaround.
 This gets us the full typed API (`.tap()`, gestures, `@AndroidFindBy`/`@iOSXCUITFindBy`
 PageFactory annotations) for free and matches an already-proven, running pattern
 instead of inventing a new one.
@@ -63,7 +63,7 @@ design** — the official client is.
 
 ## 3a. Real device/cloud switching mechanism (validated from prior art)
 
-`311_Mobile_Automation` does **not** manually swap hub URLs or build BrowserStack
+`external-mobile-consumer` does **not** manually swap hub URLs or build BrowserStack
 capabilities by hand. It uses the official **BrowserStack Java SDK**
 (`com.browserstack:browserstack-java-sdk`, wired in via a Maven Surefire `-javaagent`)
 plus a `browserstack.yml` config file (platforms list, app id, project/build name,
@@ -88,7 +88,7 @@ SDK/agent (to be confirmed per-provider in phase 3).
 
 | Provider | Capability pattern | Java SDK / agent available? | App upload | Real devices | Notes |
 |---|---|---|---|---|---|
-| **BrowserStack App Automate** | `bstack:options` (nested `MutableCapabilities`) | **Yes** — `com.browserstack:browserstack-java-sdk` + `-javaagent`, config via `browserstack.yml` (**validated in prior art**, see §3a) | REST API (`https://api-cloud.browserstack.com/app-automate/upload`) | Yes, large matrix | **Already subscribed. Already proven working** in `311_Mobile_Automation`. Default/Phase-1 provider. Hub (manual fallback): `hub.browserstack.com/wd/hub`. |
+| **BrowserStack App Automate** | `bstack:options` (nested `MutableCapabilities`) | **Yes** — `com.browserstack:browserstack-java-sdk` + `-javaagent`, config via `browserstack.yml` (**validated in prior art**, see §3a) | REST API (`https://api-cloud.browserstack.com/app-automate/upload`) | Yes, large matrix | **Already subscribed. Already proven working** in `external-mobile-consumer`. Default/Phase-1 provider. Hub (manual fallback): `hub.browserstack.com/wd/hub`. |
 | **Sauce Labs Real Device Cloud** | `sauce:options` | Sauce Labs also ships a Java SDK equivalent (Sauce Bindings) — not yet validated first-hand | REST API (`/v1/storage/upload`) | Yes | Appium 3 / strict W3C. Deep ADB/WDA device control (device logs, network throttling). |
 | **LambdaTest (TestMu AI)** | `lt:options` | LambdaTest ships a similar SDK — not yet validated first-hand | REST API (`manual-api.lambdatest.com/app/upload/...`) | Yes, claims 10,000+ devices | Similar maturity to BrowserStack. |
 | **Perfecto** | `perfecto:options` | Not confirmed | REST API / repository upload | Yes | Enterprise-grade; strong AI-assisted root-cause analysis tooling. Higher cost tier typical. |
@@ -110,7 +110,7 @@ rollout instead of over-building a generic provider plugin system on day one.
 
 ```java
 public class MobileDriverFactory {
-    // Mirrors the validated 311_Mobile_Automation pattern: the driver always points at
+    // Mirrors the validated external-mobile-consumer pattern: the driver always points at
     // a local Appium URL. When the BrowserStack Maven profile + javaagent are active,
     // BrowserStack's SDK transparently reroutes the session to the cloud; the "local"
     // profile instead injects local app path/device capabilities for a real local run.
@@ -158,27 +158,27 @@ public class MobileActions {
 `WebDriverFactory`/`TestBase`, which are desktop-browser-specific and won't be reused
 as-is.
 
-## 6a. Relationship to existing prior art (`311_Mobile_Automation`)
+## 6a. Relationship to existing prior art (`external-mobile-consumer`)
 
 This is **not a greenfield design** — a real, running mobile automation project
-already exists: `311_Mobile_Automation` (Azure DevOps project `OTI QA Automation`,
-`trunk` branch), built for the NYC 311 app (Android + iOS, native, BrowserStack +
+already exists: `external-mobile-consumer` (Azure DevOps project `Automation Engineering`,
+`trunk` branch), built for the reference mobile application (Android + iOS, native, BrowserStack +
 local Appium). Rather than diverging from it, this new SDK should **extract and
 generalize its proven patterns** into a reusable library, the same relationship the
-desktop SDK has to the original Poletop framework:
+desktop SDK has to the original Example framework:
 
-| Prior-art element (`311_Mobile_Automation`) | Generalize into this SDK as |
+| Prior-art element (`external-mobile-consumer`) | Generalize into this SDK as |
 |---|---|
 | `mobile.automation.testBase.MobileDriverFactory` (switch on OS, BrowserStack-vs-local branching) | `com.test.automation.sdk.mobile.driver.MobileDriverFactory` |
 | `mobile.automation.testBase.TestBase` (`isTestInBrowserstack()`, TestNG lifecycle, Excel data, logging) | `com.test.automation.sdk.mobile.testbase.MobileTestBase` |
 | `@AndroidFindBy`/`@iOSXCUITFindBy` + `PageFactory`/`AppiumFieldDecorator` page objects (e.g. `HomePage.java`) | Same pattern, documented as the mobile page-object convention (mobile equivalent of the desktop `page-object-creation.instructions.md`) |
 | `browserstack.yml` + Maven `browserstack`/`local` profiles + `-javaagent` wiring in `pom.xml` | Shipped as a reusable `pom.xml` fragment / setup doc for this SDK's consumers |
-| `configuration/config.properties`, `Excel_Reader`, `ExcelToMapList`, `PropertiesReader` utilities | Reuse directly from `functional-test-automation-sdk` where equivalent utilities already exist, instead of re-copying `311`'s versions |
+| `configuration/config.properties`, `Excel_Reader`, `ExcelToMapList`, `PropertiesReader` utilities | Reuse directly from `functional-test-automation-sdk` where equivalent utilities already exist, instead of re-copying legacy project's versions |
 | Azure Pipelines YAML (`NativeApp.yml`/`NativeAppIOS.yml`, JDK 20, "Selenium Pool" agent, Maven `test` goal + `browserstackConfigFile` system property) | Reference implementation for this SDK's own consumer pipeline template |
 | `AGENTS.md` (project-specific AI agent instructions, e.g. no editing `testData`/`.properties` files, terse response style) | Not part of the SDK itself — stays a per-consumer-project convention, not something to standardize into the SDK |
 
 Net effect: Phase 1 of this SDK is largely a **refactor/generalization of
-`311_Mobile_Automation`'s existing, working code** into a reusable library + template,
+`external-mobile-consumer`'s existing, working code** into a reusable library + template,
 not new invention. This significantly de-risks Phase 1.
 
 ## 7. Proposed repo structure (once implementation starts)
@@ -203,15 +203,15 @@ mobile-functional-test-automation-sdk/
 ## 8. Phased rollout plan
 
 - **Phase 1 (MVP):** BrowserStack (default) + local Appium (alternate profile), both
-  modeled directly on the validated `311_Mobile_Automation` pattern (§3a, §6a):
+  modeled directly on the validated `external-mobile-consumer` pattern (§3a, §6a):
   official `io.appium:java-client`, Java 11+ (17/20 LTS), BrowserStack Java SDK +
   `-javaagent` + `browserstack.yml`, Maven `browserstack`/`local` profiles,
   `MobileDriverFactory`, `MobileActions` (typed gestures with `executeScript`
   fallback for anything uncovered), `MobileTestBase` (`isRunningInCloud()` gate,
   TestNG lifecycle, config loading, reporting hooks mirroring desktop `TestBase`
   conventions), `@AndroidFindBy`/`@iOSXCUITFindBy` page-object convention. Both
-  Android and iOS, since `311_Mobile_Automation` already exercises both. Validate
-  end-to-end by refactoring/porting the 311 project onto this SDK.
+  Android and iOS, since `external-mobile-consumer` already exercises both. Validate
+  end-to-end by refactoring/porting the external consumer project onto this SDK.
 - **Phase 2:** Formalize the local-Appium developer setup (Android SDK/emulator,
   Xcode/simulator docs) as first-class, not just an "alternate profile" — since
   Phase 1 already includes local support per corrected scope, Phase 2 is about
@@ -225,7 +225,7 @@ mobile-functional-test-automation-sdk/
   Test Lab (see §4 rationale).
 - **Element crawling / mobile `PageObjectGenerator`** (§8a) is treated as its own
   workstream, not bundled into "Phase 1 MVP" above, but should start no later than
-  Phase 1 validation against `311_Mobile_Automation` so locator quality is assessed
+  Phase 1 validation against `external-mobile-consumer` so locator quality is assessed
   against a real app from day one (see §8a's app-instrumentation risk).
 
 ## 8a. Mobile element crawling strategy (locator discovery)
@@ -337,10 +337,10 @@ crawler already does today, not a regression to design around.
   query), some cross-platform frameworks (notably **Flutter**, which renders to a
   single opaque canvas) expose almost nothing to the standard accessibility tree
   without additional app-side instrumentation or a Flutter-specific Appium driver
-  extension. **Open question:** confirm what framework `311_Mobile_Automation`'s app
+  extension. **Open question:** confirm what framework `external-mobile-consumer`'s app
   and any other pilot candidates are built with (native Android/iOS, React Native,
   Flutter, or hybrid) before assuming the crawler will produce usable output — the
-  existing `content-desc`/`accessibility id` locators already seen in `311`'s page
+  existing `content-desc`/`accessibility id` locators already seen in legacy project's page
   objects (§6a) are a good sign it's natively instrumented, not Flutter.
 
 ### Proposed components (Phase 1/2 scope, mirroring desktop naming)
@@ -355,7 +355,7 @@ com.test.automation.sdk.mobile.crawler/
 
 This is **not** committed to Phase 1 MVP scope by default (see the phased rollout
 plan above) — it should be scoped and sequenced explicitly once decision #6 below is
-signed off, but no later than the start of the `311_Mobile_Automation` pilot
+signed off, but no later than the start of the `external-mobile-consumer` pilot
 migration, so the team can judge real locator quality against a real, currently
 undocumented app rather than a hypothetical one.
 
@@ -392,15 +392,15 @@ integration/smoke testing against a real or emulated device.
 
 1. ✅ **Approved: separate-repo architecture** (§6).
 2. ✅ **Approved repo name**: `mobile-functional-test-automation-sdk`.
-3. ✅ **Approved Phase 1 scope, Java version finalized as 20** (not 17/21): official `io.appium:java-client`, BrowserStack (default, via official Java SDK) **and** local Appium (alternate Maven profile) both in Phase 1, generalized from the working `311_Mobile_Automation` project. Desktop `functional-test-automation-sdk` also bumped from Java 8 to Java 20 for ecosystem alignment.
-4. ✅ **Confirmed `311_Mobile_Automation` as the Phase 1 source-of-truth/pilot.**
+3. ✅ **Approved Phase 1 scope, Java version finalized as 20** (not 17/21): official `io.appium:java-client`, BrowserStack (default, via official Java SDK) **and** local Appium (alternate Maven profile) both in Phase 1, generalized from the working `external-mobile-consumer` project. Desktop `functional-test-automation-sdk` also bumped from Java 8 to Java 20 for ecosystem alignment.
+4. ✅ **Confirmed `external-mobile-consumer` as the Phase 1 source-of-truth/pilot.**
 5. ✅ **Resolved (2026-09-03)**: added `.github/instructions/mobile-locator-strategy.instructions.md` — mirrors the desktop locator-strategy skill's priority ladder and dynamic-id rejection rules, adapted for `@AndroidFindBy`/`@iOSXCUITFindBy`, Appium's compound-locator/uiautomator/predicate-string strategies, and the remote-call-economics constraint from §8a. Includes explicit React Native fallback guidance (see #7 below).
 6. ✅ **Approved and implemented (2026-09-03)**: one-shot `getPageSource()` +
    local in-memory uniqueness computation is the default validation strategy (not
    per-candidate remote `findElements` calls); remote-verification
    (`verifyCandidateRemotely`) is reserved for compound/dynamic locators only.
    Implemented as its own crawler package rather than deferred to a later phase.
-7. ✅ **Resolved (2026-09-03), inferred from locator evidence in `311_Mobile_Automation`'s
+7. ✅ **Resolved (2026-09-03), inferred from locator evidence in `external-mobile-consumer`'s
    existing page objects** (not from app source code directly — flag for a source-level
    confirmation if the app repo becomes available): the app is very likely **React
    Native**. Evidence: (a) most screens use generic `android.widget.TextView`/
@@ -410,7 +410,7 @@ integration/smoke testing against a real or emulated device.
    `"<label> tab. <index> of <count>. Double tap to activate."`, which is RN's default
    auto-generated accessibility hint format for tab-like components; (c) one screen
    (`ParkFinder.java`, a native map/search feature) has real `resource-id`s carrying the
-   app's own package name (`gov.nyc.doitt.ThreeOneOne:id/...`), consistent with a common
+   app's own package name (`com.example.mobile:id/...`), consistent with a common
    RN pattern of embedding a native module for map-heavy screens while the rest of the
    app stays RN. **Crawler implication**: the compound-locator fallback and
    text-plus-structure fallback rules in the new locator-strategy doc matter more for
@@ -426,10 +426,10 @@ integration/smoke testing against a real or emulated device.
 - BrowserStack app-upload API requires credentials/config management — needs a
   `mobile-config.yaml` + secrets-handling convention (mirroring `sdk-config.yaml`
   pattern from the desktop SDK, kept out of git).
-- **Security note:** `311_Mobile_Automation`'s current `browserstack.yml` (as
+- **Security note:** `external-mobile-consumer`'s current `browserstack.yml` (as
   committed to `trunk`) has the BrowserStack `userName`/`accessKey` **in plaintext,
   committed to source control**. This SDK's `browserstack.yml`/`mobile-config.yaml`
   equivalent must be `.gitignore`d by default (mirroring the desktop SDK's
   `sdk-config.yaml` pattern), with only a `.example` placeholder version committed.
-  Recommend flagging this to the 311 project owners separately as a credential
+  Recommend flagging this to the external consumer project owners separately as a credential
   hygiene issue outside this SDK's scope.

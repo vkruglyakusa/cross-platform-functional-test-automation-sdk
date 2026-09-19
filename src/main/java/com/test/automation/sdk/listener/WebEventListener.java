@@ -199,6 +199,10 @@ public class WebEventListener extends TestBase implements WebDriverListener {
     @Override
     public void afterQuit(WebDriver driver) {
         log.debug("WebDriver session quit successfully");
+        // SDK v1.5.1 -- release any buffered CDP network-trace recorder registered for
+        // this session so a passing test's session doesn't leak an open DevTools
+        // listener/buffer past driver.quit(). No-op when network capture is disabled.
+        com.test.automation.sdk.evidence.NetworkTraceRecorder.detachQuietly(driver);
     }
 
     // -------------------------------------------------------------------------
@@ -322,10 +326,80 @@ public class WebEventListener extends TestBase implements WebDriverListener {
     // Error handling
     // -------------------------------------------------------------------------
 
+    /**
+     * SDK v1.5.1 -- distinguishes expected/probing WebDriver exceptions from
+     * genuine listener-level errors, to stop {@code NoSuchElementException}
+     * probes (e.g. an intentional try/catch checking whether an optional
+     * element exists) from generating ERROR log noise and false
+     * {@code ExecutionReporting.actionFailed(...)} entries.
+     *
+     * <p><b>This affects logging and action-level reporting only. The
+     * listener does not alter exception propagation.</b> {@code onError} does
+     * not return a value, does not rethrow, and does not otherwise intercept
+     * control flow -- Selenium's {@code EventFiringDecorator} determines
+     * exception propagation independently of this callback, exactly as it did
+     * before this change. The listener has no visibility into whether the
+     * consumer ultimately catches the exception; "non-terminal" here means
+     * only that this single listener callback should not, by itself, create a
+     * failure record. If the exception escapes all the way up and fails the
+     * TestNG test, the normal {@code Listener.onTestFailure} /
+     * {@code TestBase.captureFailureEvidence} path still runs unchanged and
+     * still captures the full failure evidence set.</p>
+     *
+     * <p>For {@code NoSuchElementException} specifically: it is logged at
+     * DEBUG instead of ERROR, no listener-level {@code ExecutionReporting.actionFailed(...)}
+     * call is made, and consumer try/catch logic around the original call
+     * continues to work exactly as before -- only the listener's own
+     * logging/reporting decision changes.</p>
+     *
+     * <p>The default non-terminal set is {@code NoSuchElementException} only
+     * (see {@code webdriver.eventListener.nonTerminalExceptions} in
+     * {@code sdk-config.yaml}). {@code StaleElementReferenceException} and
+     * {@code ElementNotInteractableException} are deliberately NOT
+     * non-terminal by default since they can indicate real automation
+     * defects; a consumer may add them explicitly if desired.</p>
+     */
     public void onError(Object target, Method method, Object[] args, InvocationTargetException e) {
-        log.error("Error in method [{}]: {}", method.getName(), e.getMessage());
         Throwable cause = e.getTargetException() == null ? e : e.getTargetException();
+        if (isNonTerminal(cause)) {
+            log.debug("Non-terminal WebDriver exception in method [{}]: {} -- not reported as an action failure "
+                    + "(listener-level classification only; a final test failure is still captured normally)",
+                    method.getName(), cause.getMessage());
+            return;
+        }
+        log.error("Error in method [{}]: {}", method.getName(), e.getMessage());
         ExecutionReporting.actionFailed(method.getName(), "", "WebDriver listener observed exception", cause, null);
+    }
+
+    /**
+     * @return true when {@code cause}'s class matches (exactly, or as a
+     *         configured superclass/interface) one of the configured
+     *         non-terminal exception class names.
+     */
+    boolean isNonTerminal(Throwable cause) {
+        if (cause == null) {
+            return false;
+        }
+        String configured = com.test.automation.sdk.config.ConfigurationManager
+                .getWebEventListenerConfig().nonTerminalExceptions();
+        if (configured == null || configured.trim().isEmpty()) {
+            return false;
+        }
+        for (String className : configured.split(",")) {
+            String trimmed = className.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            try {
+                Class<?> configuredClass = Class.forName(trimmed);
+                if (configuredClass.isInstance(cause)) {
+                    return true;
+                }
+            } catch (ClassNotFoundException notFound) {
+                log.warn("webdriver.eventListener.nonTerminalExceptions references unknown class [{}] -- ignored", trimmed);
+            }
+        }
+        return false;
     }
 
 

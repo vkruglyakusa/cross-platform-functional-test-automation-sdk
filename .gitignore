@@ -1,5 +1,7 @@
 /target/
 /allure-results/
+/.migration/
+/test-output/
 /.idea/
 *.iml
 .classpath

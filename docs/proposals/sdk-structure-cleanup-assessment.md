@@ -124,7 +124,7 @@ TestBase (web lifecycle, WebDriverFactory)
 
 - Moving `YamlConfigReader`: same consumer-check process used for `SdkConfig` (grep known consumer repos for `utility.YamlConfigReader` / `config.YamlConfigReader` direct imports) before deleting either class.
 - Retiring `mobile.execution.MobileExecutionStrategy*`: these are internal-only (used by `MobileTestBase`/`MobileDriverFactory`), not expected to be imported by consumer test projects — needs the same grep confirmation as above before removal.
-- No impact expected to `311-Automation-SDK` (not yet using mobile execution strategies) or `mobile-functional-automation-consumer-template`.
+- No impact expected to `external consumer project` (not yet using mobile execution strategies) or `mobile-functional-automation-consumer-template`.
 
 ## I. Migration plan (scoped down from the original 8-phase proposal)
 

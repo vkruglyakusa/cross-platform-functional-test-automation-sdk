@@ -238,8 +238,9 @@ nested shadow roots too) and tags them on `ElementInfo`:
 | Field | Meaning |
 |---|---|
 | `inShadowDom` | `true` when this element lives inside an open shadow root |
-| `shadowHostXpath` | Light-DOM XPath to the shadow-root HOST element |
-| `shadowRelativeCss` | CSS selector for the element, resolved via `host.getShadowRoot()` (shadow roots only support CSS, never XPath) |
+| `shadowHostXpath` | Light-DOM XPath to the **outermost** shadow-root HOST element |
+| `shadowIntermediateCss` | `List<String>` -- one CSS hop per *nested* shadow host between the outermost host and the shadow root that directly contains the element. Empty for the common single-level case. |
+| `shadowRelativeCss` | CSS selector for the element, resolved via the innermost shadow root (shadow roots only support CSS, never XPath) |
 
 `PageObjectGenerator` emits a **method**, not a `@FindBy` field, for these
 elements (an annotation can't express a two-step lookup):
@@ -257,6 +258,39 @@ Use it directly, or via the `TestBase` wrapper:
 WebElement submit = findInShadowDom(By.xpath("//my-form-component"), "button#submit");
 submit.click();
 ```
+
+### Shadow-in-shadow (nested) web components
+
+Some component libraries -- notably Coveo Atomic search widgets -- wrap an inner
+web component inside an outer one, so the target element is two (or more) shadow
+roots deep: e.g. `<custom-search-box>` (shadow root) -> `<atomic-search-box>`
+(its own nested shadow root) -> `<textarea part="textarea">`. A single
+`shadowHostXpath` + `shadowRelativeCss` pair cannot express this -- the inner
+host isn't reachable via XPath from `document` at all. Use
+`findInNestedShadowDom`, passing one CSS selector per nesting level (the last
+argument is the target element itself):
+
+```java
+WebElement textarea = findInNestedShadowDom(
+    By.cssSelector("custom-search-box"),
+    "atomic-search-box",                 // intermediate nested shadow host
+    "textarea[part='textarea']");        // target element, innermost shadow root
+```
+
+This mirrors `ElementInfo.shadowHostXpath` + `shadowIntermediateCss` +
+`shadowRelativeCss` as emitted by `ElementCrawler`, and
+`ElementInfo.describeShadowResolution()` prints the exact resolution chain for
+copy/paste into a Page Object.
+
+**Hydration timing:** Web Components frequently attach an *empty* open shadow
+root synchronously, then populate it asynchronously after
+`connectedCallback`/hydration. `ElementCrawler` now polls for a stable child
+count (`waitForShadowRootHydration`, up to 8s) before enumerating a shadow
+root's contents, but hand-written Page Object methods that call
+`getShadowRoot().findElement(...)` immediately after a click that opens/reveals
+the component (e.g. opening a search modal) can still race ahead of hydration.
+If a lookup transiently returns `null`/throws right after such a click, wrap it
+in a short `FluentWait` poll rather than assuming the locator itself is wrong.
 
 **Limitation (not solvable):** *closed* shadow roots (`element.shadowRoot ===
 null` from outside) cannot be discovered or traversed by any script or WebDriver

@@ -26,6 +26,7 @@ import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.remote.SupportsContextSwitching;
 
 import com.test.automation.sdk.mobile.actions.MobileActions;
+import com.test.automation.sdk.mobile.config.MobileConfigReader;
 import com.test.automation.sdk.tools.crawler.mobile.MobileLocatorCandidate.Marker;
 import com.test.automation.sdk.tools.crawler.mobile.MobileLocatorCandidate.Strategy;
 import com.test.automation.sdk.tools.crawler.mobile.MobileLocatorCandidate.Verification;
@@ -50,6 +51,23 @@ public class MobileElementCrawler {
     /** Screen-stability polling (see strategy doc "Screen-stability wait before capture"). */
     private static final int STABILITY_MAX_ATTEMPTS = 5;
     private static final long STABILITY_POLL_MS = 300L;
+
+    /**
+     * Loading-indicator wait, added after live investigation of the external consumer project
+     * "New Service Request" menu (agency lists populated lazily/over the network, taking
+     * far longer than the 1.5s stability window above to finish rendering). Without this,
+     * the crawler would snapshot a screen that's still showing a spinner and either miss
+     * elements entirely or report a stale/empty screen.
+     *
+     * Resolution order for both settings: system property &gt; {@code mobile-config.yaml}
+     * {@code crawler.loadingIndicatorClasses} / {@code crawler.loadingWaitTimeoutSeconds} &gt; default.
+     */
+    private static final List<String> DEFAULT_LOADING_INDICATOR_CLASSES = java.util.Arrays.asList(
+            "android.widget.ProgressBar",
+            "XCUIElementTypeActivityIndicator"
+    );
+    private static final long DEFAULT_LOADING_WAIT_TIMEOUT_MS = 15000L;
+    private static final long LOADING_POLL_MS = 500L;
 
     /**
      * Known auto-generated / list-recycled identifier patterns -- the mobile equivalent
@@ -78,6 +96,7 @@ public class MobileElementCrawler {
      */
     public MobileScreenSnapshot crawlCurrentScreen() {
         String platform = resolvePlatform();
+        waitForLoadingIndicatorGone();
         String pageSource = waitForStablePageSource();
         byte[] screenshot;
         try {
@@ -397,9 +416,84 @@ public class MobileElementCrawler {
         }
     }
 
+    /**
+     * Polls for the presence of any configured loading-indicator element class (Android
+     * {@code android.widget.ProgressBar}, iOS {@code XCUIElementTypeActivityIndicator}, or
+     * any extra classes configured via {@code -Dpog.mobile.loadingIndicatorClasses} /
+     * {@code mobile-config.yaml crawler.loadingIndicatorClasses}, comma-separated) and waits
+     * for all of them to disappear before the stability/snapshot pass begins. Bounded by
+     * {@code -Dpog.mobile.loadingWaitTimeoutSeconds} / {@code crawler.loadingWaitTimeoutSeconds}
+     * (default 15s); if the indicator never disappears, logs a warning and crawls anyway
+     * rather than hanging indefinitely.
+     */
+    private void waitForLoadingIndicatorGone() {
+        List<String> indicatorClasses = resolveLoadingIndicatorClasses();
+        long timeoutMs = resolveLoadingWaitTimeoutMs();
+        long deadline = System.currentTimeMillis() + timeoutMs;
+
+        while (System.currentTimeMillis() < deadline) {
+            boolean anyVisible = false;
+            for (String className : indicatorClasses) {
+                try {
+                    if (!driver.findElements(By.className(className)).isEmpty()) {
+                        anyVisible = true;
+                        break;
+                    }
+                } catch (Exception e) {
+                    log.debug("Loading-indicator probe failed for class [{}] -- ignoring", className, e);
+                }
+            }
+            if (!anyVisible) {
+                return;
+            }
+            try {
+                Thread.sleep(LOADING_POLL_MS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("Loading indicator(s) {} still present after {}ms -- crawling current screen anyway",
+                indicatorClasses, timeoutMs);
+    }
+
+    private List<String> resolveLoadingIndicatorClasses() {
+        String configured = System.getProperty("pog.mobile.loadingIndicatorClasses");
+        if (configured == null || configured.isEmpty()) {
+            configured = com.test.automation.sdk.mobile.config.MobileConfigReader.get(
+                    "crawler.loadingIndicatorClasses", null);
+        }
+        if (configured == null || configured.isEmpty()) {
+            return DEFAULT_LOADING_INDICATOR_CLASSES;
+        }
+        List<String> result = new ArrayList<>();
+        for (String part : configured.split(",")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return result.isEmpty() ? DEFAULT_LOADING_INDICATOR_CLASSES : result;
+    }
+
+    private long resolveLoadingWaitTimeoutMs() {
+        String configured = System.getProperty("pog.mobile.loadingWaitTimeoutSeconds");
+        if (configured == null || configured.isEmpty()) {
+            configured = com.test.automation.sdk.mobile.config.MobileConfigReader.get(
+                    "crawler.loadingWaitTimeoutSeconds", null);
+        }
+        if (configured != null && !configured.isEmpty()) {
+            try {
+                return Long.parseLong(configured.trim()) * 1000L;
+            } catch (NumberFormatException e) {
+                log.warn("Invalid crawler.loadingWaitTimeoutSeconds value [{}] -- using default", configured);
+            }
+        }
+        return DEFAULT_LOADING_WAIT_TIMEOUT_MS;
+    }
+
     /** Polls {@code getPageSource()} until two consecutive reads match, or gives up after a bounded number of attempts. */
-    private String waitForStablePageSource() {
-        String previous = null;
+    private String waitForStablePageSource() {        String previous = null;
         for (int attempt = 0; attempt < STABILITY_MAX_ATTEMPTS; attempt++) {
             String current;
             try {

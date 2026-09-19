@@ -43,7 +43,7 @@ import com.test.automation.sdk.config.YamlConfigReader;
  *       * Typed action methods per element (type(), click(), select(), etc.)
  *       * Proper package + imports
  *  5. Writes the generated file to:
- *       src/main/java/com/automation/poletop/uiActions/<ClassName>.java
+ *       src/main/java/com/automation/example/uiActions/<ClassName>.java
  *     AND a discovery report to:
  *       test-output/crawler/<ClassName>_<timestamp>.txt
  *
@@ -54,8 +54,8 @@ import com.test.automation.sdk.config.YamlConfigReader;
  *    Pass arguments:  <pageClassName>  <url>  [loginEmail]  [loginPassword]
  *
  *    Example:
- *      PoletopDashboardPage
- *      https://poletop-stg.csc.nycnet/#/dashboard
+ *      ExampleDashboardPage
+ *      https://example.com/dashboard
  *      myuser@example.com
  *      MyPassword123
  *
@@ -63,21 +63,21 @@ import com.test.automation.sdk.config.YamlConfigReader;
  *
  *    mvn exec:java \
  *      -Dexec.mainClass="com.test.automation.sdk.tools.pageobject.PageObjectGenerator" \
- *      -Dexec.args="PoletopDashboardPage https://poletop-stg.csc.nycnet/#/dashboard myuser@example.com MyPass"
+ *      -Dexec.args="ExampleDashboardPage https://example.com/dashboard myuser@example.com MyPass"
  *
  *  Option C - System properties (useful in CI or scripts):
  *
  *    mvn exec:java \
  *      -Dexec.mainClass="com.test.automation.sdk.tools.pageobject.PageObjectGenerator" \
- *      -Dpog.className=PoletopDashboardPage \
- *      -Dpog.url=https://poletop-stg.csc.nycnet/#/dashboard \
+ *      -Dpog.className=ExampleDashboardPage \
+ *      -Dpog.url=https://example.com/dashboard \
  *      -Dpog.email=myuser@example.com \
  *      -Dpog.password=MyPassword123
  *
  * HOW TO USE -- PROGRAMMATIC (from a test or setup method)
  * --------------------------------------------------------
  *    PageObjectGenerator gen = new PageObjectGenerator(driver);
- *    gen.generate("EnrollmentPage", "https://poletop-stg.csc.nycnet/#/enroll");
+ *    gen.generate("EnrollmentPage", "https://example.com/enroll");
  *
  * WORKFLOW (intended development process)
  * ----------------------------------------
@@ -97,7 +97,7 @@ public class PageObjectGenerator {
      * Resolved at runtime -- in priority order:
      *  1. System property  -Dpog.package / -Dpog.outputDir / -Dpog.reportDir
      *  2. sdk-config.yaml  crawler.pageObject.package / outputDir / reportDir
-     *  3. Hard-coded defaults (keep Poletop values so existing consumer is unaffected
+     *  3. Hard-coded defaults (keep Example values so existing consumer is unaffected
      *     until they set the YAML keys)
      */
     private static String resolveUiActionsPackage() {
@@ -105,7 +105,7 @@ public class PageObjectGenerator {
         if (v != null && !v.isEmpty()) return v;
         v = YamlConfigReader.get("crawler.pageObject.package");
         if (v != null && !v.isEmpty()) return v;
-        return "com.poletop.automation.uiActions";
+        return "com.example.automation.uiActions";
     }
 
     private static String resolveOutputSrc() {
@@ -115,7 +115,7 @@ public class PageObjectGenerator {
         }
         v = YamlConfigReader.get("crawler.pageObject.outputDir");
         if (v != null && !v.isEmpty()) return v;
-        return "src/main/java/com/poletop/automation/uiActions/";
+        return "src/main/java/com/example/automation/uiActions/";
     }
 
     private static String resolveOutputReport() {
@@ -154,8 +154,8 @@ public class PageObjectGenerator {
     /**
      * Run as a standalone program.
      *
-     * args[0] = page class name  (e.g. "PoletopDashboardPage")
-     * args[1] = URL              (e.g. "https://poletop-stg.csc.nycnet/#/dashboard")
+     * args[0] = page class name  (e.g. "ExampleDashboardPage")
+     * args[1] = URL              (e.g. "https://example.com/dashboard")
      * args[2] = login email      (optional)
      * args[3] = login password   (optional)
      */
@@ -205,7 +205,7 @@ public class PageObjectGenerator {
     /**
      * Crawls {@code url} and writes a Page Object Java file for {@code className}.
      *
-     * @param className  simple class name, e.g. "PoletopDashboardPage"
+     * @param className  simple class name, e.g. "ExampleDashboardPage"
      * @param url        full URL of the page to crawl
      * @return           absolute path of the generated .java file
      */
@@ -284,8 +284,6 @@ public class PageObjectGenerator {
     private String writePageObject(String className,
                                     String sourceUrl,
                                     List<ElementInfo> elements) {
-
-        className = JavaIdentifier.requireTypeName(className, "className");
 
         String timestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -784,8 +782,51 @@ public class PageObjectGenerator {
             else if (!el.text.isEmpty())       raw = el.text.split("\\s")[0];
             else raw = el.tag + fallback;
 
-            return JavaIdentifier.toFieldName(raw);
+            return toCamelCase(raw);
         }
+
+        private String toCamelCase(String s) {
+            String[] words = s.replaceAll("[^a-zA-Z0-9 ]", " ").trim().split("\\s+");
+            if (words.length == 0 || words[0].isEmpty()) return "element";
+            StringBuilder sb = new StringBuilder(words[0].toLowerCase());
+            for (int i = 1; i < words.length; i++) {
+                if (!words[i].isEmpty())
+                    sb.append(Character.toUpperCase(words[i].charAt(0)))
+                      .append(words[i].substring(1).toLowerCase());
+            }
+            String name = sb.length() > 0 ? sb.toString() : "element";
+            return sanitizeIdentifier(name);
+        }
+
+        /**
+         * Guarantees the returned name is a legal Java identifier and not a
+         * reserved keyword, since generated field names come directly from
+         * page text/attributes (e.g. "123" or "Public Safety" would otherwise
+         * produce the illegal field declarations "123" or "public").
+         */
+        private String sanitizeIdentifier(String name) {
+            if (name.isEmpty() || Character.isDigit(name.charAt(0))) {
+                name = "el" + name;
+            }
+            if (JAVA_KEYWORDS.contains(name) || RESERVED_FIELD_NAMES.contains(name)) {
+                name = name + "Field";
+            }
+            return name;
+        }
+
+        // Names already used by the generated class's own boilerplate
+        // (static logger field, constructor's WebDriver parameter) -- a
+        // scraped field must never collide with these.
+        private static final java.util.Set<String> RESERVED_FIELD_NAMES = new java.util.HashSet<>(
+                java.util.Arrays.asList("log", "driver"));
+
+        private static final java.util.Set<String> JAVA_KEYWORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+                "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const",
+                "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float",
+                "for", "goto", "if", "implements", "import", "instanceof", "int", "interface", "long", "native",
+                "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp",
+                "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void",
+                "volatile", "while", "true", "false", "null", "var", "yield", "record", "sealed", "permits"));
     }
 
     // -------------------------------------------------------------------------

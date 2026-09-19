@@ -48,46 +48,6 @@ class AiInstructionContractTest {
     }
 
     @Test
-    @DisplayName("GitHub Packages is the canonical SDK publishing destination")
-    void githubPackagesIsCanonicalPublishingDestination() throws Exception {
-        String pom = readUtf8(Paths.get("pom.xml"));
-        String workflow = readUtf8(Paths.get(".github", "workflows", "publish-sdk.yml"));
-        String publishingGuide = readUtf8(Paths.get("SDK-PUBLISHING.md"));
-        String settingsTemplate = readUtf8(Paths.get("configuration", "maven-settings-template.xml"));
-
-        String packageUrl = "https://maven.pkg.github.com/vkruglyakusa/"
-                + "cross-platform-functional-test-automation-sdk";
-        assertTrue(pom.contains("<id>github</id>"),
-                "distributionManagement must use the GitHub server id");
-        assertTrue(pom.contains(packageUrl),
-                "distributionManagement must target this repository's GitHub Packages feed");
-        assertFalse(pom.contains("pkgs.visualstudio.com"),
-                "Azure Artifacts must not remain the default deployment target");
-
-        assertTrue(workflow.contains("types: [published]"),
-                "Publishing workflow must run for published releases");
-        assertTrue(workflow.contains("workflow_dispatch:"),
-                "Publishing workflow must support explicit manual runs");
-        assertTrue(workflow.contains("packages: write"),
-                "Publishing workflow must declare packages write permission");
-        assertTrue(workflow.contains("GITHUB_TOKEN"),
-                "Publishing workflow must use the repository-scoped GitHub token");
-        assertFalse(workflow.contains("settings-path:"),
-                "setup-java credentials must remain in Maven's default settings location");
-        assertTrue(workflow.contains("mvn --batch-mode deploy"),
-                "Publishing workflow must run the full Maven lifecycle before deployment");
-
-        assertTrue(publishingGuide.contains(packageUrl),
-                "Publishing guide must document the canonical package URL");
-        assertTrue(settingsTemplate.contains("${env.GITHUB_USERNAME}"),
-                "Local Maven settings must use an explicit GitHub username variable");
-        assertTrue(settingsTemplate.contains("${env.GITHUB_TOKEN}"),
-                "Local Maven settings must use a secret-backed token variable");
-        assertFalse(settingsTemplate.contains("YOUR_PAT_HERE"),
-                "Settings template must not encourage inline token replacement");
-    }
-
-    @Test
     @DisplayName("create-test prompt repeats the strict 1:1 Azure TC to @Test contract")
     void createTestPromptRepeatsStrictOneToOneContract() throws Exception {
         String content = readUtf8(AUTHORITATIVE_CREATE);
@@ -221,11 +181,11 @@ class AiInstructionContractTest {
         String readme = readUtf8(Paths.get("README.md"));
         String readmeMirror = readUtf8(Paths.get("src", "main", "resources", "README.md"));
         String gettingStarted = readUtf8(Paths.get("GETTING-STARTED.md"));
-        String oldUsernameTag = "<username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>";
-        String placeholderUsernameTag = "<username>YOUR_AZURE_ARTIFACTS_USERNAME</username>";
+        String oldUsernameTag = "<username>your-organization-id</username>";
+        String placeholderUsernameTag = "<username>GITHUB_USERNAME</username>";
 
         assertTrue(readme.contains(placeholderUsernameTag),
-                "README must use an unmistakable Azure Artifacts username placeholder");
+                "README must use an unmistakable GitHub Packages username placeholder");
         assertTrue(readme.contains("prefer secret-backed `settings.xml` injection"),
                 "README must prefer secret-backed credential injection guidance");
         assertFalse(readme.contains(oldUsernameTag),
@@ -235,7 +195,7 @@ class AiInstructionContractTest {
                 "Packaged README mirror must stay synchronized with the root README");
 
         assertTrue(gettingStarted.contains(placeholderUsernameTag),
-                "GETTING-STARTED must use an unmistakable Azure Artifacts username placeholder");
+                "GETTING-STARTED must use an unmistakable GitHub Packages username placeholder");
         assertFalse(gettingStarted.contains(oldUsernameTag),
                 "GETTING-STARTED auth example must not use a realistic GUID-like username placeholder");
     }

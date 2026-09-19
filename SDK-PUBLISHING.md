@@ -19,9 +19,9 @@ mvn clean install -DskipTests
 ```
 
 Produces in `~/.m2`:
-- `cross-platform-functional-test-automation-sdk-1.2.1.jar`
-- `cross-platform-functional-test-automation-sdk-1.2.1-sources.jar`
-- `cross-platform-functional-test-automation-sdk-1.2.1-javadoc.jar`
+- `cross-platform-functional-test-automation-sdk-1.5.3-SNAPSHOT.jar`
+- `cross-platform-functional-test-automation-sdk-1.5.3-SNAPSHOT-sources.jar`
+- `cross-platform-functional-test-automation-sdk-1.5.3-SNAPSHOT-javadoc.jar`
 
 ---
 
@@ -77,9 +77,9 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
       <id>http-proxy-settings</id>
       <active>true</active>
       <protocol>http</protocol>
-      <host>bcpxy.nycnet</host>
+      <host>proxy.example.com</host>
       <port>8080</port>
-      <nonProxyHosts>10.*|192.168.*|172.16.*|*.nycnet|localhost|github.com|*.github.com|maven.pkg.github.com</nonProxyHosts>
+      <nonProxyHosts>localhost|github.com|*.github.com|maven.pkg.github.com</nonProxyHosts>
     </proxy>
   </proxies>
 

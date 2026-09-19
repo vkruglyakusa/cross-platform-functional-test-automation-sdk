@@ -15,6 +15,7 @@ class MobileDriverFactoryRemoteTest {
         System.clearProperty("appium.localUrl");
         System.clearProperty("mobile.android.appPath");
         System.clearProperty("android.appPath");
+        System.clearProperty("android.uiautomator2ServerLaunchTimeoutMs");
     }
 
     @Test
@@ -66,5 +67,28 @@ class MobileDriverFactoryRemoteTest {
     @Test
     void localAppiumKeepsSafeLoopbackDefault() {
         assertEquals("http://127.0.0.1:4723/", MobileDriverFactory.appiumUrl(false).toString());
+    }
+
+    @Test
+    void androidOptionsUseNinetySecondServerLaunchTimeoutByDefault() {
+        assertEquals(90000L, ((Number) MobileDriverFactory.androidOptions("Synthetic Device", false)
+                .getCapability("appium:uiautomator2ServerLaunchTimeout")).longValue());
+    }
+
+    @Test
+    void androidOptionsHonorConfiguredServerLaunchTimeout() {
+        System.setProperty("android.uiautomator2ServerLaunchTimeoutMs", "120000");
+        assertEquals(120000L, ((Number) MobileDriverFactory.androidOptions("Synthetic Device", false)
+                .getCapability("appium:uiautomator2ServerLaunchTimeout")).longValue());
+    }
+
+    @Test
+    void androidOptionsRejectNonPositiveServerLaunchTimeout() {
+        System.setProperty("android.uiautomator2ServerLaunchTimeoutMs", "0");
+        assertThrows(IllegalArgumentException.class,
+                () -> MobileDriverFactory.androidOptions("Synthetic Device", false));
+        System.setProperty("android.uiautomator2ServerLaunchTimeoutMs", "-1");
+        assertThrows(IllegalArgumentException.class,
+                () -> MobileDriverFactory.androidOptions("Synthetic Device", false));
     }
 }

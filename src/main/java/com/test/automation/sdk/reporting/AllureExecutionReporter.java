@@ -4,10 +4,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.UUID;
 
 import io.qameta.allure.Allure;
+import io.qameta.allure.model.Label;
 import io.qameta.allure.model.Status;
 import io.qameta.allure.model.StatusDetails;
 import io.qameta.allure.model.StepResult;
@@ -25,6 +28,18 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         if (event == null) {
             return;
         }
+        // OBS-Allure-fix: parentSuite/suite/subSuite labels are applied by
+        // AllureLabelLifecycleListener (hooked directly into Allure's own
+        // TestLifecycleListener callbacks), not reactively here. TestNG does not
+        // guarantee that AllureTestNg (ServiceLoader-registered, unordered relative
+        // to this SDK's own Listener) has already created the Allure test case
+        // entry by the time the first ExecutionEvent(s) for a test fire. Calling
+        // Allure.getLifecycle().updateTestCase(...) unconditionally from here raced
+        // against that test-case creation and produced deterministic
+        // "Could not update test case: test case with uuid X not found" ERROR log
+        // lines (exactly 2 per test, at test start) even though the labels were
+        // always re-applied correctly and race-free via AllureLabelLifecycleListener.
+        // See SDK-FIX-PROMPT-AllureLifecycleRace.md for full root-cause analysis.
         switch (event.getType()) {
             case STEP_STARTED:
                 startStep(event);
@@ -38,6 +53,9 @@ public final class AllureExecutionReporter implements ExecutionReporter {
             case SCREENSHOT_CAPTURED:
             case DOM_CAPTURED:
             case PAGE_SOURCE_CAPTURED:
+            case API_PAYLOAD_CAPTURED:
+            case BROWSER_CONSOLE_CAPTURED:
+            case NETWORK_TRACE_CAPTURED:
                 attachEvidence(event);
                 break;
             case EXCEPTION:
@@ -87,6 +105,13 @@ public final class AllureExecutionReporter implements ExecutionReporter {
     }
 
     private void attachEvidence(ExecutionEvent event) {
+        // Fail-safe guard: Allure.addAttachment(...) silently logs "no test is
+        // running" and drops the attachment if there is no current Allure test
+        // case (e.g. AllureTestNg already closed it). Skip attaching rather than
+        // let Allure's own logger emit noise for evidence it cannot attribute.
+        if (!Allure.getLifecycle().getCurrentTestCase().isPresent()) {
+            return;
+        }
         for (ExecutionEvidence evidence : event.getEvidence()) {
             if (evidence == null || evidence.getPath() == null) {
                 continue;
@@ -105,6 +130,9 @@ public final class AllureExecutionReporter implements ExecutionReporter {
 
     private void attachException(ExecutionEvent event) {
         if (event.getThrowable() == null) {
+            return;
+        }
+        if (!Allure.getLifecycle().getCurrentTestCase().isPresent()) {
             return;
         }
         Allure.addAttachment("Exception", "text/plain", stackTrace(event.getThrowable()));
@@ -129,5 +157,21 @@ public final class AllureExecutionReporter implements ExecutionReporter {
         throwable.printStackTrace(printWriter);
         printWriter.flush();
         return writer.toString();
+    }
+
+    static List<Label> replaceLabel(List<Label> existing, String name, String value) {
+        List<Label> labels = new ArrayList<Label>();
+        if (existing != null) {
+            for (Label label : existing) {
+                if (label == null || name.equals(label.getName())) {
+                    continue;
+                }
+                labels.add(label);
+            }
+        }
+        if (value != null && !value.isEmpty()) {
+            labels.add(new Label().setName(name).setValue(SecretRedactor.redactMessage(value)));
+        }
+        return labels;
     }
 }

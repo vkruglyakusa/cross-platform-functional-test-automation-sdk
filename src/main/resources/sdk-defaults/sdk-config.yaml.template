@@ -24,26 +24,24 @@ browser:
 
 # ------------------------------------------------------------
 # Execution Destination / Remote Providers
-# Canonical remote selection uses RunMode.REMOTE plus a provider ID.
-# The custom provider supports Selenium Grid (Web) and Appium (mobile).
-# Environment overrides use PROVIDERS_CUSTOM_HUBURL and
-# PROVIDERS_CUSTOM_ALLOWINSECUREHTTP.
+# Use REMOTE with a provider ID for Selenium Grid or Appium endpoints.
+# Keep credentials in environment variables, never in hubUrl.
 # ------------------------------------------------------------
 execution:
   runMode: local                    # local | remote
-  provider: ""                      # required for remote; browserstack | custom
+  provider: ""                      # browserstack | custom
 
 providers:
   custom:
-    hubUrl: ""                      # e.g. https://grid.company.test/wd/hub
-    allowInsecureHttp: false        # true only for a trusted local/private HTTP grid
+    hubUrl: ""                      # e.g. https://grid.example.test/wd/hub
+    allowInsecureHttp: false
 
 # ------------------------------------------------------------
 # Proxy Settings
 # ------------------------------------------------------------
 proxy:
   enabled: false
-  host: ""                          # e.g. proxy.company.com or bcpxy.nycnet
+  host: ""                          # e.g. proxy.company.com or proxy.example.com
   port: 8080
   username: ""
   password: ""
@@ -61,6 +59,26 @@ api:
     inboxPollIntervalSeconds: 3
     inboxPollTimeoutSeconds: 60
     inboxInitialWaitSeconds: 5      # wait before first poll to allow email delivery
+
+  # ------------------------------------------------------------
+  # API-testing module: com.test.automation.sdk.api.ApiTestBase, a standalone
+  # (no WebDriver) base class for pure API test classes, built on RestAssured.
+  # Base URLs follow the same "one otherwise-identical key per environment"
+  # convention already used by TestBase.setBaseUrl(environment): set
+  # api.baseUrl.<environment> (e.g. api.baseUrl.stg) for per-environment
+  # overrides, falling back to the environment-neutral api.baseUrl below.
+  # NEVER put a real secret/token value here -- api.authTokenEnvVar names an
+  # ENVIRONMENT VARIABLE whose value is read at runtime instead.
+  # ------------------------------------------------------------
+  baseUrl: ""                       # environment-neutral fallback base URL      (-Dapi.baseUrl)
+  # baseUrl.stg: "https://stg.example.com"     # per-environment override example (-Dapi.baseUrl.stg)
+  authHeaderName: ""                # e.g. "Ocp-Apim-Subscription-Key" or "Authorization" (-Dapi.authHeaderName)
+  authTokenEnvVar: ""                # name of the env var holding the token/key value     (-Dapi.authTokenEnvVar)
+  connectionTimeoutMillis: 10000    # (-Dapi.connectionTimeoutMillis)
+  readTimeoutMillis: 30000          # (-Dapi.readTimeoutMillis)
+  logRequestsAndResponses: true     # capture request/response JSON as evidence   (-Dapi.logRequestsAndResponses)
+  outputDirectory: "test-output/api"  # captured API payload evidence files       (-Dapi.outputDirectory)
+  relaxedHttpsValidation: false     # opt-in only, for lower non-prod environments (-Dapi.relaxedHttpsValidation)
 
 # ------------------------------------------------------------
 # Logging Settings
@@ -105,12 +123,15 @@ appium:
 
 mobile:
   appium:
-    url: ""                             # required remote Appium endpoint (-Dmobile.appium.url)
-    allowInsecureHttp: false            # true only for a trusted private HTTP Appium server
+    url: ""                             # remote Appium endpoint, including macOS
+    allowInsecureHttp: false
 
 android:
   appPath: ""                          # absolute/relative path to the .apk under test (-Dandroid.appPath)
   automationName: "UiAutomator2"       # Appium automationName capability (-Dandroid.automationName)
+  uiautomator2ServerLaunchTimeoutMs: 90000
+  appWaitActivity: ""                  # optional for slow/legacy sample apps
+  appWaitDurationMs: 0                 # 0 = Appium default
 
 ios:
   appPath: ""                          # absolute/relative path to the .app/.ipa under test (-Dios.appPath)
@@ -128,6 +149,163 @@ reporting:
   crawlerDir:     "test-output/crawler"          # locator discovery reports       (-Dreporting.crawlerDir)
   accessibilityDir: "test-output/accessibility"  # a11y JSON / Excel / HTML        (-Dreporting.accessibilityDir)
   gapOutputDir:   "docs/test-case-gaps"          # gap-report.md / blocker-report.md (-Dreporting.gapOutputDir)
+
+  # ------------------------------------------------------------
+  # OBS-9: Automatic Allure HTML report generation after execution.
+  # Prerequisite: the Allure commandline must be installed and on PATH
+  # (https://allurereport.org/docs/install/). If it isn't found, generation
+  # is skipped with a clear log message -- test execution itself is never
+  # affected either way (report generation and test pass/fail are separate
+  # concerns). See SDK-USER-GUIDE.md, "Allure Reporting", for details.
+  # ------------------------------------------------------------
+  allure:
+    enabled: true                    # master on/off switch                        (-Dreporting.allure.enabled)
+    generateAfterExecution: true     # run `allure generate` once execution ends   (-Dreporting.allure.generateAfterExecution)
+    # NEVER default this to true -- opening a browser must always be opt-in,
+    # especially on Azure DevOps agents / Windows services / headless hosts.
+    openAfterGeneration: false       # open the generated report locally after success (-Dreporting.allure.openAfterGeneration)
+    resultsDirectory: "allure-results"  # where allure-testng writes raw results   (-Dreporting.allure.resultsDirectory)
+    reportDirectory: "allure-report"    # where the generated static HTML site goes (-Dreporting.allure.reportDirectory)
+    generationTimeoutSeconds: 120    # max time to wait for `allure generate`      (-Dreporting.allure.generationTimeoutSeconds)
+
+  # ------------------------------------------------------------
+  # Cross-run analytics event store: every execution event (test outcomes,
+  # runtime self-healing heals/exhaustions, etc.) is appended as one JSON
+  # line per run under analytics.directory. Powers pass-rate trend, flaky-test,
+  # and healed-locator-frequency analysis across many runs via
+  # com.test.automation.sdk.reporting.AnalyticsTrendReport -- something no
+  # single-run Allure/Extent report can answer on its own. Write failures
+  # never affect test execution (this reporter simply disables itself).
+  # ------------------------------------------------------------
+  analytics:
+    enabled: true                    # master on/off switch                        (-Dreporting.analytics.enabled)
+    directory: "test-output/analytics"  # one *.jsonl file written per run          (-Dreporting.analytics.directory)
+
+  # ------------------------------------------------------------
+  # Tier 3 (#9): automated RCA-to-fix bundle. On every test failure,
+  # com.test.automation.sdk.reporting.RcaBundleWriter consolidates test
+  # identity, the exception chain, evidence paths (screenshot/DOM dump), and
+  # a fresh tail of reporting.logsDir/sdk.log into ONE JSON file under
+  # rcaBundle.directory -- so a human or Copilot (see fix-failed-test.prompt.md)
+  # never has to hunt down three separate artifacts before starting RCA.
+  # Write failures never affect test execution (this writer simply skips itself).
+  # ------------------------------------------------------------
+  rcaBundle:
+    enabled: true                       # master on/off switch                     (-Dreporting.rcaBundle.enabled)
+    directory: "test-output/rca-bundles"  # one *.json file written per failure    (-Dreporting.rcaBundle.directory)
+    logTailLines: 80                    # trailing sdk.log lines embedded per bundle (-Dreporting.rcaBundle.logTailLines)
+    stackTraceFrames: 15                # leading stack frames per exception/cause (-Dreporting.rcaBundle.stackTraceFrames)
+
+# ------------------------------------------------------------
+# SDK v1.5.1: extended Web failure evidence -- screenshot, browser console log,
+# and (opt-in) browser network trace. See SDK-USER-GUIDE.md Section 13.4.
+# All evidence is attached to Allure/Extent and referenced from the RCA
+# bundle (rcaBundle above) when present. A capture/attachment failure never
+# fails the test; it only means that evidence entry is skipped.
+# ------------------------------------------------------------
+evidence:
+  screenshot:
+    enabled: true                       # (-Devidence.screenshot.enabled)
+    attachToReports: true               # attach to Allure/Extent            (-Devidence.screenshot.attachToReports)
+    # NOTE: screenshot capture-on-failure itself is governed by TestBase's existing
+    # capture logic (unconditional on failure), not a separate captureOnFailure key.
+
+  # Browser console log (JS errors/warnings). Supported on Chrome and Edge;
+  # not reliably supported on Firefox (geckodriver limitation) -- capture is
+  # fail-safe there and simply produces no artifact.
+  browserConsole:
+    enabled: true                       # (-Devidence.browserConsole.enabled)
+    captureOnFailure: true              # (-Devidence.browserConsole.captureOnFailure)
+    attachToReports: true               # (-Devidence.browserConsole.attachToReports)
+
+  # Browser network trace evidence via Chrome DevTools Protocol (NOT a HAR
+  # file -- this SDK does not claim HAR compliance; see SDK-USER-GUIDE.md
+  # Section 13.4.3). Chrome/Edge only (no Firefox support). Disabled by
+  # default -- can add overhead, produce large artifacts, and may capture
+  # sensitive request/response data. The generated artifact
+  # (`*_network-trace.json`) is a simplified, non-canonical network trace
+  # (method/URL/headers/status/mimeType only -- no bodies, timings, or body
+  # sizes). All CDP-version-specific code is isolated behind an internal
+  # adapter seam (com.test.automation.sdk.evidence.network) so the pinned
+  # CDP version can be replaced in a future release without touching the
+  # rest of the evidence pipeline.
+  network:
+    enabled: false                      # (-Devidence.network.enabled)
+    captureOnFailure: true              # (-Devidence.network.captureOnFailure)
+    attachToReports: true               # (-Devidence.network.attachToReports)
+    redactSensitiveData: true           # masks Authorization/Cookie/tokens/etc. (-Devidence.network.redactSensitiveData)
+    maxEntries: 500                     # bounded in-memory buffer, oldest dropped (-Devidence.network.maxEntries)
+
+# ------------------------------------------------------------
+# SDK v1.5.1: WebEventListener.onError() reporting classification.
+# NoSuchElementException is treated as a "non-terminal" listener event by
+# default -- logged at DEBUG and NOT reported via ExecutionReporting.actionFailed(...),
+# since it is routinely used by consumer code to probe for optional elements.
+# This affects listener-level logging/reporting ONLY -- the listener does not
+# alter exception propagation -- and a final TestNG test failure is still
+# fully captured (screenshot/
+# DOM/log/RCA) as usual. See SDK-USER-GUIDE.md Section 15.0 for details.
+# ------------------------------------------------------------
+webdriver:
+  eventListener:
+    nonTerminalExceptions: "org.openqa.selenium.NoSuchElementException"  # comma-separated FQCNs (-Dwebdriver.eventListener.nonTerminalExceptions)
+
+# ------------------------------------------------------------
+# Zero-config visual regression testing: TestBase.assertVisualMatch(checkpointName)
+# captures a screenshot and compares it against a stored baseline using a
+# tolerant pixel diff (com.test.automation.sdk.visual.ImageDiffEngine) -- no
+# external visual-testing service required. The first check for a given
+# checkpoint name saves the screenshot as the accepted baseline; baselines
+# live under visual.baselineDirectory (default inside src/test/resources so
+# they can be committed and code-reviewed like any other test asset).
+# ------------------------------------------------------------
+visual:
+  enabled: true                              # master on/off switch                (-Dvisual.enabled)
+  baselineDirectory: "src/test/resources/visual-baselines"  # accepted baselines   (-Dvisual.baselineDirectory)
+  outputDirectory: "test-output/visual"       # actual/diff images from this run    (-Dvisual.outputDirectory)
+  mismatchThresholdPercent: 0.1               # max acceptable mismatch % (0-100)   (-Dvisual.mismatchThresholdPercent)
+  pixelColorTolerance: 12                     # per-channel (0-255) anti-aliasing tolerance (-Dvisual.pixelColorTolerance)
+  # Set true only for a deliberate one-off re-baselining run after an
+  # intentional UI change -- every checkpoint's baseline gets overwritten.
+  updateBaselines: false                      # (-Dvisual.updateBaselines)
+  failOnMismatch: true                        # throw AssertionError on mismatch    (-Dvisual.failOnMismatch)
+
+# ------------------------------------------------------------
+# Flaky-test quarantine: com.test.automation.sdk.flaky.FlakyTestQuarantineListener
+# uses the cross-run analytics history above (reporting.analytics) to tell a
+# genuinely intermittent test apart from a first-time regression or a test
+# that is simply broken (failing almost every run). Declare the listener in
+# your TestNG suite XML, AFTER com.test.automation.sdk.listener.Listener, so
+# the real failure is still recorded in reports/analytics before this
+# listener reclassifies the final TestNG result. Disabled by default --
+# converting a failure into a skip is an opinionated behavior change a
+# project must deliberately opt into.
+# ------------------------------------------------------------
+flaky:
+  quarantine:
+    enabled: false                       # master on/off switch                (-Dflaky.quarantine.enabled)
+  minRunsForQuarantine: 5                # min historical runs before quarantine is allowed (-Dflaky.minRunsForQuarantine)
+  maxFailureRatePercent: 80               # above this failure rate the test is "broken", not flaky (-Dflaky.maxFailureRatePercent)
+
+# ------------------------------------------------------------
+# Test impact analysis: com.test.automation.sdk.impact.TestImpactCli maps
+# changed source files (via `git diff --name-only <impact.baseRef>`) to the
+# test classes transitively affected by that change, using a lightweight
+# compiler-free source-reference heuristic -- no bytecode/JaCoCo
+# instrumentation required. Run it standalone (not part of `mvn test`):
+#   mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"
+# then run just the impacted tests:
+#   mvn test -Dsurefire.suiteXmlFiles=test-output/impact/impact_suite.xml
+# If any changed file can't be mapped to a known class (non-Java file, or
+# outside the indexed source roots), the CLI prints a warning and recommends
+# running the full suite instead -- this never silently narrows coverage.
+# ------------------------------------------------------------
+impact:
+  mainSourceDir: "src/main/java"              # (-Dimpact.mainSourceDir)
+  testSourceDir: "src/test/java"               # (-Dimpact.testSourceDir)
+  testClassNamePattern: "Test_.*"              # regex a class's simple name must match to count as a test (-Dimpact.testClassNamePattern)
+  outputSuiteFile: "test-output/impact/impact_suite.xml"  # (-Dimpact.outputSuiteFile)
+  baseRef: "HEAD~1"                            # git ref diffed to find changed files (-Dimpact.baseRef)
 
 # ------------------------------------------------------------
 # Accessibility Testing (axe-core + WCAG checks)

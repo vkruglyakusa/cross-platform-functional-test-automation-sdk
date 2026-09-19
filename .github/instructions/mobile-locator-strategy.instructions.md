@@ -98,7 +98,7 @@ burning excessive remote calls.
 
 ## React Native / Hybrid-Specific Notes
 
-Several pilot apps (e.g. `311_Mobile_Automation`) are built with **React Native**,
+Several pilot apps (e.g. `external-mobile-consumer`) are built with **React Native**,
 identifiable by:
 - Generic `android.widget.TextView`/`android.view.View` (Android) or long chains of
   `XCUIElementTypeOther` (iOS) with **no `resource-id`/`name`** — RN does not assign
@@ -108,7 +108,7 @@ identifiable by:
   is RN's default accessibility hint format for tab/switch-like components.
 - Occasional natively-implemented screens embedded within the RN app (e.g. a native
   map/search screen) that DO have real `resource-id`s with the app's package name
-  (e.g. `gov.nyc.doitt.ThreeOneOne:id/search_input`) — these are safe to locate the
+  (e.g. `com.example.mobile:id/search_input`) — these are safe to locate the
   normal native way; only the RN-rendered screens need the fallback rules below.
 
 **Fallback rules for RN screens with no resource-id/content-desc:**
@@ -156,7 +156,7 @@ directly contradicts this SDK's core mobile crawler design constraint.
 
 ```java
 // ✅ Correct -- stable, unique, meaningful
-@AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='gov.nyc.doitt.ThreeOneOne:id/search_input']")
+@AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='com.example.mobile:id/search_input']")
 @iOSXCUITFindBy(xpath = "//XCUIElementTypeButton[@name='loginButton']")
 @AndroidFindBy(xpath = "//android.widget.Button[@content-desc='Create Service Request']")
 @iOSXCUITFindBy(xpath = "//XCUIElementTypeStaticText[@name='Location type']")

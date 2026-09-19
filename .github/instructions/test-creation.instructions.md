@@ -62,8 +62,8 @@ import org.testng.Assert;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import com.automation.poletop.testBase.TestBase;
-import com.automation.poletop.uiActions.MyPage;  // page object
+import com.automation.example.testBase.TestBase;
+import com.automation.example.uiActions.MyPage;  // page object
 
 /***********************************************************************
  * Class Name  : Test_<FeatureName>
@@ -186,7 +186,7 @@ Every test class needs a corresponding Excel sheet. Minimum required columns:
 | `runMode` | String | `Y` = execute, `N` = skip |
 
 ### Step 5 -- Naming Conventions
-- Class name: `Test_<FeatureInPascalCase>` -> e.g. `Test_PoletopLogin`
+- Class name: `Test_<FeatureInPascalCase>` -> e.g. `Test_ExampleLogin`
 - Test method: `test<ScenarioInCamelCase>` -> e.g. `testValidLogin`
 - Data provider name: matches sheet name in camelCase -> e.g. `loginData`
 - Priority: P1 = positive flows, P2 = negative flows, P3 = boundary/edge
@@ -330,7 +330,7 @@ myPage.clickSubmit();   // page object handles waits and retries internally
 ### Test-Level Retry (automatic):
 Every `@Test` method automatically gets **3 retry attempts** via `RetryListener` configured in `regression_suite.xml`:
 ```xml
-<listener class-name="com.automation.poletop.listener.RetryListener"/>
+<listener class-name="com.automation.example.listener.RetryListener"/>
 ```
 - **Do NOT** add `retryAnalyzer = Retry.class` manually to individual `@Test` annotations -- it is applied globally by `RetryListener`.
 - Retry fires on transient failures (network, timing) up to 3 times before marking the test failed.

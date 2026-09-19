@@ -5,6 +5,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Duration;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -74,9 +75,8 @@ public final class MobileDriverFactory {
      * capabilities itself, since there is no cloud provider config
      * (browserstack.yml, etc.) supplying them.
      *
-     * Generalized from the proven driver-factory pattern in the
-     * {@code 311_Mobile_Automation} project (see
-     * docs/proposals/mobile-automation-strategy.md, sections 3a and 6a).
+     * Uses the same provider-neutral capability contract for local devices
+     * and remote execution targets.
      */
     public static AppiumDriver getLocalDriver(String mobileOS, String deviceName) {
         switch (normalizeMobileOs(mobileOS)) {
@@ -184,6 +184,22 @@ public final class MobileDriverFactory {
         options.setCapability("deviceName", requireDeviceName(deviceName));
         options.setCapability("automationName", MobileConfigReader.get("android.automationName", "UiAutomator2"));
         options.setCapability("platformName", "Android");
+        if (Boolean.parseBoolean(MobileConfigReader.get("android.noReset", "false"))) {
+            options.setCapability("appium:noReset", true);
+        }
+        String appWaitActivity = MobileConfigReader.get("android.appWaitActivity", "");
+        if (appWaitActivity != null && !appWaitActivity.isBlank()) {
+            options.setCapability("appium:appWaitActivity", appWaitActivity.trim());
+        }
+        long appWaitDurationMs = MobileConfigReader.getLong("android.appWaitDurationMs", 0L);
+        if (appWaitDurationMs > 0) {
+            options.setCapability("appium:appWaitDuration", appWaitDurationMs);
+        }
+        long launchTimeoutMs = MobileConfigReader.getLong("android.uiautomator2ServerLaunchTimeoutMs", 90000L);
+        if (launchTimeoutMs <= 0) {
+            throw new IllegalArgumentException("android.uiautomator2ServerLaunchTimeoutMs must be positive");
+        }
+        options.setUiautomator2ServerLaunchTimeout(Duration.ofMillis(launchTimeoutMs));
         return options;
     }
 

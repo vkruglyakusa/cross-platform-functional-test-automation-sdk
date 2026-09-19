@@ -1,20 +1,29 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 1.2.1
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.2.1`
-**Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
+**Version:** 1.5.1
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1`
+**Repository:** `Automation Engineering / cross-platform-functional-test-automation-sdk`
 
-This guide is the **single document** a QA engineer needs to start a new Selenium
-automation project on top of this SDK. No Selenium or TestNG expertise required
-beyond what is described here.
+This guide is the primary installation, configuration, and usage reference for the
+SDK's shared features across Web (Selenium), Mobile (Appium), and pure API
+(RestAssured) consumer projects. Read it together with `TESTBASE-API.md`
+(web), `MOBILE-USER-GUIDE.md` / `MOBILE-TESTBASE-API.md` (mobile), and
+`API-TESTBASE-API.md` (API) when you need track-specific method detail.
 
 ## Validated baseline
 
 | Component | Supported baseline |
 |---|---|
 | Java | 20 or newer |
+| TestNG | 7.10.2 |
 | Selenium | 4.44.0 |
 | Appium Java Client | 10.1.1 |
+| RestAssured | 5.5.0 |
+| Allure TestNG / Commons / Attachments | 2.23.0 |
+| Log4j2 | 2.20.0 |
+| WebDriverManager | 6.3.4 |
+| Apache POI | 3.17 |
+| axe-core Selenium binding | 4.10.1 |
 | AspectJ Weaver | 1.9.25 |
 | BrowserStack Java SDK | Optional for consumers; required only for BrowserStack-enabled runs |
 
@@ -26,6 +35,7 @@ beyond what is described here.
 2. [Prerequisites](#2-prerequisites)
 3. [Set Up a New Project](#3-set-up-a-new-project)
 4. [Maven Dependency](#4-maven-dependency)
+    - [4a. Keeping Your Project on the Latest SDK Version](#4a-keeping-your-project-on-the-latest-sdk-version)
     - [4b. First-Time Consumer Setup](#4b-first-time-consumer-setup)
 5. [Project Structure](#5-project-structure)
 6. [Configuration Reference](#6-configuration-reference)
@@ -33,6 +43,7 @@ beyond what is described here.
     - [7.1 Map Widgets -- Google Maps, Leaflet, Mapbox GL, OpenLayers, Bing Maps](#71-map-widgets--google-maps-leaflet-mapbox-gl-openlayers-bing-maps)
     - [7.2 Shadow DOM -- Web Components, Lit/Stencil, Salesforce Lightning (LWC)](#72-shadow-dom--web-components-litstencil-salesforce-lightning-lwc)
     - [7.3 Crawler Reliability & Self-Healing Features](#73-crawler-reliability--self-healing-features)
+    - [7.4 Mobile (Appium) Crawler & AbstractMobileLocatorInvestigator](#74-mobile-appium-crawler--abstractmobilelocatorinvestigator)
 8. [Writing Page Objects (uiActions)](#8-writing-page-objects-uiactions)
 9. [TestBase API -- What You Can Use](#9-testbase-api--what-you-can-use)
 10. [Writing Test Classes](#10-writing-test-classes)
@@ -41,11 +52,17 @@ beyond what is described here.
 13. [Reports & Screenshots](#13-reports--screenshots)
     - [13.1 Gap & Blocker Reports -- Configurable Output](#131-gap--blocker-reports--configurable-output)
     - [13.2 Failure RCA Workflow](#132-failure-rca-workflow)
+    - [13.3 Automated RCA Bundle (Tier 3 #9)](#133-automated-rca-bundle-tier-3-9----one-json-file-three-artifacts-pre-linked)
 14. [Accessibility Testing](#14-accessibility-testing)
 15. [Retry & Listeners](#15-retry--listeners)
+    - [15.1 Flaky-test quarantine](#151-flaky-test-quarantine-flakytestquarantinelistener)
+    - [15.2 Test impact analysis](#152-test-impact-analysis-testimpactcli)
+    - [15.3 Runtime self-healing locators](#153-runtime-self-healing-locators-healingelementlocator)
+    - [15.4 Visual regression testing](#154-visual-regression-testing-visualregressionchecker)
 16. [Locator Rules -- Non-Negotiable](#16-locator-rules--non-negotiable)
 17. [Complete End-to-End Example](#17-complete-end-to-end-example)
-18. [Troubleshooting](#18-troubleshooting)
+18. [API Testing (ApiTestBase)](#18-api-testing-apitestbase)
+19. [Troubleshooting](#19-troubleshooting)
 
 ---
 
@@ -68,19 +85,36 @@ automation project only needs **one** Maven dependency.
 | **AbstractLocatorInvestigator** | `sdk.tools.locator.AbstractLocatorInvestigator` | Base class for consumer `LocatorInvestigator` tools. Override 3 methods (`performLogin`, `isSessionAlive`, `defineCrawlSteps`); all crawl infrastructure (login, role switching, nav helpers, summary) is SDK-owned. |
 | **Excel_Reader** | `sdk.utility.Excel_Reader` | Reads `.xlsx` test data into `Object[][]` for `@DataProvider` |
 | **Listener** | `sdk.listener.Listener` | Automatic TestNG lifecycle bridge: emits centralized test start/pass/fail/skip events, captures failure evidence once, and renames data-driven rows |
-| **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, and evidence references |
+| **ExecutionReporting** | `sdk.reporting.ExecutionReporting` | Technology-neutral reporting facade that fans one execution event stream out to logs, Allure, Extent, analytics, and evidence references |
+| **AllureReportGenerator** | `sdk.reporting.AllureReportGenerator` | Optional post-run `allure generate` / `allure open` automation. Missing CLI, timeouts, and process failures are logged but never change test outcomes. |
+| **AnalyticsExecutionReporter** | `sdk.reporting.AnalyticsExecutionReporter` | Appends one JSON line per execution event to a per-run file under `reporting.analytics.directory`. Disables itself if a write ever fails. |
+| **AnalyticsTrendReport** | `sdk.reporting.AnalyticsTrendReport` | Reads the analytics history back and aggregates pass/fail trends, flaky tests, and healed-locator counts across many runs. |
+| **RcaBundleWriter** | `sdk.reporting.RcaBundleWriter` | Writes one JSON RCA bundle per failure, consolidating screenshot, DOM dump, SDK log tail, and exception chain. |
 | **RetryListener** | `sdk.listener.RetryListener` | Automatic test retry on failure |
+| **FlakyTestQuarantineListener** | `sdk.flaky.FlakyTestQuarantineListener` | Opt-in post-retry listener that reclassifies historically flaky failures to SKIP, backed by analytics history. |
+| **TestImpactCli** | `sdk.impact.TestImpactCli` | Standalone CLI that maps `git diff` changes to impacted TestNG classes and writes a focused suite XML. |
 | **WebEventListener** | `sdk.listener.WebEventListener` | Low-level WebDriver debug signal plus accessibility hook; business reporting should use `TestBase.step(...)` |
 | **Mailinator** | `sdk.utility.mailinator` | Reads emails from Mailinator API for email-flow testing |
 | **YamlConfigReader** | `sdk.config.YamlConfigReader` | Reads `sdk-config.yaml` for advanced SDK settings |
+| **ConfigurationManager** | `sdk.config.ConfigurationManager` | Central precedence-aware resolver plus typed config views: `CommonConfig`, `WebConfig`, `AllureReportConfig`, `AnalyticsConfig`, `RcaBundleConfig`, `VisualRegressionConfig`, `FlakyQuarantineConfig`, `TestImpactConfig`, and `ApiConfig`. |
 | **GapReportWriter** | `sdk.utility.GapReportWriter` | Writes gap-report.md / blocker-report.md to the configured output directory |
 | **AccessibilityChecker** | `sdk.accessibility.AccessibilityChecker` | Built-in 5-layer WCAG scan engine: axe-core, interaction, WCAG 2.2, structural, and motion checks. |
 | **A11ySessionManager** | `sdk.accessibility.A11ySessionManager` | De-duplicates scans by URL, cooldown, and DOM fingerprint; applies severity threshold and allowlists. |
 | **A11yTestNGListener** | `sdk.accessibility.A11yTestNGListener` | Automatically scans pages after each test when accessibility is enabled. Registered by the SDK via `META-INF/services`. |
 | **AllureA11yReporter** | `sdk.accessibility.AllureA11yReporter` | Sends accessibility violations, summaries, and artifact attachments to Allure steps. |
+| **HealingElementLocator** | `sdk.healing.HealingElementLocator` | Opt-in runtime self-healing wrapper for XPath `@FindBy` locators. It only trusts uniquely resolved relaxed candidates and reports every heal/exhaustion event. |
+| **VisualRegressionChecker** | `sdk.visual.VisualRegressionChecker` | Baseline-vs-actual screenshot comparison powered by `ImageDiffEngine`; no external visual-testing service required. |
+| **ApiTestBase** | `sdk.api.ApiTestBase` | Standalone RestAssured-based base class for pure API tests. No `WebDriver`, browser, or Appium session required. |
+| **MobileTestBase** | `sdk.mobile.testbase.MobileTestBase` | Appium base class for Android/iOS suites; mobile peer of `TestBase`. |
+| **MobileDriverFactory** | `sdk.mobile.driver.MobileDriverFactory` | Builds Android/iOS Appium sessions for local or BrowserStack runs. |
+| **MobileElementCrawler** | `sdk.tools.crawler.mobile.MobileElementCrawler` | Scans a live app screen, validates native locators in-memory, and delegates WebView DOM crawling to the desktop crawler. |
+| **MobilePageObjectGenerator** | `sdk.tools.pageobject.MobilePageObjectGenerator` | Generates starter mobile page objects from `MobileScreenSnapshot` crawl results. |
+| **AbstractMobileLocatorInvestigator** | `sdk.tools.locator.AbstractMobileLocatorInvestigator` | Reusable base class for consumer Appium crawler/investigator scripts. |
 
-All Selenium, TestNG, Allure, Extent, and Apache POI transitive dependencies
-are declared in the SDK's `pom.xml` -- **you do not add them yourself**.
+All Selenium, TestNG, Appium, RestAssured, Allure, Log4j2, Extent, Apache POI,
+and axe-core transitive dependencies are declared in the SDK's `pom.xml` --
+**you do not add them yourself** unless your project deliberately opts into an
+external runner such as BrowserStack's SDK.
 
 ---
 
@@ -91,6 +125,10 @@ are declared in the SDK's `pom.xml` -- **you do not add them yourself**.
 | Java JDK | 20 or higher | Must be on `PATH`. SDK is compiled at Java 20 source level (bumped from 8 in v2.0.0 -- see CHANGELOG). |
 | Maven | 3.6 or higher | Must be on `PATH`. |
 | Chrome + ChromeDriver | Latest stable | WebDriverManager auto-downloads the matching driver. Optionally set `browser.chromeDriverPath` in `sdk-config.yaml` to pin a local binary. |
+| Android Studio + Android SDK | Latest | Required for local Android mobile runs (`adb`, emulator, platform tools). |
+| Node.js + Appium server | Node 18+, Appium 2.x | Required for local mobile runs. Add the `uiautomator2` and/or `xcuitest` Appium drivers you need. |
+| BrowserStack account | Current | Required only for BrowserStack App Automate runs. |
+| Allure CLI | Current | Optional. Required only if you want automatic `allure generate` / `allure open` HTML reporting. |
 | IntelliJ IDEA | Any recent | Recommended IDE. |
 
 ---
@@ -99,12 +137,26 @@ are declared in the SDK's `pom.xml` -- **you do not add them yourself**.
 
 **Option A -- Consumer Template (recommended)**
 
-Clone the `framework_automation_consumer_template` repository. It is a
-ready-to-run project with all folders, config files, and example tests already
-in place.
+Clone the consumer template that matches your track:
+
+| Track | Canonical repository |
+|---|---|
+| Web (Selenium) | `functional-automation-consumer-template` |
+| API (RestAssured) | `api-functional-automation-consumer-template` |
+| Mobile (Appium) | `mobile-functional-automation-consumer-template` |
+
+Each template is a ready-to-run project with the SDK dependency, folder
+structure, config files, and example tests already in place for that track.
 
 ```
-git clone https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/framework_automation_consumer_template
+# Web
+git clone https://dev.azure.com/your-organization/your-project/_git/functional-automation-consumer-template
+
+# API
+git clone https://dev.azure.com/your-organization/your-project/_git/api-functional-automation-consumer-template
+
+# Mobile
+git clone https://dev.azure.com/your-organization/your-project/_git/mobile-functional-automation-consumer-template
 ```
 
 Then rename the project:
@@ -127,7 +179,7 @@ Add exactly one dependency to your `pom.xml`. No other framework deps are needed
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.2.1</version>
+    <version>1.5.1</version>
 </dependency>
 ```
 
@@ -137,7 +189,7 @@ Also add the Azure Artifacts repository so Maven knows where to download it from
 <repositories>
     <repository>
         <id>functional-test-automation-sdk</id>
-        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+        <url>https://pkgs.dev.azure.com/your-organization/_packaging/functional-test-automation-sdk/maven/v1</url>
         <releases><enabled>true</enabled></releases>
         <snapshots><enabled>false</enabled></snapshots>
     </repository>
@@ -193,11 +245,11 @@ mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.utility.InstructionExtra
 > and reset a specific file back to the pristine SDK default.
 
 **4. Check the CHANGELOG** for breaking changes or new required config keys:
-- [SDK CHANGELOG](https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_git/cross-platform-functional-test-automation-sdk?path=/CHANGELOG.md)
+- [SDK CHANGELOG](https://dev.azure.com/your-organization/your-project/_git/cross-platform-functional-test-automation-sdk?path=/CHANGELOG.md)
 
 ### How to check what version is currently latest
 
-- **Azure Artifacts feed**: [functional-test-automation-sdk packages](https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.visualstudio.com/OTI%20QA%20Automation/_artifacts/feed/functional-test-automation-sdk)
+- **Azure Artifacts feed**: [functional-test-automation-sdk packages](https://dev.azure.com/your-organization/your-project/_artifacts/feed/functional-test-automation-sdk)
 - **maven-repository** (git fallback): browse `../maven-repository/com/test/automation/cross-platform-functional-test-automation-sdk/`
 - **SDK README**: the version badge at the top always shows the current release
 
@@ -207,6 +259,28 @@ The SDK `release.ps1` script updates the consumer template's `pom.xml`,
 `README.md`, `GETTING-STARTED.md`, and `CHANGELOG.md` on every release.
 Cloning the template always gives you the latest stable version -- no manual
 version tracking needed.
+
+### Legacy-to-canonical package mapping
+
+The following `@Deprecated` classes are compatibility facades kept only so
+existing consumer code compiles unchanged after tooling was reorganized into
+`com.test.automation.sdk.tools.*`. **New page objects, tests, and examples
+should always import the canonical class directly** -- the legacy FQN is a
+migration aid, not the recommended API.
+
+| Legacy (deprecated) FQN | Canonical FQN |
+|---|---|
+| `com.test.automation.sdk.utility.ElementCrawler` | `com.test.automation.sdk.tools.crawler.web.ElementCrawler` |
+| `com.test.automation.sdk.utility.PageObjectGenerator` | `com.test.automation.sdk.tools.pageobject.PageObjectGenerator` |
+| `com.test.automation.sdk.utility.ElementSearchEngine` | `com.test.automation.sdk.tools.crawler.web.ElementSearchEngine` |
+| `com.test.automation.sdk.utility.CrawlerScenario` | `com.test.automation.sdk.tools.crawler.web.CrawlerScenario` |
+| `com.test.automation.sdk.utility.CrawlerStep` | `com.test.automation.sdk.tools.crawler.web.CrawlerStep` |
+| `com.test.automation.sdk.utility.DataDrivenCrawler` | `com.test.automation.sdk.tools.crawler.web.DataDrivenCrawler` |
+| `com.test.automation.sdk.utility.YamlConfigReader` | `com.test.automation.sdk.config.YamlConfigReader` |
+
+These facades are not removed as part of routine releases -- see the note on
+nested-type imports below for the one case where the facade cannot fully
+stand in for the canonical class.
 
 ### Known migration gotchas
 
@@ -312,14 +386,14 @@ exact same id:
 ```xml
 <repository>
   <id>functional-test-automation-sdk</id>
-  <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+  <url>https://pkgs.dev.azure.com/your-organization/_packaging/functional-test-automation-sdk/maven/v1</url>
 </repository>
 ```
 
 ```xml
 <server>
   <id>functional-test-automation-sdk</id>
-  <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+  <username>your-organization-id</username>
   <password>YOUR_PAT_HERE</password>
 </server>
 ```
@@ -409,7 +483,7 @@ This is a **one-time setup per workstation**. No pipeline changes needed.
 2. Click **+ New Token**
 3. Fill in:
    - **Name:** `maven-sdk-read`
-   - **Organization:** `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
+   - **Organization:** `your-organization-id`
    - **Expiration:** 1 year
    - **Scopes:** ✅ **Packaging → Read** (read-only — for downloading the SDK)
 4. Click **Create** and **copy the token immediately** — it won't be shown again
@@ -430,7 +504,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
   <servers>
     <server>
       <id>functional-test-automation-sdk</id>
-      <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+      <username>your-organization-id</username>
       <password>YOUR_PAT_HERE</password>
     </server>
   </servers>
@@ -438,7 +512,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 </settings>
 ```
 
-**With corporate proxy (e.g. behind `bcpxy.nycnet`):**
+**With corporate proxy (e.g. behind `proxy.example.com`):**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -452,16 +526,16 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
       <id>http-proxy-settings</id>
       <active>true</active>
       <protocol>http</protocol>
-      <host>bcpxy.nycnet</host>
+      <host>proxy.example.com</host>
       <port>8080</port>
-      <nonProxyHosts>10.*|192.168.*|172.16.*|*.nycnet|localhost|*.visualstudio.com|*.pkgs.visualstudio.com|*.dev.azure.com</nonProxyHosts>
+      <nonProxyHosts>10.*|192.168.*|172.16.*|*.internal.example|localhost|*.visualstudio.com|*.pkgs.visualstudio.com|*.dev.azure.com</nonProxyHosts>
     </proxy>
   </proxies>
 
   <servers>
     <server>
       <id>functional-test-automation-sdk</id>
-      <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
+      <username>your-organization-id</username>
       <password>YOUR_PAT_HERE</password>
       <configuration>
         <httpConfiguration>
@@ -478,17 +552,17 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 
 > **Important rules:**
 > - The `<id>` in `settings.xml` must exactly match the `<id>` in the `<repositories>` block in `pom.xml` — both are `functional-test-automation-sdk`
-> - The `<username>` must be the org GUID: `clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d`
+> - The `<username>` must be the org GUID: `your-organization-id`
 > - `*.pkgs.visualstudio.com` must be in `nonProxyHosts` if you use a corporate proxy
 > - **Never commit your PAT** — `settings.xml` lives outside the project in `~/.m2/`
 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.2.1
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.1
 ```
 
-Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.2.1.jar` downloaded.
+Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.1.jar` downloaded.
 
 ---
 
@@ -814,117 +888,223 @@ prod_data_set    = YourApp_PROD_TestData.xlsx
 
 ### 6.2 `configuration/sdk-config.yaml` -- Optional Advanced Settings
 
-Controls browser behavior, proxy, screenshots, logs, crawler artifacts, gap
-reports, and the built-in accessibility engine. All artifact output directories
-are now centralized under one `reporting:` section.
+`configuration/sdk-config.yaml` is the SDK's central advanced-configuration file
+for Web, Mobile, reporting, analytics, visual testing, RCA bundles, flaky-test
+quarantine, test-impact analysis, accessibility, Mailinator, and the pure API
+module. The resolution order is the same everywhere in the SDK:
 
-```yaml
-browser:
-  default: chrome            # chrome | firefox | edge
-  headless: false            # true for CI/CD
-  windowSize: "1920x1080"
-  pageLoadTimeoutSeconds: 30
-  implicitWaitSeconds: 0     # keep 0 -- use TestBase explicit waits
-  chromeDriverPath: ""       # optional: absolute path to a local chromedriver binary
-                             # leave empty (default) -- WebDriverManager downloads
-                             # the latest version matching your installed Chrome
-                             # example: "C:/tools/chromedriver/chromedriver.exe"
+```
+-D system property > environment variable > sdk-config.yaml > SDK default
 ```
 
-**Pinning a specific ChromeDriver version (optional):**
+The authoritative implementation is `com.test.automation.sdk.config.ConfigurationManager`.
+Its typed views are what the rest of the SDK reads:
 
-By default, `WebDriverFactory` never requires a manually downloaded
-ChromeDriver -- WebDriverManager resolves and downloads the correct version
-automatically at test-run time. Only set `chromeDriverPath` if you need to
-pin an exact/offline binary (e.g. no internet access on a CI runner, or a
-version WebDriverManager doesn't yet know about):
+| Typed view | Keys it owns | Used by |
+|---|---|---|
+| `ConfigurationManager.CommonConfig` | `logging.level`, `reporting.screenshotsDir`, `reporting.logsDir` | Shared logging/reporting utilities |
+| `ConfigurationManager.WebConfig` | `browser.default`, `browser.headless`, `browser.pageLoadTimeoutSeconds` | `TestBase`, `WebDriverFactory` |
+| `ConfigurationManager.AllureReportConfig` | `reporting.allure.*` | `AllureReportGenerator` |
+| `ConfigurationManager.AnalyticsConfig` | `reporting.analytics.*` | `AnalyticsExecutionReporter` |
+| `ConfigurationManager.RcaBundleConfig` | `reporting.rcaBundle.*` | `RcaBundleWriter` |
+| `ConfigurationManager.VisualRegressionConfig` | `visual.*` | `VisualRegressionChecker` / `ImageDiffEngine` |
+| `ConfigurationManager.FlakyQuarantineConfig` | `flaky.*` plus `reporting.analytics.directory` | `FlakyTestQuarantineListener` |
+| `ConfigurationManager.TestImpactConfig` | `impact.*` | `TestImpactCli` |
+| `ConfigurationManager.ApiConfig` | `api.baseUrl*`, `api.auth*`, `api.*timeouts*`, `api.outputDirectory`, `api.relaxedHttpsValidation` | `ApiTestBase` |
 
-1. Download the matching binary for your OS from
-   [chromedriver.chromium.org](https://chromedriver.chromium.org) (or the
-   [Chrome for Testing endpoints](https://googlechromelabs.github.io/chrome-for-testing/)
-   for Chrome 115+).
-2. Place it anywhere in your project (e.g. `webDrivers/chromedriver.exe`).
-3. Set `browser.chromeDriverPath` to that path (relative or absolute):
-   ```yaml
-   browser:
-     chromeDriverPath: "webDrivers/chromedriver.exe"
-   ```
-4. If the configured path is missing or the binary fails to initialize
-   (version mismatch, corrupt file), `WebDriverFactory` logs a warning and
-   **automatically falls back to WebDriverManager** -- it never fails the
-   test run because of a bad `chromeDriverPath`.
+Every key from `src/main/resources/sdk-defaults/sdk-config.yaml.template` is documented below.
 
-```yaml
-proxy:
-  enabled: false
-  host: "bcpxy.nycnet"       # your corporate proxy
-  port: 8080
+#### `browser`
 
-screenshots:
-  captureOnFailure: true
-  captureOnStep: false
+| Key | Default | Purpose |
+|---|---|---|
+| `browser.default` | `chrome` | Default browser for WebDriver startup (`chrome`, `firefox`, `edge`). |
+| `browser.headless` | `false` | Enables headless browser startup for CI/service environments. |
+| `browser.windowSize` | `1920x1080` | Initial browser window size. |
+| `browser.pageLoadTimeoutSeconds` | `30` | Page-load timeout used by the web driver layer. |
+| `browser.implicitWaitSeconds` | `0` | Keep at `0`; prefer explicit waits from `TestBase`. |
+| `browser.scriptTimeoutSeconds` | `30` | Script timeout for JavaScript execution. |
+| `browser.chromeDriverPath` | `""` | Optional absolute or relative path to a local ChromeDriver binary. If invalid, the SDK falls back to WebDriverManager. |
 
-api:
-  mailinator:
-    apiKey: "YOUR_MAILINATOR_API_KEY"
-    domain: "mailinator.com"
-    privateDomain: true
-    inboxInitialWaitSeconds: 5
-    inboxPollIntervalSeconds: 3
-    inboxPollTimeoutSeconds: 60
+#### `proxy`
 
-logging:
-  level: INFO
-  sdkLogFile: "test-output/logs/sdk.log"
-  seleniumLogFile: "test-output/logs/selenium.log"
-  browserLogFile: "test-output/logs/browser.log"
-  enableSeleniumLogs: true
-  enableBrowserConsoleLogs: true
-  enableDriverLogs: false
+| Key | Default | Purpose |
+|---|---|---|
+| `proxy.enabled` | `false` | Enables the SDK's proxy-aware HTTP/browser setup. |
+| `proxy.host` | `""` | Proxy host name. |
+| `proxy.port` | `8080` | Proxy port number. |
+| `proxy.username` | `""` | Optional proxy username. |
+| `proxy.password` | `""` | Optional proxy password. |
+| `proxy.noProxy` | `localhost,127.0.0.1` | JVM `http.nonProxyHosts`-style bypass list. |
+| `proxy.bypassList` | `localhost;<-loopback>` | Chrome `--proxy-bypass-list` value. |
 
-crawler:
-  pageObject:
-    package:   "com.yourcompany.automation.uiActions"
-    outputDir: "src/main/java/com/yourcompany/automation/uiActions/"
+#### `api.mailinator`
 
-reporting:
-  screenshotsDir:   "test-output/screenshots"    # -Dreporting.screenshotsDir
-  domDumpsDir:      "test-output/dom-dumps"      # -Dreporting.domDumpsDir
-  logsDir:          "test-output/logs"           # -Dreporting.logsDir
-  crawlerDir:       "test-output/crawler"        # -Dreporting.crawlerDir
-  accessibilityDir: "test-output/accessibility"  # -Dreporting.accessibilityDir
-  gapOutputDir:     "docs/test-case-gaps"        # -Dreporting.gapOutputDir
+| Key | Default | Purpose |
+|---|---|---|
+| `api.mailinator.apiKey` | `YOUR_MAILINATOR_API_KEY` | Mailinator API v2 key used by `Mailinator` and `MailinatorEmailReader`. |
+| `api.mailinator.domain` | `mailinator.com` | Public or private Mailinator domain to query. |
+| `api.mailinator.privateDomain` | `true` | Informational flag for private-domain usage. |
+| `api.mailinator.inboxPollIntervalSeconds` | `3` | Delay between inbox polls while waiting for email delivery. |
+| `api.mailinator.inboxPollTimeoutSeconds` | `60` | Maximum time to keep polling for a matching email. |
+| `api.mailinator.inboxInitialWaitSeconds` | `5` | Initial wait before the first poll, allowing message delivery to land. |
 
-accessibility:
-  checking.enabled: false
-  fail.on.violation: false
-  wcag.tags: "wcag2a,wcag2aa"
-  debug: false
+#### `api`
 
-  session.noise.threshold: MINOR
-  session.max.scans.per.url: 1
-  session.dedup.cooldown.ms: 0
-  session.dedup.dom.fingerprint: true
-  session.allowed.rules: ""
-  session.allowed.urls: ""
+| Key | Default | Purpose |
+|---|---|---|
+| `api.baseUrl` | `""` | Environment-neutral fallback base URL for `ApiTestBase`. |
+| `api.baseUrl.<environment>` | none | Per-environment override such as `api.baseUrl.stg` or `api.baseUrl.prd`. |
+| `api.authHeaderName` | `""` | Optional single HTTP header name automatically added to requests. |
+| `api.authTokenEnvVar` | `""` | Environment variable name that holds the auth header value. Never store the token itself in YAML. |
+| `api.connectionTimeoutMillis` | `10000` | Connection timeout applied to every RestAssured request. |
+| `api.readTimeoutMillis` | `30000` | Socket/read timeout applied to every RestAssured request. |
+| `api.logRequestsAndResponses` | `true` | Captures API request/response payloads as evidence under `api.outputDirectory`. |
+| `api.outputDirectory` | `test-output/api` | Output directory for API payload evidence JSON files. |
+| `api.relaxedHttpsValidation` | `false` | Opt-in relaxed TLS validation for lower non-prod environments only. |
 
-  session.spa.poll.interval.ms: 0
-  scan.wait.enabled: true
-  scan.wait.timeout.ms: 5000
-  scan.iframe.max.depth: 3
+#### `logging`
 
-  engine.interaction.enabled: true
-  engine.wcag22.enabled: true
-  engine.structural.enabled: true
-  engine.motion.enabled: true
+| Key | Default | Purpose |
+|---|---|---|
+| `logging.level` | `INFO` | Top-level SDK logging level. |
+| `logging.sdkLogFile` | `test-output/logs/sdk.log` | Main SDK log file. |
+| `logging.seleniumLogFile` | `test-output/logs/selenium.log` | Selenium/WebDriver event log file. |
+| `logging.browserLogFile` | `test-output/logs/browser.log` | Browser console log file. |
+| `logging.enableSeleniumLogs` | `true` | Enables Selenium/WebDriver log capture. |
+| `logging.enableBrowserConsoleLogs` | `true` | Enables browser console log capture. |
+| `logging.enableDriverLogs` | `false` | Enables verbose driver-binary logs such as ChromeDriver output. |
 
-  scan.on.dialog: false
-  scan.dialog.poll.interval.ms: 1000
-```
+#### `screenshots`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `screenshots.captureOnFailure` | `true` | Automatically capture screenshots for failed UI tests. |
+| `screenshots.captureOnStep` | `false` | Optionally capture screenshots for every business step. |
+
+#### `crawler.pageObject`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `crawler.pageObject.package` | `com.mycompany.automation.uiActions` | Target Java package for generated page objects. Set this to your consumer project's real package. |
+| `crawler.pageObject.outputDir` | `src/main/java/com/mycompany/automation/uiActions/` | Directory where generated page-object `.java` files are written. |
+
+#### `appium`, `android`, and `ios`
+
+New projects should keep mobile configuration in `sdk-config.yaml`. A standalone
+`configuration/mobile-config.yaml` is still supported as a temporary compatibility
+path, but it is deprecated and should not be the primary setup path for new work.
+
+| Key | Default | Purpose |
+|---|---|---|
+| `appium.localUrl` | `http://127.0.0.1:4723/` | Local Appium server URL. |
+| `android.appPath` | `""` | Path to the Android `.apk` under test. |
+| `android.automationName` | `UiAutomator2` | Appium automation engine for Android. |
+| `ios.appPath` | `""` | Path to the iOS `.app` or `.ipa` under test. |
+| `ios.automationName` | `XCUITest` | Appium automation engine for iOS. |
+
+#### `reporting`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.screenshotsDir` | `test-output/screenshots` | Failure and manual screenshot captures. |
+| `reporting.domDumpsDir` | `test-output/dom-dumps` | Saved DOM dump HTML files. |
+| `reporting.logsDir` | `test-output/logs` | Root directory for SDK, Selenium, browser, and driver logs. |
+| `reporting.crawlerDir` | `test-output/crawler` | Web/mobile crawler output reports. |
+| `reporting.accessibilityDir` | `test-output/accessibility` | Accessibility JSON, Excel, and HTML artifacts. |
+| `reporting.gapOutputDir` | `docs/test-case-gaps` | Gap and blocker markdown report directory. |
+
+#### `reporting.allure`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.allure.enabled` | `true` | Master switch for automatic Allure HTML report generation. |
+| `reporting.allure.generateAfterExecution` | `true` | Runs `allure generate` after execution completes. |
+| `reporting.allure.openAfterGeneration` | `false` | Opens the generated report locally after success. Keep `false` on CI/service hosts. |
+| `reporting.allure.resultsDirectory` | `allure-results` | Directory where `allure-testng` writes raw results. |
+| `reporting.allure.reportDirectory` | `allure-report` | Directory where generated static HTML is written. |
+| `reporting.allure.generationTimeoutSeconds` | `120` | Max time to wait for `allure generate`. |
+
+#### `reporting.analytics`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.analytics.enabled` | `true` | Master switch for cross-run analytics capture. |
+| `reporting.analytics.directory` | `test-output/analytics` | Directory containing one `*.jsonl` analytics file per run. |
+
+#### `reporting.rcaBundle`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `reporting.rcaBundle.enabled` | `true` | Master switch for automated RCA bundle generation. |
+| `reporting.rcaBundle.directory` | `test-output/rca-bundles` | Directory containing one JSON RCA bundle per failure. |
+| `reporting.rcaBundle.logTailLines` | `80` | Number of trailing `sdk.log` lines embedded per bundle. |
+| `reporting.rcaBundle.stackTraceFrames` | `15` | Number of leading stack frames captured per exception/cause. |
+
+#### `visual`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `visual.enabled` | `true` | Master switch for visual regression checks. |
+| `visual.baselineDirectory` | `src/test/resources/visual-baselines` | Committable baseline PNG directory. |
+| `visual.outputDirectory` | `test-output/visual` | Directory for actual/diff images from the current run. |
+| `visual.mismatchThresholdPercent` | `0.1` | Maximum acceptable mismatch percentage before a check fails. |
+| `visual.pixelColorTolerance` | `12` | Per-channel RGB tolerance used by `ImageDiffEngine`. |
+| `visual.updateBaselines` | `false` | Overwrites baselines instead of comparing; use only for deliberate re-baselining runs. |
+| `visual.failOnMismatch` | `true` | Throws an assertion on mismatch when `true`; reports/logs only when `false`. |
+
+#### `flaky`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `flaky.quarantine.enabled` | `false` | Master switch for the opt-in flaky-test quarantine listener. |
+| `flaky.minRunsForQuarantine` | `5` | Minimum historical runs before a test can be classified as known flaky. |
+| `flaky.maxFailureRatePercent` | `80` | Above this failure rate, the test is treated as broken instead of flaky. |
+
+#### `impact`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `impact.mainSourceDir` | `src/main/java` | Main source tree indexed by `TestImpactCli`. |
+| `impact.testSourceDir` | `src/test/java` | Test source tree indexed by `TestImpactCli`. |
+| `impact.testClassNamePattern` | `Test_.*` | Regex a class name must match to be included in the generated impact suite. |
+| `impact.outputSuiteFile` | `test-output/impact/impact_suite.xml` | Output TestNG suite file containing impacted tests only. |
+| `impact.baseRef` | `HEAD~1` | Git ref used as the `git diff --name-only` comparison base. |
+
+#### `accessibility`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `accessibility.checking.enabled` | `false` | Master opt-in toggle for accessibility scanning. |
+| `accessibility.fail.on.violation` | `false` | Fails the test when violations are found. |
+| `accessibility.wcag.tags` | `wcag2a,wcag2aa` | Axe-core tag set used for Layer 1 scanning. |
+| `accessibility.debug` | `false` | Enables verbose accessibility debug output. |
+| `accessibility.session.noise.threshold` | `MINOR` | Minimum severity recorded by the session manager. |
+| `accessibility.session.max.scans.per.url` | `1` | Maximum scans per URL per run (`0` means unlimited). |
+| `accessibility.session.dedup.cooldown.ms` | `0` | Cooldown between scans of the same URL. |
+| `accessibility.session.dedup.dom.fingerprint` | `true` | Skips re-scan when the DOM fingerprint is unchanged. |
+| `accessibility.session.allowed.rules` | `""` | Comma-separated axe rule IDs to suppress. |
+| `accessibility.session.allowed.urls` | `""` | Comma-separated URL fragments to skip entirely. |
+| `accessibility.session.spa.poll.interval.ms` | `0` | SPA URL-change poll interval in milliseconds (`0` disables polling). |
+| `accessibility.scan.wait.enabled` | `true` | Wait for DOM settle before scanning. |
+| `accessibility.scan.wait.timeout.ms` | `5000` | Max wait before scanning anyway. |
+| `accessibility.scan.iframe.max.depth` | `3` | Nested iframe recursion depth. |
+| `accessibility.engine.interaction.enabled` | `true` | Enables Layer 2 interaction checks. |
+| `accessibility.engine.wcag22.enabled` | `true` | Enables Layer 3 WCAG 2.2 checks. |
+| `accessibility.engine.structural.enabled` | `true` | Enables Layer 4 structural checks. |
+| `accessibility.engine.motion.enabled` | `true` | Enables Layer 5 motion checks. |
+| `accessibility.scan.on.dialog` | `false` | Automatically scan newly opened modal/dialog content. |
+| `accessibility.scan.dialog.poll.interval.ms` | `1000` | Poll interval for dialog detection. |
 
 Backward-compatible aliases still work for older projects: `screenshots.outputDir`,
-`screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `reporting.gapOutputDir`.
-New projects should use the unified `reporting:` keys only.
+`screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `sdk.gapOutputDir`.
+New projects should use the unified `reporting:` keys and `sdk-config.yaml` sections above.
+
+**Pinning a specific ChromeDriver version (optional):** `browser.chromeDriverPath`
+may point at a pre-downloaded binary (for offline runners or a temporarily newer
+Chrome build). If the configured path is missing or invalid, `WebDriverFactory`
+logs a warning and automatically falls back to WebDriverManager.
+
 
 ### 6.3 Config Path Override
 
@@ -994,7 +1174,7 @@ mvn exec:java \
 |----------|--------|---------------|
 | 1 | `-D` system property | `-Dpog.package`, `-Dpog.outputDir`, `-Dpog.reportDir` |
 | 2 | `sdk-config.yaml` | `crawler.pageObject.package` / `outputDir` / `reportDir` |
-| 3 | Built-in default | `com.poletop.automation.uiActions` (backward compat) |
+| 3 | Built-in default | `com.example.automation.uiActions` (backward compat) |
 
 ### Run the crawler
 
@@ -1092,7 +1272,7 @@ List<CrawlerStep> steps = Arrays.asList(
 );
 
 DataDrivenCrawler ddCrawler = new DataDrivenCrawler(driver);
-List<ElementInfo> elements = ddCrawler.crawlTestCase(url, "TC-311: Noise Complaint", steps);
+List<ElementInfo> elements = ddCrawler.crawlTestCase(url, "TC-SAMPLE-001: Sample Workflow", steps);
 
 PageObjectGenerator gen = new PageObjectGenerator(driver);
 gen.generateFromElements("NoisePage", url, elements);
@@ -1205,10 +1385,11 @@ encapsulation does **not** use real shadow roots, so it needs no special handlin
 | Field | Meaning |
 |---|---|
 | `inShadowDom` | `true` if the element lives inside an open shadow root |
-| `shadowHostXpath` | Light-DOM XPath to the shadow-root HOST element |
-| `shadowRelativeCss` | CSS selector for the element, resolved via `host.getShadowRoot()` (shadow roots only support CSS lookups, never XPath) |
+| `shadowHostXpath` | Light-DOM XPath to the **outermost** shadow-root HOST element |
+| `shadowIntermediateCss` | `List<String>` -- one CSS hop per *nested* shadow host between the outermost host and the shadow root that directly contains the element (shadow-in-shadow, e.g. Coveo Atomic's `<custom-search-box>` containing `<atomic-search-box>`). Empty for the common single-level case. |
+| `shadowRelativeCss` | CSS selector for the element, resolved via the innermost shadow root (shadow roots only support CSS lookups, never XPath) |
 
-Because a single XPath can't express this two-step lookup, `PageObjectGenerator`
+Because a single XPath can't express this multi-step lookup, `PageObjectGenerator`
 emits a **method** instead of a `@FindBy` field for these elements:
 
 ```java
@@ -1224,6 +1405,28 @@ Or use it directly via the `TestBase` convenience wrapper:
 WebElement submit = findInShadowDom(By.xpath("//my-form-component"), "button#submit");
 submit.click();
 ```
+
+For shadow-in-shadow nesting, use `findInNestedShadowDom` instead, passing one
+CSS selector per nesting level (the last argument resolves the target element):
+
+```java
+WebElement textarea = findInNestedShadowDom(
+    By.cssSelector("custom-search-box"),
+    "atomic-search-box",           // intermediate nested shadow host
+    "textarea[part='textarea']");  // target element, innermost shadow root
+```
+
+`ElementInfo.describeShadowResolution()` prints the exact Java resolution chain
+for a discovered shadow-DOM element (single-level or nested), ready to paste
+into a Page Object method.
+
+**Hydration timing:** many Web Components attach an *empty* open shadow root
+synchronously and populate it asynchronously after `connectedCallback`/hydration.
+`ElementCrawler` polls for a stable child count (bounded at 8s) before
+enumerating a shadow root's contents, but a hand-written lookup called
+immediately after a click that reveals the component (e.g. opening a search
+modal) can still race ahead of hydration -- if so, wrap it in a short
+`FluentWait` poll rather than assuming the locator itself is wrong.
 
 **Limitation (not solvable):** *closed* shadow roots (`element.shadowRoot ===
 null` from any external script) are undiscoverable by design -- an intentional
@@ -1253,7 +1456,7 @@ one of them is either automatic-and-transparent or opt-in.
 // (e.g. Back/Next toggling between two already-seen steps):
 DataDrivenCrawler ddCrawler = new DataDrivenCrawler(driver);
 ddCrawler.setStateDeduplication(true);
-List<ElementInfo> elements = ddCrawler.crawlTestCase(url, "TC-311: Noise Complaint", steps);
+List<ElementInfo> elements = ddCrawler.crawlTestCase(url, "TC-SAMPLE-001: Sample Workflow", steps);
 ```
 
 ```java
@@ -1351,6 +1554,81 @@ public class LoginPage extends TestBase {
 - No raw `sendKeys()` -- always use `clearAndType()`.
 - No `Thread.sleep()` -- always use a TestBase wait method.
 - No `new WebDriverWait(...)` -- always use a TestBase wait method.
+
+---
+
+### 7.4 Mobile (Appium) Crawler & `AbstractMobileLocatorInvestigator`
+
+Mobile projects don't crawl a live web page -- they crawl a live **app screen**
+over an Appium session. `com.test.automation.sdk.tools.crawler.mobile.MobileElementCrawler`
+is the mobile analogue of `ElementCrawler`: it inspects the current screen's
+accessibility tree and produces `MobileScreenSnapshot`/`MobileElementInfo`
+data that `com.test.automation.sdk.tools.pageobject.MobilePageObjectGenerator`
+turns into a ready-to-edit `@AndroidFindBy`/`@iOSXCUITFindBy` Page Object --
+exactly like `PageObjectGenerator` does for web, but for native/hybrid apps.
+
+`com.test.automation.sdk.tools.locator.AbstractMobileLocatorInvestigator` is
+the mobile analogue of `AbstractLocatorInvestigator` (Section 7): extend it in
+your consumer project's `MobileLocatorInvestigator` tool and override exactly
+3 hooks -- all crawl infrastructure (Appium session init, role registration,
+fail-fast login, session reuse, `@Test runFullCrawl()`, and the crawl summary
+log) is provided by the SDK:
+
+| Method | What to implement |
+|---|---|
+| `performLogin(username, password)` | Your app's native login-screen interaction |
+| `isSessionAlive()` | XPath/accessibility-id check for a reliable post-login element |
+| `defineCrawlSteps()` | List of screens to crawl in order, using `crawlScreen(...)` and `loginAs(...)` |
+
+```java
+public class MobileLocatorInvestigator extends AbstractMobileLocatorInvestigator {
+
+    @Override
+    protected void performLogin(String username, String password) throws Exception {
+        // interact with YOUR app's native login screen
+        mobileDriver.findElement(By.xpath("//*[@resource-id='email']")).sendKeys(username);
+        mobileDriver.findElement(By.xpath("//*[@resource-id='password']")).sendKeys(password);
+        mobileDriver.findElement(By.xpath("//*[@resource-id='loginButton']")).click();
+    }
+
+    @Override
+    protected boolean isSessionAlive() {
+        return !mobileDriver.findElements(By.xpath("//*[@resource-id='main-nav']")).isEmpty();
+    }
+
+    @Override
+    protected void defineCrawlSteps() throws Exception {
+        crawlScreen("login", "LoginScreen");
+
+        if (loginAs("default")) {
+            crawlScreen("dashboard", "DashboardScreen");
+        }
+    }
+}
+```
+
+Run it via the mobile crawler suite, supplying `mobileOS`/`deviceName` TestNG
+parameters (see `mobile_crawler_suite.xml`):
+
+```bash
+mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
+         -Denvironment=stg -DmobileOS=android \
+         -Dinv.email=<email> -Dinv.password=<password>
+```
+
+**Optional overrides:**
+- `registerRoles()` -- register credentials for multiple roles (default:
+  registers a single `"default"` role from `-Dinv.email` / `-Dinv.password`).
+- `getPostLoginLandmark()` -- the `By` locator `loginAs(...)` waits on after
+  `performLogin(...)` returns to confirm login succeeded (default: an
+  element with `@resource-id`/`@name` of `main-content`).
+
+Only locators marked crawler-`UNIQUE` should be promoted into the generated
+Page Object's active `@AndroidFindBy`/`@iOSXCUITFindBy` annotations -- see
+`mobile-locator-strategy.instructions.md` for the full mobile locator
+priority ladder (`@resource-id` -> `@content-desc` -> `@text` -> `-android
+uiautomator` / `-ios predicate string` -> compound XPath), dynamic/recycled-id
+rejection patterns, and React Native/hybrid-specific fallback rules.
 
 ---
 
@@ -1488,7 +1766,7 @@ HTML reports.
 
 | Method | Returns |
 |--------|---------|
-| `randomEmailAddress()` | `test123456@doitt.nyc.gov` |
+| `randomEmailAddress()` | `test123456@example.com` |
 | `randomEmailAddress("domain.com")` | `test12345678@domain.com` |
 | `randomPassword()` | `test123456` |
 | `newUniqueUsername()` | `user2606111503001` (timestamp-based) |
@@ -1789,12 +2067,78 @@ artifact type is configured from the unified `reporting:` section in
 | `reporting.crawlerDir` | `test-output/crawler` | `-Dreporting.crawlerDir` | Locator crawler and PageObjectGenerator reports |
 | `reporting.accessibilityDir` | `test-output/accessibility` | `-Dreporting.accessibilityDir` | Accessibility JSON, Excel, and HTML reports |
 | `reporting.gapOutputDir` | `docs/test-case-gaps` | `-Dreporting.gapOutputDir` | Gap and blocker markdown reports |
+| `reporting.allure.enabled` | `true` | `-Dreporting.allure.enabled` | Master on/off switch for automatic Allure report generation |
+| `reporting.allure.generateAfterExecution` | `true` | `-Dreporting.allure.generateAfterExecution` | Runs `allure generate` once the whole test execution finishes |
+| `reporting.allure.openAfterGeneration` | `false` | `-Dreporting.allure.openAfterGeneration` | Opens the generated report locally after a successful generation |
+| `reporting.allure.resultsDirectory` | `allure-results` | `-Dreporting.allure.resultsDirectory` | Where `allure-testng` writes raw result files during the run |
+| `reporting.allure.reportDirectory` | `allure-report` | `-Dreporting.allure.reportDirectory` | Destination directory for the generated static HTML report |
+| `reporting.allure.generationTimeoutSeconds` | `120` | `-Dreporting.allure.generationTimeoutSeconds` | Max time to wait for `allure generate` before giving up |
 
-Backward-compatible aliases remain supported for older projects: `screenshots.outputDir`, `screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `reporting.gapOutputDir`.
+Backward-compatible aliases remain supported for older projects: `screenshots.outputDir`, `screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `sdk.gapOutputDir`.
+
+#### Best-effort sidecar features: logging and failure semantics
+
+Several SDK features write extra artifacts after or alongside the main test flow.
+They share one deliberate rule: **reporting convenience must never corrupt the
+real test result**.
+
+- `AnalyticsExecutionReporter` writes JSONL history files and disables itself for
+  the rest of the JVM if a write ever fails.
+- `RcaBundleWriter` attempts one JSON bundle per failure and simply skips that
+  bundle if a write fails.
+- `AllureReportGenerator` logs missing CLI/process/timeout problems and leaves
+  TestNG pass/fail outcomes untouched.
+- `VisualRegressionChecker` converts image I/O problems into a failed comparison
+  result object instead of surfacing a raw infrastructure exception.
 
 The SDK generates two report types automatically -- no configuration required.
 
 ### Allure Report
+
+**Prerequisite:** the [Allure commandline](https://allurereport.org/docs/install/)
+must be installed and on `PATH` (e.g. `npm install -g allure-commandline`,
+Scoop, Homebrew, or the manual zip install). This is an external tool
+requirement, not something the SDK ships -- the SDK only automates *invoking*
+it.
+
+By default, once the whole test execution finishes (all suites/threads done),
+the SDK automatically runs the equivalent of:
+
+```bash
+allure generate ./allure-results --clean -o ./allure-report
+```
+
+so a consumer running a plain `mvn test` gets a ready-to-view
+`allure-report/index.html` with no extra script, listener, or manual step of
+their own. This is implemented by the internal `AllureReportGenerator`
+service and wired into the existing `Listener.onFinish(ISuite)` lifecycle
+hook (see `com.test.automation.sdk.reporting.AllureReportGenerator`) -- it
+runs exactly once per execution even with multiple `<suite>` blocks or
+parallel test threads.
+
+Behavior:
+- If `reporting.allure.enabled` or `reporting.allure.generateAfterExecution`
+  is `false`, generation is skipped entirely (no process is launched).
+- If the Allure commandline isn't found on the machine, generation is skipped
+  with a clear log line explaining why -- **test execution itself always
+  passes/fails purely on its own TestNG result**, independent of whether the
+  HTML report could be generated afterward.
+- `--clean` only ever applies to the generated **report** directory; your
+  `allure-results` (the raw execution evidence) is never deleted or modified.
+- `reporting.allure.openAfterGeneration` **defaults to `false`** and must stay
+  that way for CI/service/headless execution (Azure DevOps agents, Windows
+  services, etc.) -- opening a browser automatically is never appropriate
+  there. Set it to `true` only for your own local developer runs, e.g.:
+  ```bash
+  mvn test -Dreporting.allure.openAfterGeneration=true
+  ```
+  When enabled, the report is opened via a detached, non-blocking `allure
+  open` process -- since that command starts a small local web server that
+  runs until manually stopped, the SDK launches it and returns immediately
+  rather than waiting on it (which would otherwise hang the Maven build).
+
+Manual/on-demand generation still works exactly as before if you prefer to
+control it yourself instead of (or in addition to) the automatic behavior:
 
 ```bash
 # Generate and open Allure report after test run
@@ -1803,6 +2147,43 @@ mvn allure:serve
 
 SDK business steps recorded via `step("...", () -> { ... })` are visible in the
 Allure timeline and reuse the same logical story in Extent and SDK logs.
+
+### Suite identity source
+
+The SDK resolves suite metadata from the live TestNG runtime, not from Maven
+or Surefire display names:
+
+- **TestNG suite** = `ISuite.getName()` -> `<suite name="Example Suite">`
+- **TestNG test** = `ITestContext.getName()` -> `<test name="Example Test Group">`
+- **Class** = the executing test class
+- **Method** = the executing `@Test` method
+- **Business step** = each SDK `step("...", () -> { ... })`
+
+That mapping is published once through the unified OBS-8 reporting pipeline and
+reused consistently everywhere:
+
+- **SDK logs** show the resolved suite/test/class/method metadata
+- **Allure** maps `parentSuite` -> TestNG suite, `suite` -> TestNG test,
+  `subSuite` -> test class
+- **Extent** records the same suite identity without renaming the underlying
+  test case or changing the 1 Azure Test Case ID = 1 `@Test` method contract
+
+Example:
+
+```xml
+<suite name="Example Suite">
+  <test name="Example Test Group">
+```
+
+This produces business-facing report metadata equivalent to:
+
+```
+Suite      = Example Suite
+TestNGTest = Example Test Group
+Class      = ExampleLoginTest
+Method     = validLogin
+Step       = Step 1: Open login page
+```
 
 ### Extent Report
 
@@ -1818,6 +2199,69 @@ of dynamic UI state and validation messages. Manual captures:
 getScreenShot("my-screenshot");           // saves to reporting.screenshotsDir
 String path = captureScreen("my-file");   // saves and returns the path
 saveDomDump(driver, "my-dom-dump");       // saves to reporting.domDumpsDir
+```
+
+### Analytics Event Store -- Cross-Run Trends & Flaky-Test Detection
+
+Every `mvn test` run also appends one JSON line per `ExecutionEvent` (test
+start/pass/fail/skip, step events, `LOCATOR_HEALED` actions from the
+self-healing locators feature, etc.) to a per-run file under
+`test-output/analytics/`, e.g. `execution-events-20260214T091533Z.jsonl`. This
+happens automatically -- `AnalyticsExecutionReporter` is wired into the same
+default reporter chain as the log/Allure/Extent reporters, and it never
+affects test execution: it silently disables itself for the rest of the JVM
+run if a write ever fails.
+
+Because every `mvn test` invocation writes its own file, the directory
+naturally accumulates a history across many runs (CI or local). Use
+`AnalyticsTrendReport` to read that whole directory back and aggregate:
+
+```java
+import com.test.automation.sdk.reporting.AnalyticsTrendReport;
+import java.nio.file.Paths;
+import java.util.Map;
+
+Map<String, AnalyticsTrendReport.TestOutcome> outcomes =
+        AnalyticsTrendReport.summarizeTestOutcomes(Paths.get("test-output/analytics"));
+
+outcomes.forEach((testKey, outcome) -> {
+    if (outcome.isFlaky()) {
+        System.out.println(testKey + " is FLAKY: "
+                + outcome.getPassCount() + " pass / " + outcome.getFailCount() + " fail"
+                + " across " + outcome.getTotalRuns() + " runs");
+    }
+});
+
+Map<String, AnalyticsTrendReport.HealStats> healing =
+        AnalyticsTrendReport.summarizeHealing(Paths.get("test-output/analytics"));
+
+healing.forEach((locator, stats) -> {
+    if (stats.getExhaustedCount() > 0 || stats.getHealedCount() > 2) {
+        System.out.println(locator + " healed " + stats.getHealedCount()
+                + " time(s), exhausted " + stats.getExhaustedCount()
+                + " time(s) -- consider fixing the page object.");
+    }
+});
+```
+
+- `TestOutcome` -- pass/fail/skip counts per test, keyed by
+  `ClassName.methodName` (or `ClassName.methodName[testCaseName]` for
+  data-driven rows); `isFlaky()` is `true` whenever a test has both passed and
+  failed across the aggregated runs.
+- `HealStats` -- healed vs. exhausted counts per locator string, aggregated
+  across every `LOCATOR_HEALED` event found. A locator that heals frequently
+  is a signal the underlying `@FindBy` should be fixed rather than relying on
+  healing indefinitely; a locator that exhausts is a signal healing could not
+  find any relaxed candidate and the element is genuinely missing/changed.
+
+Configure the analytics store in `sdk-config.yaml` (same precedence rules as
+every other SDK setting -- system property > env var > YAML > default):
+
+```yaml
+reporting:
+  analytics:
+    enabled: true                      # set false to disable entirely
+    directory: "test-output/analytics" # where per-run .jsonl files are written
 ```
 
 ---
@@ -2047,6 +2491,257 @@ the log file continuously throughout execution.
 getScreenShot("label");           // saves PNG to reporting.screenshotsDir
 saveDomDump(driver, "label");     // saves HTML to reporting.domDumpsDir
 ```
+
+---
+
+## 13.3 Automated RCA Bundle (Tier 3 #9) -- One JSON File, Three Artifacts Pre-Linked
+
+The workflow above requires manually locating three separate files before RCA can
+start. `com.test.automation.sdk.reporting.RcaBundleWriter` closes that gap: on
+**every** test failure it automatically writes one consolidated JSON file that
+already contains everything Section 13.2's "Evidence Sources" table asks you to
+collect -- so you (or Copilot, via `fix-failed-test.prompt.md`) never have to hunt
+artifacts down by hand before starting.
+
+### What's in the Bundle
+
+| Field | Contents |
+|---|---|
+| `test.testCaseName` / `className` / `methodName` / `suiteName` / `testNgTestName` | Test identity, sourced from the same execution-state TestNG already tracks |
+| `test.platform` / `browser` / `device` / `environment` | Runtime context at the moment of failure |
+| `test.lastCompletedStep` | The last `step(...)` that finished successfully before the failure |
+| `exception.chain` | Full cause chain -- exception type, message, and up to `reporting.rcaBundle.stackTraceFrames` leading stack frames per level |
+| `evidence` | `{type, name, path}` entries pointing at the already-captured screenshot and DOM dump (see 13.2) |
+| `recentLogLines` | The trailing `reporting.rcaBundle.logTailLines` lines of `reporting.logsDir/sdk.log`, pre-fetched at write time -- no need to open/grep the log separately |
+| `suggestedNextSteps` | A short checklist reminding the reader to review the screenshot, DOM dump, and log tail together before proposing a fix |
+
+Bundles are written to `reporting.rcaBundle.directory` (default
+`test-output/rca-bundles`), one JSON file per failure, named
+`<testCaseName>_<timestamp>.json`.
+
+### Using the Bundle
+
+```powershell
+# Find the newest bundle for a failing test
+Get-ChildItem "test-output\rca-bundles" -Filter "*<testCaseName>*" |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+```
+
+Opening the JSON still requires opening the screenshot and DOM dump files it
+references -- a JSON summary of "there is a screenshot" is not a substitute for
+looking at the image -- but it removes the separate step of locating and searching
+the log file. `fix-failed-test.prompt.md` checks for a bundle first and falls back
+to manual artifact discovery only when one is not found (feature disabled, or the
+failure happened outside a TestNG-managed run).
+
+### Configuration
+
+| Key | Default | Meaning |
+|---|---|---|
+| `reporting.rcaBundle.enabled` | `true` | Master on/off switch. A write failure never fails the test -- the writer just disables itself for that failure. |
+| `reporting.rcaBundle.directory` | `test-output/rca-bundles` | Output directory, one JSON file per failure |
+| `reporting.rcaBundle.logTailLines` | `80` | Trailing `sdk.log` lines embedded per bundle |
+| `reporting.rcaBundle.stackTraceFrames` | `15` | Leading stack frames captured per exception/cause in the chain |
+
+Never throws; disabled or write failures simply mean no bundle is written for that
+failure -- fall back to the manual 13.2 workflow. This is intentionally the same
+"capture never blocks test execution" philosophy as `AnalyticsExecutionReporter`.
+
+---
+
+## 13.4 Extended Failure Evidence (v1.5.1) -- Console Log, Network Trace, Report Attachments
+
+SDK v1.5.1 extends the existing screenshot/DOM/log evidence set with two
+additional, **optional** diagnostic artifacts, and makes the screenshot/DOM
+already captured by 13.2/13.3 directly viewable inside Allure and Extent
+instead of only referenced by filesystem path.
+
+### 13.4.1 Reports now show evidence directly
+
+Screenshot and DOM evidence were already captured before v1.5.1; this release
+routes the same already-saved files through the existing generic evidence
+pipeline (`ExecutionEvidence` -> `ExecutionReporting.publishEvidence()`) so:
+
+- The failure screenshot is attached and rendered inline in the **Allure**
+  report, and attached/referenced in the corresponding **Extent** step/test.
+- The exact same file used for RCA is reused -- no duplicate screenshot is
+  captured.
+- Attachment is fail-safe: if Allure/Extent attachment fails for any reason,
+  the original test result and existing filesystem artifact are unaffected;
+  only the report attachment is skipped (logged, not thrown).
+
+**Allure attachment reliability (fixed in v1.5.1).** Earlier v1.5.1 builds
+attached failure evidence from `Listener.onTestFailure()`
+(`ITestListener`). In real consumer environments this could run *after*
+`AllureTestNg`'s own `onTestFailure()` callback had already closed the Allure
+test case (TestNG does not guarantee ordering between multiple
+`ITestListener` implementations), causing `Allure.addAttachment(...)` to
+silently drop the evidence (Allure result showing `attachments: 0`). This is
+now fixed: failure-evidence capture/reporting runs from
+`Listener.afterInvocation()` (`IInvokedMethodListener`), which TestNG's
+`TestInvoker` guarantees runs -- for every registered listener -- before any
+`onTestFailure`/`onTestSuccess` callback fires, keeping the Allure test case
+open long enough to attach evidence. `onTestFailure()` still runs the same
+capture path as an idempotent fallback. `AllureExecutionReporter` also uses
+explicit `stopStep(uuid)` calls (not the ambiguous no-arg `stopStep()`) and
+guards attachment/exception reporting with `getCurrentTestCase().isPresent()`.
+Verified end-to-end against a real consumer project and a real failing
+browser test: a failed test's Allure result now includes the Exception,
+Failure Screenshot, Failure DOM, and Browser Console Log attachments.
+Regression coverage: `ListenerEvidenceCaptureOrderingTest`.
+
+> **Known cosmetic limitation (pre-existing, not fixed in v1.5.1):** Allure's
+> own `AllureLifecycle` may still log benign `"Could not update test case...
+> not found"` ERROR-level messages during `@BeforeMethod` setup/navigation,
+> before the actual `@Test` method runs. This is log noise only -- it does
+> not prevent the failure-evidence attachments described above, does not
+> change the test's pass/fail outcome, and does not corrupt the final
+> failed-test's own Allure result. It predates v1.5.1 and is tracked for a
+> future maintenance release rather than addressed here.
+
+### 13.4.2 Browser console log capture
+
+`com.test.automation.sdk.evidence.BrowserConsoleCapture` captures
+`driver.manage().logs().get(LogType.BROWSER)` on Web test failure into a
+`*_console.log` artifact, attached to Allure/Extent and referenced from the
+RCA bundle (`browserConsoleLog` field, see 13.4.4).
+
+| Browser | Support | Mechanism |
+|---|---|---|
+| Chrome | Supported | `goog:loggingPrefs` capability (pre-existing) |
+| Edge | Supported | `ms:loggingPrefs` capability (added in v1.5.1) |
+| Firefox | Not reliably supported | geckodriver does not implement legacy `LogType.BROWSER`; capture returns empty/no artifact, never fails the test |
+
+Configuration (`evidence.browserConsole.*`, see 13.4.5) defaults to **enabled**
+for failure capture -- retrieval overhead is negligible and the artifact is
+only ever written on failure.
+
+### 13.4.3 Browser network trace capture (opt-in, disabled by default)
+
+`com.test.automation.sdk.evidence.NetworkTraceRecorder` captures request/
+response evidence via Chrome DevTools Protocol (`HasDevTools`), for Chrome and
+Edge only. Firefox is not supported (no CDP).
+
+> **Terminology:** the produced artifact is a **browser network trace**, not
+> a HAR (HTTP Archive) file. It is a simplified, best-effort JSON record --
+> it is not validated against, and does not claim conformance to, the HAR 1.2
+> specification. This SDK never labels the artifact "HAR" in its API,
+> filenames, or documentation.
+
+**CDP version isolation.** All CDP-version-specific code is isolated behind a
+small internal adapter seam in `com.test.automation.sdk.evidence.network`
+(`CdpNetworkAdapter` / `CdpNetworkSession`, resolved via `CdpNetworkAdapters`).
+`NetworkTraceRecorder` itself has no dependency on any specific CDP version --
+it only detects the runtime browser (name/version, via the driver's
+`Capabilities`) and asks each registered adapter whether it supports that
+browser. Today exactly one adapter is registered
+(`CdpV146NetworkAdapter`, pinned to the bundled `selenium-devtools-v146`
+bindings). This isolation is what makes swapping in a newer-CDP-version
+adapter in a future release a self-contained change, not a rewrite of the
+evidence pipeline.
+
+Important limitations -- read before enabling:
+
+- The only currently registered adapter is pinned to the bundled
+  `selenium-devtools-v146` CDP bindings. This is a pragmatic compromise
+  (Selenium does not provide a fully version-agnostic Network domain facade);
+  the Network domain wire schema is stable across nearby CDP versions in
+  practice, but this is **not** dynamic version negotiation. If a browser/CDP
+  combination is incompatible, the adapter's `supports(...)`/`attach(...)`
+  calls fail safely -- capture is skipped with a WARN/DEBUG log message
+  explaining why, and the test is never affected.
+- The generated artifact (`*_network-trace.json`) is a **simplified,
+  non-canonical network trace** -- it captures method/URL/headers/status/
+  statusText/mimeType, but does **not** capture request/response bodies and
+  does **not** populate full HAR-style timing or body-size fields.
+- Because useful network evidence must include traffic from *before* the
+  failure, collection is a lightweight in-memory buffer (bounded by
+  `evidence.network.maxEntries`, oldest entries dropped) that begins at
+  driver creation, not at failure time. The trace file itself is only
+  written on failure; passing tests discard the buffer without producing a
+  file, so disabled/inactive tracing adds no meaningful overhead.
+- Sensitive header/parameter values (`Authorization`, `Cookie`, `Set-Cookie`,
+  API keys, tokens, session identifiers, etc.) are redacted via
+  `SecretRedactor.redactFieldValue()` **before an entry is ever buffered in
+  memory** -- not only when the artifact is written or attached to reports --
+  when `evidence.network.redactSensitiveData` is `true` (default). Since
+  request/response bodies are not captured at all in this release, there is
+  currently no body content to redact; this is a scope limitation of the
+  simplified artifact, not an unaddressed redaction gap.
+- Network tracing is **disabled by default** (`evidence.network.enabled=false`)
+  due to potential performance overhead, artifact size, and sensitive data
+  exposure. Enable it only where useful and reviewed by your team.
+
+| Browser | Support |
+|---|---|
+| Chrome | Supported (CDP, `cdp-v146` adapter) |
+| Edge | Supported (CDP, `cdp-v146` adapter) |
+| Firefox | Not supported |
+
+The JSON artifact's `format` field is set to `sdk-network-trace-v1` -- an
+internal SDK schema identifier, not a HAR version string -- so downstream
+tooling can detect the schema version if the artifact shape changes in a
+future release.
+
+> **v1.5.1 validation status (read before relying on this feature):**
+> consumer-level validation of this release was performed against real
+> Chrome/Edge **153.x**, which is far ahead of the pinned
+> `selenium-devtools-v146` bindings. In that environment, the adapter
+> correctly detected the incompatibility and failed safely (clear WARN log,
+> capture skipped, test/other evidence unaffected) -- exactly the fail-safe
+> behavior this feature is designed to provide. **End-to-end generation of a
+> real `*_network-trace.json` artifact was not validated in that
+> environment** because no compatible Chrome/Edge version was available on
+> the validation machine. Confidence in the capture logic itself (event
+> parsing, redaction, buffering) comes from the SDK's own unit test suite
+> (`NetworkTraceRecorderTest`, `SecretRedactorTest`), not from a live capture
+> against a CDP-v146-compatible browser. Teams enabling this feature should
+> validate it against their own Chrome/Edge version before relying on it.
+
+### 13.4.4 RCA bundle additions
+
+`RcaBundleWriter.toJson()` adds two new **optional** fields, populated only
+when the corresponding evidence exists:
+
+| Field | Contents |
+|---|---|
+| `browserConsoleLog` | Path to the captured `*_console.log` artifact, when present |
+| `networkTrace` | Path to the captured `*_network-trace.json` artifact, when present |
+
+All existing fields (`test.*`, `exception.*`, `evidence`, `recentLogLines`,
+`suggestedNextSteps`) are unchanged. The existing generic `evidence` array
+still lists every evidence type generically. Older RCA consumers that only
+read `screenshot`/`dom`/`executionLog` continue to work unmodified -- this is
+a purely additive change.
+
+### 13.4.5 Configuration
+
+```yaml
+evidence:
+  screenshot:
+    enabled: true
+    attachToReports: true
+
+  browserConsole:
+    enabled: true
+    captureOnFailure: true
+    attachToReports: true
+
+  network:
+    enabled: false
+    captureOnFailure: true
+    attachToReports: true
+    redactSensitiveData: true
+    maxEntries: 500
+```
+
+> Screenshot capture-on-failure itself is governed by `TestBase`'s existing,
+> unconditional-on-failure capture logic, not a separate `captureOnFailure` key --
+> only `enabled`/`attachToReports` are read for the screenshot block.
+
+Resolved through `ConfigurationManager.getEvidenceConfig()`, following the
+SDK's usual precedence: `-D` system property > environment variable >
+`sdk-config.yaml` > default.
 
 ---
 
@@ -2317,6 +3012,7 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
     <listeners>
         <listener class-name="com.test.automation.sdk.listener.Listener"/>
         <listener class-name="com.test.automation.sdk.listener.RetryListener"/>
+        <listener class-name="com.test.automation.sdk.flaky.FlakyTestQuarantineListener"/>
     </listeners>
     <test name="All Tests">
         <classes>
@@ -2331,6 +3027,269 @@ These are pre-configured in the SDK -- declare them in your TestNG suite XML.
 | `Listener` | Emits centralized lifecycle events, captures failure evidence once, publishes it to Allure/Extent/logs, and renames data-driven test entries |
 | `RetryListener` | Automatically retries a failed test once |
 | `WebEventListener` | Emits low-level WebDriver debug/a11y signals; it should not replace business steps in reports |
+| `FlakyTestQuarantineListener` | Opt-in cross-run flaky-test quarantine (see �15.1 below) |
+
+### 15.0 `WebEventListener` non-terminal exception classification (v1.5.1)
+
+`WebEventListener.onError(...)` is invoked by Selenium's `EventFiringDecorator`
+for **every** WebDriver-level exception, including ones a consumer immediately
+catches to probe whether an optional element exists (e.g. wrapping
+`driver.findElement(...)` in a try/catch). Before v1.5.1, every such exception
+was logged at ERROR and reported through `ExecutionReporting.actionFailed(...)`,
+which meant legitimate optional-element probing produced false failure noise
+in logs and reports.
+
+As of v1.5.1, `onError(...)` classifies the exception first:
+
+- **Non-terminal** (default: `org.openqa.selenium.NoSuchElementException` only)
+  -> logged at DEBUG, `ExecutionReporting.actionFailed(...)` is **not** called.
+- **Everything else** (`TimeoutException`, `WebDriverException`,
+  `StaleElementReferenceException`, `ElementNotInteractableException`,
+  unexpected runtime exceptions, etc.) -> unchanged ERROR + `actionFailed(...)`
+  behavior.
+
+This is a **logging and action-level reporting change only. The listener
+does not alter exception propagation:**
+
+- `onError(...)` does not return a value, does not rethrow, and does not
+  otherwise intercept control flow. Selenium's `EventFiringDecorator`
+  determines exception propagation independently of this callback, exactly
+  as it did before this change.
+- The listener has no knowledge of whether consumer code will ultimately
+  catch the exception. "Non-terminal" only means *the listener itself won't
+  independently create a failure record for it* -- it does **not** mean the
+  exception can never fail a test.
+- If a `NoSuchElementException` escapes consumer code and ultimately fails
+  the TestNG test, normal test-level failure handling (via `Listener` /
+  `TestBase.captureFailureEvidence(...)`) is completely unaffected and still
+  captures screenshot, DOM, log, and RCA evidence as before.
+
+Extend the non-terminal list via configuration if your project has additional
+exception types that represent expected, non-defect WebDriver conditions:
+
+```yaml
+webdriver:
+  eventListener:
+    nonTerminalExceptions: "org.openqa.selenium.NoSuchElementException"
+```
+
+(comma-separated fully-qualified class names, resolved through
+`ConfigurationManager.getWebEventListenerConfig()` using the SDK's usual
+`-D` > env var > YAML > default precedence). Do not add exception types that
+can represent genuine automation defects (e.g. `StaleElementReferenceException`,
+`ElementNotInteractableException`) unless you have specifically reviewed and
+accepted that tradeoff for your project.
+
+### 15.1 Flaky-test quarantine (`FlakyTestQuarantineListener`)
+
+`RetryListener` above handles same-run flakiness (retrying a failing test up
+to 3x within one execution). `FlakyTestQuarantineListener` is different: it
+uses the **historical analytics** written by `reporting.analytics`
+(`AnalyticsTrendReport`) to recognize a test that has a genuine mixed
+pass/fail history *across runs* and, only when explicitly enabled, prevents
+that single known-flaky test from failing the overall build.
+
+A test is only ever quarantined when **all** of the following are true:
+
+1. It has at least `flaky.minRunsForQuarantine` (default `5`) historical runs recorded.
+2. Its historical failure rate is **at or below** `flaky.maxFailureRatePercent` (default `80`).
+   A test that fails almost every run is treated as **broken, not flaky** and
+   always fails the build normally.
+3. `flaky.quarantine.enabled` is set to `true` (default `false` -- opt-in only).
+
+When a known-flaky test fails, its TestNG result is reclassified from FAILED
+to SKIPPED so it does not block the build, but a warning is still logged and
+reported via `ExecutionReporting` -- quarantine is always visible, never
+silent. A first-time failure with no history, or a consistently broken test,
+is never quarantined.
+
+**Must be declared *after* `Listener` in `<listeners>`** so the genuine
+failure (with screenshot/DOM/analytics evidence) is recorded first, and only
+then reclassified to SKIP -- this keeps the historical record accurate for
+future flaky-detection.
+
+```yaml
+flaky:
+  quarantine:
+    enabled: false                # opt-in                     (-Dflaky.quarantine.enabled)
+  minRunsForQuarantine: 5          #                            (-Dflaky.minRunsForQuarantine)
+  maxFailureRatePercent: 80        #                            (-Dflaky.maxFailureRatePercent)
+```
+
+### 15.2 Test impact analysis (`TestImpactCli`)
+
+Running the entire suite on every commit doesn't scale as a project grows.
+`com.test.automation.sdk.impact.TestImpactCli` maps the files changed in your
+working tree to the test classes that could actually be affected, so CI (or a
+local pre-push check) can run a small, targeted subset instead of everything.
+
+This is a **compiler-free, static heuristic** -- no bytecode/JaCoCo
+instrumentation or build-time agent is required. It scans every `.java` file
+under `impact.mainSourceDir`/`impact.testSourceDir`, and for each class
+records every other indexed class whose simple name appears anywhere in that
+file's body. That gives a lightweight "references" graph; from the changed
+files, the tool walks that graph in reverse (transitively) to collect every
+test class reachable from a change.
+
+```bash
+# Run from the consumer project root
+mvn exec:java -Dexec.mainClass="com.test.automation.sdk.impact.TestImpactCli"
+
+# Then run only the impacted tests:
+mvn test -Dsurefire.suiteXmlFiles=test-output/impact/impact_suite.xml
+```
+
+By default this diffs against `impact.baseRef` (`HEAD~1`) via
+`git diff --name-only`. Override per-run, e.g. to diff against a PR's target
+branch: `-Dimpact.baseRef=origin/master`.
+
+**Safety fallback:** if any changed file cannot be mapped to a known class
+(a non-Java file such as `pom.xml`/a YAML config, or a file outside the
+indexed source roots), the tool prints a clear warning and recommends running
+the full suite instead -- it never silently narrows coverage without saying
+so. Changing a test class directly always includes that class itself in the
+impact suite.
+
+```yaml
+impact:
+  mainSourceDir: "src/main/java"                          # (-Dimpact.mainSourceDir)
+  testSourceDir: "src/test/java"                            # (-Dimpact.testSourceDir)
+  testClassNamePattern: "Test_.*"                           # (-Dimpact.testClassNamePattern)
+  outputSuiteFile: "test-output/impact/impact_suite.xml"    # (-Dimpact.outputSuiteFile)
+  baseRef: "HEAD~1"                                          # (-Dimpact.baseRef)
+```
+
+> [!]? This heuristic deliberately over-approximates (a comment/string
+> mentioning a class name, or two unrelated classes sharing a simple name,
+> both count as "referenced") rather than under-approximating -- running a
+> few extra tests is the safe failure mode; silently skipping an affected
+> test is not.
+
+### 15.3 Runtime self-healing locators (`HealingElementLocator`)
+
+**Purpose.** Recovers from a single stale `@FindBy` XPath locator at test
+runtime (e.g. an attribute value changed) without editing the page object,
+by trying a small set of progressively relaxed candidates derived purely
+from that same XPath -- no pre-crawled fingerprint data or external service
+is used. A relaxed candidate is only trusted if it resolves to **exactly
+one** element in the live DOM; matching more than one is treated as "still
+broken" and never silently guessed. This is distinct from the crawler-time
+self-healing described in
+[7.3 Crawler Reliability & Self-Healing Features](#73-crawler-reliability--self-healing-features),
+which stabilizes the page scan during design-time crawling rather than
+during an actual test run.
+
+**When to use it.** Opt in per page object when a screen is known to have
+occasionally-shifting attribute values (e.g. a build-generated suffix) and
+you want a single test run to survive that instead of failing outright. Do
+not use it as a substitute for fixing a genuinely broken/renamed locator --
+every heal is logged as a warning precisely so it gets noticed and cleaned
+up.
+
+**Configuration / required parameters.** No `sdk-config.yaml` toggle exists;
+it is opt-in per page object at the code level -- there is nothing to enable
+globally.
+
+**Dependencies.** None beyond the SDK itself; it only operates on XPath
+`@FindBy` locators (the SDK's mandated locator strategy).
+
+**Enabling it (code example).** Call `TestBase.initElements(driver, this)`
+in the page object constructor instead of `PageFactory.initElements(driver, this)`:
+
+```java
+public class MyPage extends TestBase {
+    @FindBy(xpath = "//input[@id='email']")
+    public WebElement emailField;
+
+    public MyPage(WebDriver driver) {
+        this.driver = driver;
+        TestBase.initElements(driver, this); // instead of PageFactory.initElements(driver, this)
+    }
+}
+```
+
+**Expected behavior/output.** On a primary-locator failure, a successful heal
+logs `[SELF-HEAL] ... healed via relaxed xpath: ...` and publishes a
+`LOCATOR_HEALED` event through `ExecutionReporting` (visible in the
+log/Allure/Extent trail and in analytics via
+`AnalyticsTrendReport.summarizeHealing(...)`, see �13.3). An exhausted heal
+(no unique relaxed candidate found) logs a warning and the original
+`NoSuchElementException` still propagates -- healing never masks a real
+failure.
+
+**Limitations.** Only applies to XPath locators; never caches a healed
+element between lookups (a page that needed healing once is not trusted as
+stable); cannot repair a field whose element was removed from the page
+entirely, only one whose locator became too strict/stale.
+
+**Troubleshooting / validation.** If a test unexpectedly passes despite a UI
+change, check the log for `[SELF-HEAL]` lines -- these indicate the original
+locator should be updated even though the test did not fail. If healing is
+not engaging at all, confirm the page object calls `TestBase.initElements(...)`
+rather than `PageFactory.initElements(...)`.
+
+### 15.4 Visual regression testing (`VisualRegressionChecker`)
+
+**Purpose.** Screenshot-baseline visual regression comparison with no
+external visual-testing service required. The first time a given
+`checkpointName` is checked, the current screenshot is saved as the accepted
+baseline; every subsequent check compares the new screenshot against that
+baseline using `ImageDiffEngine` and reports whether the mismatch stayed
+within tolerance.
+
+**When to use it.** For screens where pixel-level layout/appearance
+regressions matter (e.g. a marketing page, a themed component) and a
+functional assertion alone would not catch a visual regression.
+
+**Configuration.** See the `visual.*` keys documented in
+[�6 Configuration Reference](#6-configuration-reference):
+`visual.enabled`, `visual.baselineDirectory`
+(default `src/test/resources/visual-baselines`, committed to version
+control), `visual.outputDirectory` (default `test-output/visual`),
+`visual.mismatchThresholdPercent`, `visual.pixelColorTolerance`,
+`visual.updateBaselines`, and `visual.failOnMismatch`.
+
+**Required parameters.** A stable `checkpointName` string per call site --
+reusing the same name across runs is what ties a screenshot back to its
+baseline.
+
+**Dependencies.** None beyond the SDK's bundled image I/O (`ImageDiffEngine`);
+no third-party visual-testing subscription is required.
+
+**Code example.**
+
+```java
+public class Test_HomePage extends TestBase {
+    @Test
+    public void homePageLooksCorrect() throws Exception {
+        step("Open the home page", () -> initialization("chrome", "https://example.com"));
+        step("Verify no unexpected visual regression", () -> assertVisualMatch("home-page-hero"));
+    }
+}
+```
+
+**Expected behavior/output.** First run: baseline PNG written under
+`visual.baselineDirectory` and the check passes (nothing to compare yet).
+Subsequent runs: an `actual.png` is written under
+`visual.outputDirectory/<checkpointName>/`; on mismatch beyond
+`visual.mismatchThresholdPercent`, a red-highlighted `diff.png` is written
+alongside it and published as report evidence. When
+`visual.failOnMismatch=true` (default), a mismatch throws an
+`AssertionError`; when `false`, it is logged/reported only.
+
+**Limitations.** Sensitive to legitimate UI changes -- an intentional
+redesign requires a deliberate re-baselining run
+(`visual.updateBaselines=true`) rather than being auto-approved. Comparison
+is pixel-based (via `pixelColorTolerance`), not semantic/DOM-based, so
+anti-aliasing or minor rendering differences across environments can affect
+results.
+
+**Troubleshooting / validation.** If every run reports a mismatch even
+without a real UI change, check `visual.pixelColorTolerance` and confirm the
+screenshot is captured under consistent window size/zoom/OS rendering
+conditions. To accept an intentional UI change, re-run once with
+`visual.updateBaselines=true`, review the new baseline PNG like any other
+committed file, then set it back to `false`.
 
 ---
 
@@ -2465,7 +3424,119 @@ BUILD SUCCESS
 
 ---
 
-## 18. Troubleshooting
+## 18. API Testing (`ApiTestBase`)
+
+For projects that need pure API test coverage (REST endpoints, no browser),
+`com.test.automation.sdk.api.ApiTestBase` is a standalone base class --
+deliberately does **not** extend `TestBase` or require a `WebDriver` -- built
+on [RestAssured](https://rest-assured.io/), the HTTP library already used by
+this org's existing API automation projects. It integrates with the same
+reporting, analytics, and flaky-test-quarantine infrastructure as Web/Mobile
+tests, so nothing else in the SDK needs to know or care that a given test has
+no browser at all.
+
+```java
+public class Test_GetUser extends ApiTestBase {
+
+    @DataProvider(name = "userData")
+    public Object[][] userData() throws IOException {
+        return getData("src/test/resources/testData/Users.xlsx", "GetUser");
+    }
+
+    @Test(dataProvider = "userData")
+    public void testGetUser(String testCaseName, String userId, String runMode) {
+        checkRunMode(testCaseName, runMode);
+        setCurrentTestCaseName(testCaseName);
+
+        Response response = get("Get user by id", "/api/users/" + userId);
+
+        assertStatusCode(response, 200);
+        assertJsonPath(response, "data.id", Integer.parseInt(userId));
+        assertResponseTimeUnder(response, 2000);
+    }
+}
+```
+
+### Per-environment base URLs
+
+Base URLs follow the exact convention already used elsewhere in the SDK
+(`TestBase.setBaseUrl(environment)`) and by this org's legacy API projects:
+one otherwise-identical config key per environment.
+
+```yaml
+api:
+  baseUrl: ""                        # environment-neutral fallback
+  baseUrl.stg: "https://stg.example.com"
+  baseUrl.prd: "https://api.example.com"
+```
+
+`ApiTestBase.given()` resolves `api.baseUrl.<environment>` first (the
+`environment` TestNG parameter, same `-Denvironment=stg` your suite XML
+already passes), falling back to `api.baseUrl` when no per-environment
+override exists.
+
+### Authentication
+
+A single configurable auth header (e.g. an APIM subscription key, or a
+Bearer token) is attached automatically to every request when both keys
+below are set. **`authTokenEnvVar` names an environment variable -- never
+put the actual secret value in `sdk-config.yaml`.**
+
+```yaml
+api:
+  authHeaderName: "Ocp-Apim-Subscription-Key"   # or "Authorization", etc.
+  authTokenEnvVar: "API_SUBSCRIPTION_KEY"        # value read from this env var at runtime
+```
+
+Anything more elaborate (OAuth token refresh, request signing, etc.) is a
+"bring your own" extension: call `given()` to get a preconfigured
+`RequestSpecification`, add whatever headers/auth your API needs, then pass
+it to the `get(action, path, spec)` overload.
+
+### Assertions & evidence
+
+| Method | Purpose |
+|---|---|
+| `assertStatusCode(response, expected)` | Asserts HTTP status code |
+| `assertJsonPath(response, jsonPath, expected)` | Asserts a value at a RestAssured JsonPath expression |
+| `assertResponseTimeUnder(response, maxMillis)` | Asserts response latency |
+| `assertMatchesJsonSchema(response, classpathResource)` | Validates the body against a JSON schema file |
+
+Every call made through `get`/`post`/`put`/`patch`/`delete` (or the lower-level
+`execute(...)`) is timed and reported through `ExecutionReporting`
+(`actionStarted`/`actionCompleted`/`actionFailed`), and -- when
+`api.logRequestsAndResponses` is enabled (default) -- the request/response
+JSON is captured to `api.outputDirectory` and published as evidence, showing
+up in Allure/Extent reports the same way screenshots do for Web/Mobile tests.
+
+```yaml
+api:
+  connectionTimeoutMillis: 10000
+  readTimeoutMillis: 30000
+  logRequestsAndResponses: true
+  outputDirectory: "test-output/api"
+  relaxedHttpsValidation: false        # opt-in only, for lower non-prod environments
+```
+
+### Migrating an existing RestAssured-based project
+
+If your project already has its own `TestBase`/API-request wrapper (e.g. a
+legacy `apiGeneric.java`-style helper), migrating to `ApiTestBase` typically
+means:
+1. Replace your custom per-environment URL/extension properties with
+   `api.baseUrl.<environment>` keys.
+2. Replace your custom auth-header wiring with `api.authHeaderName` +
+   `api.authTokenEnvVar`.
+3. Replace your custom Excel-reading helper with `ApiTestBase.getData(...)`
+   (same `Object[][]` `@DataProvider` shape already used by Web/Mobile tests).
+4. Keep any domain-specific request-body-building logic (e.g. an
+   agency-specific JSON builder) in your own project -- it is intentionally
+   out of scope for the SDK, which only standardizes the generic
+   request/response/reporting/config plumbing around it.
+
+---
+
+## 19. Troubleshooting
 
 | Problem | Likely cause | Fix |
 |---------|-------------|-----|
@@ -2481,7 +3552,19 @@ BUILD SUCCESS
 | `AspectJ Internal Error: unable to add stackmap attributes` or `Unsupported class file major version 64` | An old AspectJ javaagent (for example `aspectjweaver:1.9.5`) is trying to weave Java 20+ bytecode | Upgrade the consumer's AspectJ javaagent/dependency to 1.9.25 or newer |
 | `403 Forbidden` / `ReadPackages` while resolving `org.seleniumhq.selenium:*` from Azure Artifacts | The consumer can reach the SDK feed URL but lacks read permission or matching Maven credentials for that feed | Grant feed Reader/Packaging Read permission, ensure the `<server><id>` matches the repository `<id>`, or use a local SDK install for the first smoke test |
 
+### API testing (`ApiTestBase`) -- additional problems
+
+| Problem | Likely cause | Fix |
+|---------|-------------|-----|
+| `IllegalStateException: No base URL configured for environment '<env>'` | Missing `api.baseUrl.<environment>` (and no fallback `api.baseUrl`) in `sdk-config.yaml` | Add the environment-specific key, or a plain `api.baseUrl` fallback |
+| `java.net.ConnectException` / `UnknownHostException` on every request | Wrong/unreachable base URL, or a corporate proxy blocking the JVM's outbound HTTPS | Verify the URL with `curl`/a browser first; if behind a proxy, pass `-Dhttps.proxyHost`/`-Dhttps.proxyPort` to the **test run itself**, not just Maven dependency resolution |
+| `401 Unauthorized` / `403 Forbidden` on every request | `api.authTokenEnvVar` unset/misspelled, or the named environment variable isn't actually exported in the shell/CI running the tests | Confirm the exact env var name matches in both `sdk-config.yaml` and your shell/CI secret; the token value is never read from YAML |
+| `javax.net.ssl.SSLHandshakeException: PKIX path building failed` | Target API uses a self-signed/internal certificate (common on lower non-prod environments) | Set `api.relaxedHttpsValidation: true` -- **non-prod only, never for production traffic** |
+| `assertMatchesJsonSchema` fails with a validation-message dump instead of a simple pass/fail | The response body genuinely doesn't match the schema (this is working as intended) | Read the RestAssured/`json-schema-validator` message -- it lists the exact field(s)/type mismatch; fix the schema file or the expected response body |
+| `test-output/api/` (or your configured `api.outputDirectory`) stays empty after a passing run | `api.logRequestsAndResponses` is `false`, or `outputDirectory` points somewhere else than you're looking | Set `logRequestsAndResponses: true` and re-check the `outputDirectory` value |
+| `NullPointerException` inside `ExtentManager`/`Listener` before any `@Test` runs, in an API-only project | `configuration/config.properties` is missing entirely | Add a minimal `config.properties` with at least `extReportDir=test-output/reports` -- the SDK's legacy Extent-report listener reads this file unconditionally, even for pure `ApiTestBase` projects with no browser |
+
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.2.1`*
-*Maintained by OTI QA Automation Team*
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.3-SNAPSHOT`*
+*Maintained by Automation Engineering Team*

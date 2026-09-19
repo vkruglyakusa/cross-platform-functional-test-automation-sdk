@@ -13,8 +13,8 @@ destabilizing that production SDK.
 
 ## 2. In-scope platforms (Phase 1)
 
-- [x] Android — confirmed in scope (matches `311_Mobile_Automation` prior art)
-- [x] iOS — confirmed in scope (matches `311_Mobile_Automation` prior art)
+- [x] Android — confirmed in scope (matches `external-mobile-consumer` prior art)
+- [x] iOS — confirmed in scope (matches `external-mobile-consumer` prior art)
 - Both, in parallel — **tentatively yes**, pending final sign-off (§9 of strategy doc)
 
 ## 3. App types
@@ -33,16 +33,16 @@ destabilizing that production SDK.
 
 ## 5. First consumer / pilot project — prior art identified
 
-**`311_Mobile_Automation`** (Azure DevOps, `OTI QA Automation` project, `trunk`
-branch) is an existing, working mobile automation project for the NYC 311 app
+**`external-mobile-consumer`** (Azure DevOps, `Automation Engineering` project, `trunk`
+branch) is an existing, working mobile automation project for the reference mobile application
 (Android + iOS, native, BrowserStack + local Appium, official `io.appium:java-client`
 9.4.0). Proposed as the Phase 1 pilot: **TBD sign-off** — confirm whether Phase 1 is a
 refactor/generalization of this existing project (recommended, see strategy doc §6a)
 or validation against a different/new app.
 
 Still need to confirm:
-- Who owns test data / app builds (APK/IPA) for upload to BrowserStack for 311 going forward?
-- Whether 311's existing BrowserStack subscription/project is the one this SDK validates against, or a separate one.
+- Who owns test data / app builds (APK/IPA) for upload to BrowserStack for consumer applications going forward?
+- Whether legacy project's existing BrowserStack subscription/project is the one this SDK validates against, or a separate one.
 
 ## 6. Functional requirements (draft — refine as decided)
 
@@ -62,10 +62,10 @@ Still need to confirm:
 
 | # | Requirement | Notes |
 |---|---|---|
-| NFR-1 | Java 20 (final, both SDKs) | **Decided 2026-09-02** — official `io.appium:java-client` requires Java 11+; `311_Mobile_Automation` prior art already runs on JDK 20 in CI. Desktop `functional-test-automation-sdk` has also been bumped from Java 8 to Java 20 so both SDKs share one target version across the ecosystem (see its CHANGELOG). |
-| NFR-2 | Use official `io.appium:java-client`, not a hand-rolled `executeScript`-only client | **Revised** — matches proven, working prior art (`311_Mobile_Automation`); `executeScript("mobile: ...")` kept only as a fallback for gestures without a typed API |
+| NFR-1 | Java 20 (final, both SDKs) | **Decided 2026-09-02** — official `io.appium:java-client` requires Java 11+; `external-mobile-consumer` prior art already runs on JDK 20 in CI. Desktop `functional-test-automation-sdk` has also been bumped from Java 8 to Java 20 so both SDKs share one target version across the ecosystem (see its CHANGELOG). |
+| NFR-2 | Use official `io.appium:java-client`, not a hand-rolled `executeScript`-only client | **Revised** — matches proven, working prior art (`external-mobile-consumer`); `executeScript("mobile: ...")` kept only as a fallback for gestures without a typed API |
 | NFR-3 | No shared release train with `functional-test-automation-sdk` | Separate repo, separate versioning/CHANGELOG. (Java version is now shared/aligned at 20, but release cadence/versioning remains independent.) |
-| NFR-4 | Secrets (BrowserStack credentials) never committed to git | Mirror `sdk-config.yaml` gitignore pattern from desktop SDK — **note:** `311_Mobile_Automation`'s current `browserstack.yml` has credentials committed in plaintext; do not repeat this in the new SDK |
+| NFR-4 | Secrets (BrowserStack credentials) never committed to git | Mirror `sdk-config.yaml` gitignore pattern from desktop SDK — **note:** `external-mobile-consumer`'s current `browserstack.yml` has credentials committed in plaintext; do not repeat this in the new SDK |
 | NFR-5 | Reuse shared, Java-8-safe utilities from the desktop SDK via a dependency (config/reporting/Excel), not by copy-paste | Avoids duplicate maintenance |
 
 ## 8. Constraints carried over from the desktop SDK (framework/tooling conventions only — NOT the Java 8 pin, see NFR-1)

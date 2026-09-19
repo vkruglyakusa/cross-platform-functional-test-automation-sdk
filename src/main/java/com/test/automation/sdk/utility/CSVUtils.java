@@ -147,7 +147,7 @@ public class CSVUtils {
 
 	public static void main(String[] args) throws InvalidFormatException, IOException {
 
-		String fileName = "POLETOP_NONPROD_TestData.xlsx";
+		String fileName = "SAMPLE_NONPROD_TestData.xlsx";
 		//System.out.println(System.getProperty("user.dir"));
 		String pathToFile = System.getProperty("user.dir") + "/src/main/resources/sdk-defaults/";
 

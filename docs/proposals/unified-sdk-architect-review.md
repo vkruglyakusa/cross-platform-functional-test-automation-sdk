@@ -13,8 +13,8 @@ unification**, of two previously separate SDKs. Every framework-level concern
 execution-target selection — exists **twice**: once under
 `com.test.automation.sdk.testbase`/`utility` (web, mature, ~2000-line
 `TestBase`) and once under `com.test.automation.sdk.mobile.*` (ported near
-verbatim from a prior standalone project, `311_Mobile_Automation`, per its own
-code comments). Additionally, seven concrete 311-app page objects
+verbatim from a prior standalone project, `external-mobile-consumer`, per its own
+code comments). Additionally, seven concrete reference-app page objects
 (`uiActions/*`) were committed into the SDK jar itself and are **actively
 imported by the mobile consumer template's test class**, which means removal
 is not a pure cleanup — it is a real (small) migration.
@@ -109,9 +109,9 @@ com.test.automation.sdk
     │                   MobileCrawlerReportWriter, MobileScreenSnapshot, MobileCrawlerStep.
     │                   MobileElementInfo's own Javadoc says it "mirrors ElementCrawler's
     │                   ElementInfo" — conceptually parallel, structurally independent code.
-    └── uiActions/      HomePage, NavigationUtility, NewServiceRequestPage, NotificationsPage,
-                        PermissionControllerPopUp, TermsOfUsePage, UserDataPolicyPage
-                        (7 concrete 311-app screens — see section C.6).
+    └── uiActions/      HomePage, NavigationUtility, FeatureListPage, NotificationsPage,
+                        PermissionDialog, TermsPage, PrivacyPage
+                        (7 concrete reference-app screens — see section C.6).
 ```
 
 **How Web and Mobile interact today: they don't.** There is no shared
@@ -127,7 +127,7 @@ both platforms without forcing identical internals.
 - `mobile-functional-automation-consumer-template`'s
   `OnboardingAndHomeSmokeTest extends com.test.automation.sdk.mobile.testbase.MobileTestBase`
   **and directly imports `com.test.automation.sdk.mobile.uiActions.NavigationUtility`
-  and `NewServiceRequestPage` from the SDK jar.** This means `uiActions/*` is
+  and `FeatureListPage` from the SDK jar.** This means `uiActions/*` is
   not dead scaffolding — it is a live dependency of the one existing mobile
   consumer template test. Removing it requires first porting those two (at
   minimum) page objects into the consumer template's own `uiActions` package
@@ -175,7 +175,7 @@ for parallel TestNG execution. Unifying the two lifecycles is an opportunity
 to fix this real bug for web, not just a stylistic cleanup.
 
 ### C.6 App-specific code inside the SDK (`uiActions/*`)
-Seven concrete 311-app page objects live in the SDK's own `mobile.uiActions`
+Seven concrete reference-app page objects live in the SDK's own `mobile.uiActions`
 package and are directly imported by the mobile consumer template's only
 test class. This violates the SDK's own contract (confirmed by the web SDK,
 which correctly has *zero* page objects) and creates an actual—if small—
@@ -309,7 +309,7 @@ architectural home in the SDK (see F and M).
 | `mobile.execution.MobileSessionRequest` | (mobileOS, deviceName) value object | **REFACTOR** (generalize) | `execution.ExecutionContext` | Becomes the one context object carrying platform/runMode/browser-or-OS/device for either platform. |
 | *(none — gap)* | Web has no BrowserStack Automate support | **NEW** | `driver.web.WebBrowserStackSessionFactory` | Parity with mobile; currently a real capability gap, not duplication. |
 | `mobile.actions.MobileActions` | tap/swipe/wait helpers | **KEEP** (already correctly isolated) | `driver.mobile.MobileActions` | Genuinely mobile-specific; no change needed beyond package location. |
-| `mobile.uiActions.*` (7 classes) | Concrete 311-app page objects | **REMOVE** from SDK; **MOVE** the ≥2 classes the consumer template imports into that template's own `uiActions` package first | *(none in SDK)* | No architectural justification for app code inside a reusable SDK; see section M for the required migration step before deletion. |
+| `mobile.uiActions.*` (7 classes) | Concrete reference-app page objects | **REMOVE** from SDK; **MOVE** the ≥2 classes the consumer template imports into that template's own `uiActions` package first | *(none in SDK)* | No architectural justification for app code inside a reusable SDK; see section M for the required migration step before deletion. |
 | `mobile.crawler.MobileElementInfo` / `utility.ElementCrawler.ElementInfo` | Parallel discovery-result models | **KEEP** both implementations; **NEW** thin shared contract | `discovery.ElementDiscoveryService` (interface only) | Preserves each crawler's mature, technology-specific technique while giving reporting/Page-Object-generation one common result shape to target. Larger unification is a FUTURE item, not required now. |
 | `accessibility.AccessibilityEngine` / `AxeCoreEngine` / `mobile.accessibility.NativeMobileEngine` | Already unified this session | **KEEP** | unchanged | Already demonstrates the correct pattern; used as the template for `SessionFactory` above. |
 | `listener.WebEventListener` | Web interaction logging + inline a11y scan hook | **KEEP** | unchanged | Genuinely web-specific (Selenium 4 `WebDriverListener` decorator); an Appium equivalent is a FUTURE item, not required. |
@@ -488,7 +488,7 @@ Verified usage before recommending any move/removal (per required process):
 |---|---|---|---|
 | `testbase.TestBase` | `functional-automation-consumer-template`'s `Test_Example` | Yes (`extends TestBase`) | None — public API unchanged, internal `driver` field goes static→instance transparently. |
 | `mobile.testbase.MobileTestBase` | `mobile-functional-automation-consumer-template`'s `OnboardingAndHomeSmokeTest`, `WikipediaSearchTest` | Yes (`extends MobileTestBase`) | Kept as a deprecated subclass of the unified `TestBase` for one release — zero code change required in the consumer template. |
-| `mobile.uiActions.NavigationUtility`, `NewServiceRequestPage` | Directly imported by `OnboardingAndHomeSmokeTest` | **Yes — active, non-optional dependency** | **Must** be copied into the consumer template's own `uiActions` package and the two imports updated *before* the SDK-side classes are deleted. This is the one item in this whole plan that requires a coordinated two-repo change, not just a deprecation shim. |
+| `mobile.uiActions.NavigationUtility`, `FeatureListPage` | Directly imported by `OnboardingAndHomeSmokeTest` | **Yes — active, non-optional dependency** | **Must** be copied into the consumer template's own `uiActions` package and the two imports updated *before* the SDK-side classes are deleted. This is the one item in this whole plan that requires a coordinated two-repo change, not just a deprecation shim. |
 | `WebDriverFactory`, `MobileDriverFactory` | Called internally by `TestBase`/`MobileTestBase` only (no direct consumer-template usage found) | No direct consumer-template calls found | Kept as deprecated delegators regardless, since they are `public` API and a consumer project could call them directly even without today's templates doing so. |
 | `SdkConfig`, `MobileSdkConfig`, `YamlConfigReader`, `MobileConfigReader` | Internal SDK use; `mobile-config.yaml`/`mobile-config.yaml.template` present in the mobile consumer template's `configuration/` directory | Yes (config files, not code) | `MobileConfigReader` keeps reading a standalone `mobile-config.yaml` as a fallback for one release if present, so the mobile consumer template's existing config file keeps working without an immediate edit; new consumers configure `android:`/`ios:` sections directly in `sdk-config.yaml`. |
 | `ExecutionTarget`, `MobileExecutionStrategy`, `MobileExecutionStrategyFactory` | Internal SDK use only | No | Kept as deprecated delegators to `RunMode`/`SessionFactory`/`SessionFactoryRegistry`. |
@@ -528,7 +528,7 @@ dependency is resolved.
 - Regression testing: full suite + `mvn test` in both `functional-automation-consumer-template` and `mobile-functional-automation-consumer-template` (per your existing "always validate consumer template before pushing" convention).
 
 ### PHASE 5 — Compatibility cleanup
-- Classes affected: `uiActions/*` — after porting `NavigationUtility`/`NewServiceRequestPage` (and any other actually-used classes) into the mobile consumer template, remove `uiActions/*` from the SDK. Optionally begin removing deprecated delegators from phases 2–4 in a documented future major version (not part of this round).
+- Classes affected: `uiActions/*` — after porting `NavigationUtility`/`FeatureListPage` (and any other actually-used classes) into the mobile consumer template, remove `uiActions/*` from the SDK. Optionally begin removing deprecated delegators from phases 2–4 in a documented future major version (not part of this round).
 - Expected behavior change: mobile consumer template gains its own local copies of two page objects; no behavior change to test outcomes.
 - Migration risk: low, but **cross-repo** — requires a coordinated PR in `mobile-functional-automation-consumer-template` merged before (or atomically with) the SDK-side deletion.
 - Regression testing: full SDK suite + mobile consumer template test run confirming `OnboardingAndHomeSmokeTest`/`WikipediaSearchTest` still pass with the relocated page objects.
