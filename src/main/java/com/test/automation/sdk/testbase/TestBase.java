@@ -782,7 +782,13 @@ public class TestBase {
 		log.info("browser is closing");
 		try {
 			ExtentTestManager.endTest();
-			ExtentManager.getInstance().flush();
+			if (ExtentManager.getInstance() != null) {
+				ExtentManager.getInstance().flush();
+			}
+		} catch (Exception e) {
+			log.warn("Reporting flush failed during browser close: {}", e.getMessage());
+		}
+		try {
 			if (automationSession != null) {
 				automationSession.quit();
 			} else if (driver != null) {
@@ -791,7 +797,7 @@ public class TestBase {
 
 			log.info("browser is closed");
 		} catch (Exception e) {
-			log.error("Caught message " + e.getMessage(), e);
+			log.error("Failed to close browser session", e);
 		}
 
 	}
