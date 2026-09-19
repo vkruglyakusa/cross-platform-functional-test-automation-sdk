@@ -17,10 +17,10 @@ import io.appium.java_client.AppiumDriver;
 
 import com.browserstack.BrowserStackSdk;
 import com.test.automation.sdk.execution.ExecutionContext;
-import com.test.automation.sdk.execution.ExecutionContextResolver;
 import com.test.automation.sdk.execution.Platform;
 import com.test.automation.sdk.execution.RunMode;
 import com.test.automation.sdk.mobile.actions.MobileActions;
+import com.test.automation.sdk.mobile.config.MobileConfigReader;
 import com.test.automation.sdk.mobile.driver.MobileDriverFactory;
 import com.test.automation.sdk.session.AutomationSessionFactory;
 import com.test.automation.sdk.testbase.TestBase;
@@ -62,7 +62,7 @@ import com.test.automation.sdk.testbase.TestBase;
  * {@code SessionFactory}s delegate to.
  *
  * Generalized from {@code mobile.automation.testBase.TestBase} in the proven
- * {@code 311_Mobile_Automation} project (see docs/proposals/mobile-automation-strategy.md,
+ * {@code external consumer project} project (see docs/proposals/mobile-automation-strategy.md,
  * sections 3a and 6a). Handles the BrowserStack-vs-local switch via
  * {@link #isRunningInCloud()} and standard TestNG driver lifecycle. Excel-driven
  * {@code @DataProvider} support, reporting hooks, etc. reuse the desktop SDK's
@@ -81,10 +81,10 @@ public class MobileTestBase extends TestBase {
      * (see {@link RunMode#resolve()} for the {@code -Drun.mode}/legacy
      * {@code -Dmobile.execution.target}/{@code -DtestInBrowserstack} resolution order)
      * AND the BrowserStack Java SDK javaagent confirms an active platform. Mirrors
-     * {@code TestBase.isTestInBrowserstack()} from the 311 prior art.
+     * {@code TestBase.isTestInBrowserstack()} from a prior consumer implementation.
      */
     public static boolean isRunningInCloud() {
-        if (!ExecutionContextResolver.isBrowserStackConfigured()) {
+        if (RunMode.resolve() != RunMode.BROWSERSTACK) {
             return false;
         }
         try {
@@ -138,9 +138,18 @@ public class MobileTestBase extends TestBase {
     @Parameters({"mobileOS", "deviceName"})
     @BeforeClass(alwaysRun = true)
     public void setUpDriver(@Optional("android") String mobileOS, @Optional("") String device) {
+        String resolvedDevice = device == null ? "" : device.trim();
+        if (resolvedDevice.isEmpty()) {
+            resolvedDevice = System.getProperty("deviceName", "").trim();
+        }
+        if (resolvedDevice.isEmpty()) {
+            String platformKey = "ios".equalsIgnoreCase(mobileOS) || "iphone".equalsIgnoreCase(mobileOS)
+                    ? "ios.deviceName" : "android.deviceName";
+            resolvedDevice = MobileConfigReader.get(platformKey, "").trim();
+        }
         mobileOsName = mobileOS;
-        deviceName = device;
-        ExecutionContext context = ExecutionContextResolver.forMobile(resolvePlatform(mobileOS), device);
+        deviceName = resolvedDevice;
+        ExecutionContext context = ExecutionContext.forMobile(resolvePlatform(mobileOS), resolvedDevice, RunMode.resolve());
         automationSession = AutomationSessionFactory.create(context);
         driver = automationSession.unwrap(AppiumDriver.class);
     }
@@ -172,7 +181,7 @@ public class MobileTestBase extends TestBase {
                     log.warn("Error quitting mobile driver before retry", e);
                 }
             }
-            ExecutionContext context = ExecutionContextResolver.forMobile(resolvePlatform(mobileOsName), deviceName);
+            ExecutionContext context = ExecutionContext.forMobile(resolvePlatform(mobileOsName), deviceName, RunMode.resolve());
             automationSession = AutomationSessionFactory.create(context);
             driver = automationSession.unwrap(AppiumDriver.class);
         }
@@ -189,7 +198,7 @@ public class MobileTestBase extends TestBase {
 
     /**
      * True when the current platform (BrowserStack-reported, or local -DmobileOS) is iOS.
-     * Ported from {@code TestBase.verifyIfDeviceIphone()} in {@code 311_Mobile_Automation}
+     * Ported from {@code TestBase.verifyIfDeviceIphone()} in {@code external consumer project}
      * -- used by page objects/flows that branch on Android vs. iOS (e.g. the onboarding
      * flow's user-data-policy screen, which only appears on Android).
      */
@@ -209,7 +218,7 @@ public class MobileTestBase extends TestBase {
     /**
      * Primary click helper: waits for the element, then clicks, logging the action under
      * {@code key} for traceability. Mirrors {@code TestBase.elementClick(key, element)} from
-     * the 311 prior art. Throws on failure so callers can fall back to {@link #clickOnElement}.
+     * a prior consumer implementation. Throws on failure so callers can fall back to {@link #clickOnElement}.
      */
     protected void elementClick(String key, WebElement element) {
         waitForElementPresent(element);
@@ -220,7 +229,7 @@ public class MobileTestBase extends TestBase {
     /**
      * Fallback click strategy for elements that resist a plain {@code WebElement.click()}
      * (e.g. flaky/overlapping native views). Mirrors {@code TestBase.clickOnElement} from the
-     * 311 prior art, which falls back to a coordinate/gesture-based tap.
+     * a prior consumer implementation, which falls back to a coordinate/gesture-based tap.
      */
     protected void clickOnElement(WebElement element) {
         try {

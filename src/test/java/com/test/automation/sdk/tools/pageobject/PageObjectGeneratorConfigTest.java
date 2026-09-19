@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * outputReport) resolve correctly from:
  *   1. -D system properties  (-Dpog.package / -Dpog.outputDir / -Dpog.reportDir)
  *   2. sdk-config.yaml       (crawler.pageObject.package / outputDir / reportDir)
- *   3. Built-in defaults     (backward-compatible Poletop paths)
+ *   3. Built-in defaults     (backward-compatible Example paths)
  *
  * Does NOT require a browser or network connection -- tests invoke the static
  * resolve*() helpers via reflection so no WebDriver is needed.

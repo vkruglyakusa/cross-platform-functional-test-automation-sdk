@@ -155,6 +155,7 @@ public class InstructionExtractor {
         extractResource("TESTBASE-API.md", "docs/sdk/TESTBASE-API.md");
         extractResource("MOBILE-USER-GUIDE.md", "docs/sdk/MOBILE-USER-GUIDE.md");
         extractResource("MOBILE-TESTBASE-API.md", "docs/sdk/MOBILE-TESTBASE-API.md");
+        extractResource("API-TESTBASE-API.md", "docs/sdk/API-TESTBASE-API.md");
 
         System.out.println("[InstructionExtractor] Done. Files written to .github/, docs/sdk/, configuration/, and project root.");
         System.out.println("[InstructionExtractor] IMPORTANT: Add .github/instructions/ and .github/prompts/ to .gitignore");

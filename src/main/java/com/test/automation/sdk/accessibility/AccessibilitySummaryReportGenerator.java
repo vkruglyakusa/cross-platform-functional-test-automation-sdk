@@ -179,13 +179,13 @@ public final class AccessibilitySummaryReportGenerator {
 
         StringBuilder html = new StringBuilder();
 
-        // ── OTI-branded document head ────────────────────────────────────────
+        // ── Product-neutral document head ────────────────────────────────────────
         html.append("<!DOCTYPE html>")
             .append("<html lang='en'>")
             .append("<head>")
             .append("<meta charset='UTF-8'>")
             .append("<meta name='viewport' content='width=device-width,initial-scale=1'>")
-            .append("<title>NYC OTI — Accessibility Report — ").append(escapeHtml(projectName)).append("</title>")
+            .append("<title>Automation SDK — Accessibility Report — ").append(escapeHtml(projectName)).append("</title>")
             .append("<style>")
 
             // Reset & base
@@ -194,19 +194,19 @@ public final class AccessibilitySummaryReportGenerator {
             .append("a{color:#D4006E;text-decoration:none;}")
             .append("a:hover{text-decoration:underline;}")
 
-            // Top utility bar (black with white text — like the NYC.gov bar)
+            // Top utility bar (black with white text — using a neutral high-contrast style)
             .append(".top-bar{background:#1A1A1A;color:#FFF;padding:5px 24px;"
                     + "font-size:11px;display:flex;align-items:center;gap:10px;letter-spacing:.3px;}")
-            .append(".top-bar .nyc-wordmark{font-weight:900;font-size:13px;letter-spacing:1px;}")
+            .append(".top-bar .product-wordmark{font-weight:900;font-size:13px;letter-spacing:1px;}")
             .append(".top-bar .divider{width:1px;height:14px;background:#555;}")
             .append(".top-bar .agency{color:#CCC;}")
 
             // Main header (white with pink bottom border)
             .append(".site-header{background:#FFF;border-bottom:3px solid #D4006E;"
                     + "padding:12px 24px;display:flex;align-items:center;justify-content:space-between;}")
-            .append(".oti-logo{display:flex;align-items:baseline;gap:0;line-height:1;}")
-            .append(".oti-logo .nyc{font-size:32px;font-weight:900;color:#1A1A1A;letter-spacing:-1px;}")
-            .append(".oti-logo .oti{font-size:32px;font-weight:900;color:#F7901D;letter-spacing:-1px;}")
+            .append(".product-logo{display:flex;align-items:baseline;gap:0;line-height:1;}")
+            .append(".product-logo .brand-primary{font-size:32px;font-weight:900;color:#1A1A1A;letter-spacing:-1px;}")
+            .append(".product-logo .brand-accent{font-size:32px;font-weight:900;color:#F7901D;letter-spacing:-1px;}")
             .append(".header-right{text-align:right;}")
             .append(".header-right .report-label{font-size:11px;text-transform:uppercase;"
                     + "letter-spacing:1px;color:#888;font-weight:600;}")
@@ -292,8 +292,8 @@ public final class AccessibilitySummaryReportGenerator {
             .append(".site-footer{background:#1A1A1A;color:#FFF;"
                     + "padding:20px 24px;margin-top:36px;display:flex;"
                     + "align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}")
-            .append(".footer-logo .nyc{font-size:20px;font-weight:900;color:#FFF;letter-spacing:-1px;}")
-            .append(".footer-logo .oti{font-size:20px;font-weight:900;color:#F7901D;letter-spacing:-1px;}")
+            .append(".footer-logo .brand-primary{font-size:20px;font-weight:900;color:#FFF;letter-spacing:-1px;}")
+            .append(".footer-logo .brand-accent{font-size:20px;font-weight:900;color:#F7901D;letter-spacing:-1px;}")
             .append(".footer-meta{font-size:11px;color:#AAA;}")
 
             // ── Expandable details/summary sections ─────────────────────────────
@@ -351,15 +351,15 @@ public final class AccessibilitySummaryReportGenerator {
 
         // ── Top utility bar ──────────────────────────────────────────────────
         html.append("<div class='top-bar'>")
-            .append("<span class='nyc-wordmark'>NYC</span>")
+            .append("<span class='product-wordmark'>Automation SDK</span>")
             .append("<span class='divider'></span>")
-            .append("<span class='agency'>Office of Technology &amp; Innovation</span>")
+            .append("<span class='agency'>Automation Engineering</span>")
             .append("</div>");
 
         // ── Site header ──────────────────────────────────────────────────────
         html.append("<header class='site-header'>")
-            .append("<div class='oti-logo'>")
-            .append("<span class='nyc'>NYC</span><span class='oti'>OTI</span>")
+            .append("<div class='product-logo'>")
+            .append("<span class='brand-primary'>Automation</span><span class='brand-accent'>SDK</span>")
             .append("</div>")
             .append("<div class='header-right'>")
             .append("<div class='report-label'>Automated Testing</div>")
@@ -531,10 +531,10 @@ public final class AccessibilitySummaryReportGenerator {
         // ── Footer ───────────────────────────────────────────────────────────
         html.append("<footer class='site-footer'>")
             .append("<div class='footer-logo'>")
-            .append("<span class='nyc'>NYC</span><span class='oti'>OTI</span>")
+            .append("<span class='brand-primary'>Automation</span><span class='brand-accent'>SDK</span>")
             .append("</div>")
             .append("<div class='footer-meta'>")
-            .append("Office of Technology &amp; Innovation &nbsp;&bull;&nbsp; ")
+            .append("Automation Engineering &nbsp;&bull;&nbsp; ")
             .append("Accessibility Report &nbsp;&bull;&nbsp; ")
             .append(escapeHtml(projectName)).append(" &nbsp;&bull;&nbsp; ")
             .append("Generated ").append(escapeHtml(generatedAt))

@@ -1,7 +1,7 @@
 # Start -- Interactive Workflow Launcher
 
-You are a GitHub Copilot assistant for a Selenium + TestNG automation project
-powered by `functional-test-automation-sdk`.
+You are a GitHub Copilot assistant for a cross-platform (Selenium web + Appium mobile)
++ TestNG automation project powered by `cross-platform-functional-test-automation-sdk`.
 
 When invoked, greet the user and present the menu below. Once the user picks an option,
 **collect ALL required parameters** through follow-up questions before starting any work.
@@ -35,8 +35,9 @@ Ask in order:
 2. "What should the test class be named? (e.g. `Test_Login`)"
 3. "What is the Excel sheet name for this test's data?"
 4. "Which environment? (`stg` / `tst` / `dev`)"
-5. "Does this test require logging in? If yes, please provide a test username and password."
-6. "Is this a new page that needs a page object generated first? If yes, what is the target page URL?"
+5. "Is this a web (Selenium/browser) test or a mobile (Appium/Android/iOS) test?"
+6. "Does this test require logging in? If yes, please provide a test username and password."
+7. "Is this a new page/screen that needs a page object generated first? If yes, what is the target page URL (web) or screen name (mobile)?"
 
 Then confirm:
 > "Ready to create **[test class name]** from ADO **[ID]** on **[env]**. Shall I proceed?"
@@ -66,9 +67,10 @@ Then follow `#fix-failed-test` instructions.
 
 Ask in order:
 1. "Which page object class has the broken locators? (e.g. `LoginPage`)"
-2. "What is the URL of the page in the current environment?"
-3. "Which environment? (`stg` / `tst` / `dev`)"
-4. "Do you have login credentials for accessing this page? If yes, please provide username and password."
+2. "Is this a web (Selenium) or mobile (Appium) page object?"
+3. "What is the URL of the page (web) or screen name (mobile) in the current environment?"
+4. "Which environment? (`stg` / `tst` / `dev`)"
+5. "Do you have login credentials for accessing this page? If yes, please provide username and password."
 
 Then confirm:
 > "Ready to re-crawl **[page URL]** and update **[PageClass]** locators. Shall I proceed?"
@@ -93,18 +95,27 @@ Then follow `#ado-sync-test` instructions.
 ### Option 5 -- Run the crawler
 
 Ask in order:
-1. "What is the URL of the page to crawl?"
-2. "What should the generated page object class be named? (e.g. `LoginPage`)"
-3. "Does the page require login first? If yes, prefer a preconfigured account or secret-backed credential flow; avoid pasting raw passwords unless no safer option exists for a one-off local run."
-4. "Which environment? (`stg` / `tst` / `dev`)"
+1. "Is this a web page (Selenium) or a mobile screen (Appium/Android/iOS)?"
+2. "What is the URL of the page to crawl (web) or the app screen to navigate to (mobile)?"
+3. "What should the generated page object class be named? (e.g. `LoginPage`)"
+4. "Does the page require login first? If yes, prefer a preconfigured account or secret-backed credential flow; avoid pasting raw passwords unless no safer option exists for a one-off local run."
+5. "Which environment? (`stg` / `tst` / `dev`)"
 
 Then confirm:
-> "Ready to crawl **[URL]** and generate **[PageClass].java**. Shall I proceed?"
+> "Ready to crawl **[URL/screen]** and generate **[PageClass].java**. Shall I proceed?"
 
-Then run:
+Then run (web):
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Denvironment=[env] -DbrowserName=chrome \
+         -Dinv.email=[email] -Dinv.password=[password] \
+         -Dinv.page=[pageKey]
+```
+
+Then run (mobile):
+```bash
+mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
+         -Denvironment=[env] -DmobileOS=[android|ios] \
          -Dinv.email=[email] -Dinv.password=[password] \
          -Dinv.page=[pageKey]
 ```

@@ -13,6 +13,10 @@ public final class ExecutionEvent {
     private final ExecutionEventType type;
     private final ExecutionStatus status;
     private final String executionId;
+    private final String suiteName;
+    private final String testNgTestName;
+    private final String className;
+    private final String methodName;
     private final String testName;
     private final String testCaseName;
     private final String stepId;
@@ -36,6 +40,10 @@ public final class ExecutionEvent {
         this.type = builder.type;
         this.status = builder.status;
         this.executionId = builder.executionId;
+        this.suiteName = builder.suiteName;
+        this.testNgTestName = builder.testNgTestName;
+        this.className = builder.className;
+        this.methodName = builder.methodName;
         this.testName = builder.testName;
         this.testCaseName = builder.testCaseName;
         this.stepId = builder.stepId;
@@ -70,6 +78,22 @@ public final class ExecutionEvent {
 
     public String getExecutionId() {
         return executionId;
+    }
+
+    public String getSuiteName() {
+        return suiteName;
+    }
+
+    public String getTestNgTestName() {
+        return testNgTestName;
+    }
+
+    public String getClassName() {
+        return className;
+    }
+
+    public String getMethodName() {
+        return methodName;
     }
 
     public String getTestName() {
@@ -148,6 +172,10 @@ public final class ExecutionEvent {
         private final ExecutionEventType type;
         private ExecutionStatus status = ExecutionStatus.INFO;
         private String executionId = "";
+        private String suiteName = "";
+        private String testNgTestName = "";
+        private String className = "";
+        private String methodName = "";
         private String testName = "";
         private String testCaseName = "";
         private String stepId = "";
@@ -178,6 +206,26 @@ public final class ExecutionEvent {
 
         public Builder executionId(String executionId) {
             this.executionId = nullToEmpty(executionId);
+            return this;
+        }
+
+        public Builder suiteName(String suiteName) {
+            this.suiteName = nullToEmpty(suiteName);
+            return this;
+        }
+
+        public Builder testNgTestName(String testNgTestName) {
+            this.testNgTestName = nullToEmpty(testNgTestName);
+            return this;
+        }
+
+        public Builder className(String className) {
+            this.className = nullToEmpty(className);
+            return this;
+        }
+
+        public Builder methodName(String methodName) {
+            this.methodName = nullToEmpty(methodName);
             return this;
         }
 

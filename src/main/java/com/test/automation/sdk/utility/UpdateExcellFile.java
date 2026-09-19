@@ -51,8 +51,8 @@ public class UpdateExcellFile {
 
 	public static void main(String[] args) throws IOException {
 
-		updateCell("POLETOP_NONPROD_TestData.xlsx", "ProfileChangePwd", 1, 2, "test12347");
-		//		updateCell("POLETOP_NONPROD_TestData.xlsx", "ProfileChangePwd", 2, 2,"E2E_apply_marriage_license");
+		updateCell("SAMPLE_NONPROD_TestData.xlsx", "ProfileChangePwd", 1, 2, "test12347");
+		//		updateCell("SAMPLE_NONPROD_TestData.xlsx", "ProfileChangePwd", 2, 2,"E2E_apply_marriage_license");
 
 
 	}

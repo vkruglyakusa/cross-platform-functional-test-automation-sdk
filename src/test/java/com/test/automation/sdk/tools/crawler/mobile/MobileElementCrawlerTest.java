@@ -168,8 +168,8 @@ class MobileElementCrawlerTest {
         List<MobileElementInfo> elements = MobileElementCrawler.analyzePageSource(ANDROID_SOURCE_UNIQUE_IDS, "android");
         MobileScreenSnapshot snapshot = new MobileScreenSnapshot("android", ANDROID_SOURCE_UNIQUE_IDS,
                 new byte[0], elements, java.util.Collections.<String, List<com.test.automation.sdk.tools.crawler.web.ElementCrawler.ElementInfo>>emptyMap());
-        String generated = MobilePageObjectGenerator.generate("PoletopLoginPage", snapshot);
-        assertTrue(generated.contains("public class PoletopLoginPage"));
+        String generated = MobilePageObjectGenerator.generate("ExampleLoginPage", snapshot);
+        assertTrue(generated.contains("public class ExampleLoginPage"));
         assertTrue(generated.contains("@AndroidFindBy"), "resolved android candidates must emit @AndroidFindBy");
         assertTrue(generated.contains("com.app:id/loginBtn"), "unique resource-id value must be present in the field annotation");
     }

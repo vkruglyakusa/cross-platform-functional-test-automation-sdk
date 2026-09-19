@@ -19,6 +19,7 @@ import org.testng.internal.BaseTestMethod;
 
 import io.qameta.allure.Allure;
 
+import com.test.automation.sdk.reporting.AllureReportGenerator;
 import com.test.automation.sdk.reporting.ExecutionEvidence;
 import com.test.automation.sdk.reporting.ExecutionReporting;
 import com.test.automation.sdk.testbase.*;
@@ -54,6 +55,51 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 	@Override
 	public void onTestFailure(ITestResult result) {
 		printTestResults(result);
+		// Evidence capture/reporting normally already happened in afterInvocation()
+		// (see comment there for why) -- this call is a defensive fallback only, in
+		// case afterInvocation was ever skipped for this result.
+		ensureFailureEvidenceCaptured(result);
+		saveTextLog(getTestMethodName(result) + " failed and screenshot taken!");
+		TestBase.clearCurrentTestCaseName();
+	}
+
+	// Marker attribute (on the ITestResult) used to ensure failure evidence
+	// capture + reporting dispatch runs exactly once per test result, even
+	// though it is now invoked from two possible call sites (afterInvocation
+	// and, defensively, onTestFailure).
+	private static final String EVIDENCE_CAPTURED_ATTR = "sdk.failureEvidenceCaptured";
+
+	// OBS-Allure-fix: Evidence capture (screenshot/DOM/console) and the
+	// ExecutionReporting.onTestFailed(...) dispatch -- which is what drives
+	// AllureExecutionReporter.attachEvidence() -- must run BEFORE Allure's own
+	// TestNG listener (AllureTestNg, auto-registered via ServiceLoader) closes
+	// its current test case, otherwise Allure.addAttachment(...) silently fails
+	// ("no test is running") because Allure.getLifecycle().getCurrentTestCase()
+	// is already empty.
+	//
+	// AllureTestNg closes/writes the Allure test case from its own
+	// ITestListener#onTestFailure callback. TestNG's invocation order between
+	// multiple ITestListener implementations is not something this SDK
+	// controls (it depends on suite-XML vs. ServiceLoader registration order),
+	// so relying on onTestFailure alone is fragile. IInvokedMethodListener#
+	// afterInvocation, by contrast, is guaranteed by TestNG's TestInvoker to run
+	// for every listener immediately after the test method returns/throws and
+	// BEFORE any ITestListener#onTestFailure/onTestSuccess callbacks are fired
+	// for ANY listener -- this ordering is intrinsic to the TestNG lifecycle,
+	// not registration-order dependent. Performing the capture here guarantees
+	// the Allure test case is still open when we attach evidence to it.
+	@Override
+	public void afterInvocation(IInvokedMethod method, ITestResult testResult) {
+		if (method != null && method.isTestMethod() && testResult.getStatus() == ITestResult.FAILURE) {
+			ensureFailureEvidenceCaptured(testResult);
+		}
+	}
+
+	private void ensureFailureEvidenceCaptured(ITestResult result) {
+		if (Boolean.TRUE.equals(result.getAttribute(EVIDENCE_CAPTURED_ATTR))) {
+			return;
+		}
+		result.setAttribute(EVIDENCE_CAPTURED_ATTR, Boolean.TRUE);
 
 		// Phase 4 fix: TestBase.driver is now an instance field (was static), so it
 		// can no longer be read via the class-qualified TestBase.driver. Listener is
@@ -83,8 +129,6 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 			}
 		}
 		ExecutionReporting.onTestFailed(result, result.getThrowable(), evidence);
-		saveTextLog(getTestMethodName(result) + " failed and screenshot taken!");
-		TestBase.clearCurrentTestCaseName();
 	}
 
 	public void onTestSkipped(ITestResult result) {
@@ -147,8 +191,6 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 	public void beforeInvocation(IInvokedMethod method, ITestResult testResult) {
 	}
 
-	public void afterInvocation(IInvokedMethod method, ITestResult testResult) {
-	}
 	private String getTestInputArguments(ITestResult result) {
 
 		StringBuilder inputArguments = new StringBuilder();
@@ -173,10 +215,16 @@ public class Listener extends TestBase implements ITestListener, ISuiteListener,
 
 	public void onStart(ISuite suite) {
 		Reporter.log("About to begin executing Suite " + suite.getName(), true);
+		ExecutionReporting.onSuiteStarted(suite);
 	}
 
 	public void onFinish(ISuite suite) {
 		Reporter.log("==========About to end executing Suite " + suite.getName() + "==============", true);
+		ExecutionReporting.onSuiteFinished(suite);
+		// OBS-9: automatic Allure HTML report generation. Runs once for the whole
+		// execution regardless of how many <suite> blocks or parallel test threads
+		// were involved -- see AllureReportGenerator's own once-per-run guard.
+		AllureReportGenerator.runPostExecutionLifecycle();
 	}
 	
 	private void setTestNameInXml(ITestResult result) {

@@ -10,17 +10,7 @@
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
 
-  <!-- NYC proxy -- required on-premise; remove if working remotely without proxy -->
-  <proxies>
-    <proxy>
-      <id>http-proxy-settings</id>
-      <active>true</active>
-      <protocol>http</protocol>
-      <host>bcpxy.nycnet</host>
-      <port>8080</port>
-      <nonProxyHosts>10.*|192.168.*|172.16.*|*.nycnet|localhost|github.com|*.github.com|maven.pkg.github.com</nonProxyHosts>
-    </proxy>
-  </proxies>
+  <!-- Add a proxy stanza only if your network requires one. -->
 
   <servers>
     <!--

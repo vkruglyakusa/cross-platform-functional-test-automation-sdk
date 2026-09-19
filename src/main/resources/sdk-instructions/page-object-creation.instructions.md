@@ -14,8 +14,8 @@ Only use locators the crawler marks as **`UNIQUE [x]`**.
 
 ## ElementCrawler Instruction (Mandatory)
 `ElementCrawler` is the locator engine behind both entry points:
-- `LocatorInvestigator` -- TestNG class at `src/test/java/com/poletop/automation/tools/LocatorInvestigator.java`
-- `PageObjectGenerator.main()` -- standalone utility at `src/main/java/com/automation/poletop/utility/PageObjectGenerator.java`
+- `LocatorInvestigator` -- TestNG class at `src/test/java/com/example/automation/tools/LocatorInvestigator.java`
+- `PageObjectGenerator.main()` -- standalone utility at `src/main/java/com/automation/example/utility/PageObjectGenerator.java`
 
 > [!]? `LocatorInvestigator` lives in the **`tools`** package (`com.test.automation.tools`), NOT in `testCases`.
 > Always invoke it via `crawler_suite.xml` or with the fully qualified class name.
@@ -40,8 +40,8 @@ mvn test "-Dtest=com.test.automation.tools.LocatorInvestigator#<methodName>" \
          -Dinv.email=<email> -Dinv.password=<password>
 
 # Option C - standalone PageObjectGenerator (no browser session needed)
-mvn exec:java -Dexec.mainClass="com.automation.poletop.utility.PageObjectGenerator" \
-              -Dexec.args="Poletop<PageName>Page <URL> <email> <password>"
+mvn exec:java -Dexec.mainClass="com.automation.example.utility.PageObjectGenerator" \
+              -Dexec.args="Example<PageName>Page <URL> <email> <password>"
 ```
 
 Do not proceed with manual locators if the crawler report lacks `UNIQUE [x]` strategies for required elements.
@@ -102,12 +102,12 @@ mvn test "-Dtest=com.test.automation.tools.LocatorInvestigator#generate<PageName
          -Dinv.email=user@example.com -Dinv.password=<password>
 
 # Option C - PageObjectGenerator standalone
-mvn exec:java -Dexec.mainClass="com.automation.poletop.utility.PageObjectGenerator" \
-              -Dexec.args="Poletop<PageName>Page <URL> <email> <password>"
+mvn exec:java -Dexec.mainClass="com.automation.example.utility.PageObjectGenerator" \
+              -Dexec.args="Example<PageName>Page <URL> <email> <password>"
 ```
 
 **Output produced:**
-- `src/main/java/com/automation/poletop/uiActions/<ClassName>.java` -- generated page object
+- `src/main/java/com/automation/example/uiActions/<ClassName>.java` -- generated page object
 - `test-output/crawler/<ClassName>_<timestamp>.txt` -- full discovery report
 
 ### Step 2 -- Read the Discovery Report

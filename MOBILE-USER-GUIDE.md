@@ -1,8 +1,9 @@
 # Mobile User Guide
 
-This guide covers the **native mobile** side of the SDK (Android/iOS via Appium).
-For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, see
-`GETTING-STARTED.md`.
+This guide covers the mobile side of the SDK: native Android/iOS automation,
+hybrid apps with embedded WebViews, and the mobile crawler/page-object tooling.
+For shared setup, reporting, analytics, accessibility, and API-only coverage, see
+`SDK-USER-GUIDE.md` and `GETTING-STARTED.md`.
 
 ---
 
@@ -11,7 +12,7 @@ For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, se
 | Class | Package | Purpose |
 |---|---|---|
 | `MobileTestBase` | `com.test.automation.sdk.mobile.testbase` | Base class for mobile test classes; owns the `AppiumDriver` lifecycle (`@BeforeClass`/`@AfterClass`) and common wait/click helpers. Full API: [`MOBILE-TESTBASE-API.md`](MOBILE-TESTBASE-API.md). |
-| `MobileDriverFactory` | `com.test.automation.sdk.mobile.driver` | Builds an `AndroidDriver`/`IOSDriver` from `mobile-config.yaml` (local Appium) or `browserstack.yml.example.mobile` (BrowserStack App Automate), selected via `RunMode`. |
+| `MobileDriverFactory` | `com.test.automation.sdk.mobile.driver` | Builds an `AndroidDriver`/`IOSDriver` from the unified `sdk-config.yaml` `appium:` / `android:` / `ios:` sections (preferred), the temporary standalone `mobile-config.yaml` compatibility path, or BrowserStack App Automate configuration, selected via `RunMode`. |
 | `RunMode` | `com.test.automation.sdk.execution` | Enum + `resolve()` strategy (shared by web and mobile) that picks `LOCAL` vs. `BROWSERSTACK` execution based on `-Drun.mode` (or the legacy `-Dmobile.execution.target`/`-DtestInBrowserstack` flags). |
 | `MobileActions` | `com.test.automation.sdk.mobile.actions` | Static gesture/action helpers (tap, longPress, swipe, scrollToElement, hideKeyboard) that `MobileTestBase` and page objects call into. |
 | `MobileElementCrawler` | `com.test.automation.sdk.mobile.crawler` | Crawls the current screen (native XML tree) into locator candidates; also detects and delegates any active WebView content (see Section 4, Hybrid App Testing). |
@@ -25,6 +26,25 @@ For the web side, see `SDK-USER-GUIDE.md`. For initial setup of either track, se
 `MobileTestBase` inherits the same SDK-owned business-step API as the web base:
 prefer `step("...", () -> { ... })` so one mobile execution story flows
 consistently into logs, Allure, Extent, and failure evidence.
+
+Recommended configuration path for new mobile projects:
+
+```yaml
+appium:
+  localUrl: "http://127.0.0.1:4723/"
+
+android:
+  appPath: "apps/app-debug.apk"
+  automationName: "UiAutomator2"
+
+ios:
+  appPath: "apps/app.ipa"
+  automationName: "XCUITest"
+```
+
+A standalone `configuration/mobile-config.yaml` still works as a compatibility
+fallback, but it is deprecated. New projects should keep these keys in the same
+`configuration/sdk-config.yaml` used by the rest of the SDK.
 
 ## 2. Writing a Mobile Test
 
@@ -190,8 +210,8 @@ Appium itself cannot attach ChromeDriver to.
 
 | Target | Config file | Notes |
 |---|---|---|
-| Local Appium | `configuration/mobile-config.yaml` | Requires a running Appium server (`appium`) and a connected device/emulator (`adb devices`). |
-| BrowserStack App Automate | `configuration/browserstack.yml.example.mobile` | Requires `BROWSERSTACK_USERNAME`/`BROWSERSTACK_ACCESS_KEY` and an uploaded app URL (`bs://...`). |
+| Local Appium | `configuration/sdk-config.yaml` (`appium:`, `android:`, `ios:`) | Requires a running Appium server (`appium`) and a connected device/emulator (`adb devices`). A standalone `configuration/mobile-config.yaml` remains a deprecated compatibility fallback only. |
+| BrowserStack App Automate | `browserstack.yml` at project root | Requires `BROWSERSTACK_USERNAME`/`BROWSERSTACK_ACCESS_KEY` and an uploaded app URL (`bs://...`). |
 
 See `GETTING-STARTED.md` Track B / Track C for the exact setup steps for each.
 

@@ -75,8 +75,8 @@ In every Java file that imports the old TestBase:
 
 | Replace | With |
 |---|---|
-| `import com.automation.poletop.testBase.TestBase;` | `import com.test.automation.sdk.testbase.TestBase;` |
-| `import com.poletop.automation.testBase.TestBase;` | `import com.test.automation.sdk.testbase.TestBase;` |
+| `import com.automation.example.testBase.TestBase;` | `import com.test.automation.sdk.testbase.TestBase;` |
+| `import com.example.automation.testBase.TestBase;` | `import com.test.automation.sdk.testbase.TestBase;` |
 
 Search command:
 ```bash
@@ -150,7 +150,7 @@ reporting:
   gapOutputDir: "docs/test-case-gaps/"
 ```
 
-Without the `crawler` section, generated files will go to the Poletop-specific package path.
+Without the `crawler` section, generated files will go to the Example-specific package path.
 Without the `reporting` section, gap/blocker reports land in the default `docs/test-case-gaps/` directory -- which is fine for most projects.
 
 You can also override per-run without editing the YAML:

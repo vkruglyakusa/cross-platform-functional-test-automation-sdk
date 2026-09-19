@@ -30,6 +30,7 @@ import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.interactions.WheelInput;
 import org.openqa.selenium.remote.LocalFileDetector;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.FluentWait;
 import org.openqa.selenium.support.ui.Select;
@@ -49,8 +50,8 @@ import com.test.automation.sdk.utility.Excel_Reader;
 import com.test.automation.sdk.utility.QueryExcelFile;
 import com.test.automation.sdk.config.YamlConfigReader;
 import com.test.automation.sdk.execution.ExecutionContext;
-import com.test.automation.sdk.execution.ExecutionContextResolver;
 import com.test.automation.sdk.execution.RunMode;
+import com.test.automation.sdk.healing.HealingFieldDecorator;
 import com.test.automation.sdk.reporting.ExecutionEvidence;
 import com.test.automation.sdk.reporting.ExecutionReporting;
 import com.test.automation.sdk.reporting.SecretRedactor;
@@ -277,7 +278,7 @@ public class TestBase {
 		configureLogging();
 		String resolvedBrowser = browser.isEmpty() ? Prop.getProperty("browser") : browser;
 		String resolvedUrl = baseUrl.isEmpty() ? Prop.getProperty("tst_base_url") : baseUrl;
-		ExecutionContext context = ExecutionContextResolver.forWeb(resolvedBrowser);
+		ExecutionContext context = ExecutionContext.forWeb(resolvedBrowser, RunMode.resolve());
 		automationSession = AutomationSessionFactory.create(context);
 		driver = automationSession.unwrap(WebDriver.class);
 		this.baseURL = resolvedUrl;
@@ -382,6 +383,60 @@ public class TestBase {
 	}
 
 	/**
+	 * Zero-config visual regression check (Tier 2 -- see
+	 * {@link com.test.automation.sdk.visual.VisualRegressionChecker}).
+	 *
+	 * <p>Captures the current page screenshot and compares it against the
+	 * stored baseline for {@code checkpointName}. The very first time a given
+	 * {@code checkpointName} is checked, the screenshot is saved as the new
+	 * accepted baseline and this call passes (nothing to compare against
+	 * yet) -- no separate "record baseline" step is required. Every
+	 * subsequent call compares against that stored baseline using a
+	 * tolerant pixel diff (see {@code visual.*} keys in
+	 * {@code sdk-config.yaml}) and, when {@code visual.failOnMismatch} is
+	 * {@code true} (the default), throws an {@link AssertionError} if the
+	 * mismatch exceeds {@code visual.mismatchThresholdPercent}. A
+	 * red-highlighted diff image is attached to the execution report on any
+	 * mismatch.</p>
+	 *
+	 * @param checkpointName stable identifier for this visual checkpoint,
+	 *                        e.g. {@code "login-page"} -- reused across runs
+	 *                        to locate the same baseline file
+	 * @return the full comparison outcome, in case the caller wants to
+	 *         inspect it (e.g. log the mismatch percentage) without failing
+	 * @throws AssertionError when the screenshot does not match the baseline
+	 *         within tolerance and {@code visual.failOnMismatch} is enabled
+	 */
+	public com.test.automation.sdk.visual.VisualComparisonResult assertVisualMatch(String checkpointName) {
+		com.test.automation.sdk.visual.VisualRegressionChecker checker =
+				com.test.automation.sdk.visual.VisualRegressionChecker.fromConfiguration();
+		byte[] screenshotPng = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
+		com.test.automation.sdk.visual.VisualComparisonResult result = checker.check(screenshotPng, checkpointName);
+
+		if (result.isBaselineCreated()) {
+			ExecutionReporting.actionCompleted("VISUAL_CHECK", checkpointName, result.getDetail(), null);
+			log.info("[TestBase] Visual baseline created for checkpoint '{}': {}", checkpointName, result.getBaselinePath());
+			return result;
+		}
+
+		if (result.isMatched()) {
+			ExecutionReporting.actionCompleted("VISUAL_CHECK", checkpointName, result.getDetail(), null);
+			return result;
+		}
+
+		if (result.getDiffPath() != null) {
+			ExecutionReporting.publishEvidence(result.getDiffPath(), "Visual diff: " + checkpointName, "screenshot");
+		}
+		ExecutionReporting.actionFailed("VISUAL_CHECK", checkpointName, result.getDetail(), null, null);
+		log.warn("[TestBase] Visual mismatch for checkpoint '{}': {}", checkpointName, result.getDetail());
+
+		if (com.test.automation.sdk.config.ConfigurationManager.getVisualRegressionConfig().failOnMismatch()) {
+			throw new AssertionError("Visual regression mismatch for checkpoint '" + checkpointName + "': " + result.getDetail());
+		}
+		return result;
+	}
+
+	/**
 	 * Framework-internal debug utility. Not intended for direct use in test classes.
 	 * Method will highlite specified element
 	 *
@@ -444,6 +499,35 @@ public class TestBase {
 		if (domPath != null) {
 			evidence.add(ExecutionEvidence.domDump("Failure DOM", domPath));
 		}
+
+		// SDK v1.5.1 -- additional, optional diagnostic evidence. Never replaces the
+		// screenshot/DOM/log RCA trio above; both capture calls are individually
+		// fail-safe (unsupported browser / retrieval error -> null, no exception).
+		String captureName = resolveCaptureName(result);
+		com.test.automation.sdk.config.ConfigurationManager.EvidenceConfig evidenceConfig =
+			    com.test.automation.sdk.config.ConfigurationManager.getEvidenceConfig();
+
+		if (evidenceConfig.browserConsoleEnabled() && evidenceConfig.browserConsoleCaptureOnFailure()) {
+			java.nio.file.Path consolePath = com.test.automation.sdk.evidence.BrowserConsoleCapture.capture(
+			        driver, getScreenshotOutputDirectory(), captureName);
+			if (consolePath != null) {
+			    evidence.add(ExecutionEvidence.browserConsole("Browser Console Log", consolePath));
+			}
+		}
+
+		if (evidenceConfig.networkEnabled() && evidenceConfig.networkCaptureOnFailure()) {
+			java.nio.file.Path networkPath = com.test.automation.sdk.evidence.NetworkTraceRecorder.detachAndWrite(
+			        driver, getScreenshotOutputDirectory(), captureName);
+			if (networkPath != null) {
+			    evidence.add(ExecutionEvidence.networkTrace("Network Trace", networkPath));
+			}
+		} else {
+			// Not needed for evidence, but avoids leaking a buffered recorder/CDP
+			// session past this test when network capture is enabled globally but
+			// captureOnFailure is turned off for this run.
+			com.test.automation.sdk.evidence.NetworkTraceRecorder.detachQuietly(driver);
+		}
+
 		return evidence;
 	}
 
@@ -699,19 +783,15 @@ public class TestBase {
 		try {
 			ExtentTestManager.endTest();
 			ExtentManager.getInstance().flush();
-		} catch (Exception e) {
-			log.error("Reporting cleanup failed while closing browser: " + e.getMessage(), e);
-		} finally {
-			try {
-				if (automationSession != null) {
-					automationSession.quit();
-				} else if (driver != null) {
-					driver.quit();
-				}
-				log.info("browser is closed");
-			} catch (Exception e) {
-				log.error("Browser session cleanup failed: " + e.getMessage(), e);
+			if (automationSession != null) {
+				automationSession.quit();
+			} else if (driver != null) {
+				driver.quit();
 			}
+
+			log.info("browser is closed");
+		} catch (Exception e) {
+			log.error("Caught message " + e.getMessage(), e);
 		}
 
 	}
@@ -790,7 +870,7 @@ public class TestBase {
 		Random random = new Random();
 		int number = random.nextInt(100000);
 		String randoms = String.format("%06d", number);
-		emailAddress = "test" + randoms + "@doitt.nyc.gov";
+		emailAddress = "test" + randoms + "@example.com";
 		log.info("System has generated email address: {}", emailAddress);
 		return emailAddress;
 	}
@@ -807,7 +887,7 @@ public class TestBase {
 		int number = random.nextInt(10000000);
 		String randoms = String.format("%08d", number);
 		emailAddress = "test" + randoms + "@" + emailDomainName;
-		// emailAddress = "test" + randoms + "@" + "doitt.nyc.gov";
+		// emailAddress = "test" + randoms + "@" + "example.com";
 		log.info("System has generated email address: " + emailAddress);
 		return emailAddress;
 	}
@@ -921,6 +1001,30 @@ public class TestBase {
 		long duration = (endTime - startTime);
 		log.info("Waiting time for element is - " + duration + " milliseconds");
 		return element;
+	}
+
+	/**
+	 * Runtime self-healing alternative to {@code PageFactory.initElements(driver, this)}.
+	 * Page objects opt in by calling {@code initElements(driver, this)} instead of the
+	 * plain PageFactory call in their constructor -- everything else about the page
+	 * object (its {@code @FindBy} fields) is unchanged.
+	 *
+	 * <p>When a healing-enabled field's primary XPath locator can no longer find any
+	 * element (e.g. an attribute value changed), a small set of relaxed candidates
+	 * derived from that same XPath is tried; a candidate is only trusted if it
+	 * resolves to exactly one element. Every heal attempt (success or exhaustion) is
+	 * published through {@link com.test.automation.sdk.reporting.ExecutionReporting}
+	 * so it is visible in the log/Allure/Extent report trail. See
+	 * {@code com.test.automation.sdk.healing.HealingElementLocator} for details.
+	 *
+	 * <p>Existing page objects that keep calling {@code PageFactory.initElements(driver, this)}
+	 * directly are completely unaffected.
+	 *
+	 * @param driver active WebDriver
+	 * @param page   the page object whose {@code @FindBy} fields should be initialized
+	 */
+	public static void initElements(WebDriver driver, Object page) {
+		PageFactory.initElements(new HealingFieldDecorator(driver), page);
 	}
 
 	/**
@@ -1152,7 +1256,7 @@ public class TestBase {
 	 *
 	 * Requires the driver to already be logged in and on the app domain.
 	 *
-	 * @param baseUrl        app base URL (e.g. "https://poletop-stg.csc.nycnet/")
+	 * @param baseUrl        app base URL (e.g. "https://example.com/")
 	 * @param reservationIds list of reservation ID strings to check
 	 * @param buttonTitle    exact value of the title= attribute to look for
 	 *                       (e.g. "Start Construction", "Add SIF", "View SIF")
@@ -1756,6 +1860,35 @@ public class TestBase {
 	public WebElement findInShadowDom(By hostLocator, String cssSelector) {
 		WebElement host = driver.findElement(hostLocator);
 		return host.getShadowRoot().findElement(By.cssSelector(cssSelector));
+	}
+
+	/**
+	 * Resolves an element nested <em>two or more</em> shadow-root levels deep
+	 * (shadow-in-shadow), e.g. a Coveo Atomic-style {@code <custom-search-box>}
+	 * whose own shadow root contains another shadow host {@code <atomic-search-box>}.
+	 * Mirrors {@code ElementInfo.shadowHostXpath} + {@code shadowIntermediateCss}
+	 * + {@code shadowRelativeCss} as emitted by {@code ElementCrawler} for nested
+	 * shadow hosts.
+	 * <p>
+	 * All hops after the first must be relative CSS selectors (shadow roots only
+	 * support CSS, never XPath) resolved against the previous hop's shadow root.
+	 * The final entry in {@code intermediateAndFinalCss} is the target element's
+	 * own selector inside the innermost shadow root.
+	 *
+	 * @param hostLocator locates the outermost shadow-root host element in the light DOM
+	 * @param intermediateAndFinalCss one or more CSS selectors: every entry except the
+	 *                                last resolves an intermediate nested shadow host;
+	 *                                the last entry resolves the target element itself
+	 */
+	public WebElement findInNestedShadowDom(By hostLocator, String... intermediateAndFinalCss) {
+		if (intermediateAndFinalCss == null || intermediateAndFinalCss.length == 0) {
+			throw new IllegalArgumentException("findInNestedShadowDom requires at least one CSS selector");
+		}
+		org.openqa.selenium.SearchContext context = driver.findElement(hostLocator).getShadowRoot();
+		for (int i = 0; i < intermediateAndFinalCss.length - 1; i++) {
+			context = context.findElement(By.cssSelector(intermediateAndFinalCss[i])).getShadowRoot();
+		}
+		return context.findElement(By.cssSelector(intermediateAndFinalCss[intermediateAndFinalCss.length - 1]));
 	}
 
 	// -------------------------------------------------------------------------

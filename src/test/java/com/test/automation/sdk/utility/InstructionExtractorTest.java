@@ -148,10 +148,10 @@ class InstructionExtractorTest {
     }
 
     @Test
-    @DisplayName("TESTBASE-API.md, MOBILE-USER-GUIDE.md, and MOBILE-TESTBASE-API.md resources exist on classpath")
+    @DisplayName("TESTBASE-API.md, MOBILE-USER-GUIDE.md, MOBILE-TESTBASE-API.md, and API-TESTBASE-API.md resources exist on classpath")
     void docsResourcesExistOnClasspath() {
         for (String fileName : Arrays.asList(
-                "TESTBASE-API.md", "MOBILE-USER-GUIDE.md", "MOBILE-TESTBASE-API.md")) {
+                "TESTBASE-API.md", "MOBILE-USER-GUIDE.md", "MOBILE-TESTBASE-API.md", "API-TESTBASE-API.md")) {
             InputStream is = getClass().getClassLoader().getResourceAsStream(fileName);
             assertNotNull(is, "Resource not found on classpath: " + fileName
                 + " -- InstructionExtractor.main() extracts this to docs/sdk/ but silently "

@@ -23,7 +23,7 @@ class TestBaseUnitTest extends TestBase {
     void randomEmailAddress_matchesPattern() {
         String email = randomEmailAddress();
         assertNotNull(email);
-        assertTrue(email.matches("^test\\d+@doitt\\.nyc\\.gov$"),
+        assertTrue(email.matches("^test\\d+@example\\.com$"),
                 "Email did not match pattern: " + email);
     }
 
@@ -216,7 +216,7 @@ class TestBaseUnitTest extends TestBase {
     void saveDomDump_writesHtmlFile() throws Exception {
         String originalUserDir = System.getProperty("user.dir");
         String originalConfigDir = System.getProperty("sdk.config.dir");
-        File workDir = new File(new File("target", "test-work"), "saveDomDump");
+        File workDir = new File("target\\test-work\\saveDomDump");
         if (!workDir.exists()) {
             assertTrue(workDir.mkdirs() || workDir.exists(), "Failed to create work directory");
         }
@@ -276,7 +276,7 @@ class TestBaseUnitTest extends TestBase {
     void getScreenShot_writesDirectlyToConfiguredDirectory_noDoubleNesting() throws Exception {
         String originalUserDir = System.getProperty("user.dir");
         String originalConfigDir = System.getProperty("sdk.config.dir");
-        File workDir = new File(new File("target", "test-work"), "getScreenShot");
+        File workDir = new File("target\\test-work\\getScreenShot");
         if (!workDir.exists()) {
             assertTrue(workDir.mkdirs() || workDir.exists(), "Failed to create work directory");
         }
@@ -312,8 +312,7 @@ class TestBaseUnitTest extends TestBase {
             ITestResult mockedResult = Mockito.mock(ITestResult.class);
             Mockito.when(mockedResult.getName()).thenReturn("someFailingTest");
 
-            // Screenshot capture must not depend on another test having initialized
-            // the optional Extent report singleton (test order differs by platform).
+            com.test.automation.sdk.utility.reports.ExtentTestManager.startTest("someFailingTest");
             getScreenShot(mockedDriver, mockedResult);
 
             File nestedScreenshotsFolder = new File(screenshotsDir, "screenshots");
@@ -325,6 +324,68 @@ class TestBaseUnitTest extends TestBase {
             });
             assertNotNull(pngFiles, "Screenshots directory should exist");
             assertEquals(1, pngFiles.length, "Expected exactly one screenshot written directly to the configured directory");
+        } finally {
+            if (originalUserDir != null) {
+                System.setProperty("user.dir", originalUserDir);
+            }
+            if (originalConfigDir != null) {
+                System.setProperty("sdk.config.dir", originalConfigDir);
+            } else {
+                System.clearProperty("sdk.config.dir");
+            }
+            resetYamlConfigReaderSingleton();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // captureFailureEvidence -- SDK v1.5.1 additional evidence gating
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("captureFailureEvidence() always returns screenshot+DOM; new console/network evidence is absent "
+            + "under default config (network disabled, console retrieval unsupported by a plain mocked driver)")
+    void captureFailureEvidence_defaultConfig_screenshotAndDomOnly() throws Exception {
+        String originalUserDir = System.getProperty("user.dir");
+        String originalConfigDir = System.getProperty("sdk.config.dir");
+        File workDir = new File("target\\test-work\\captureFailureEvidence");
+        if (!workDir.exists()) {
+            assertTrue(workDir.mkdirs() || workDir.exists(), "Failed to create work directory");
+        }
+        File configDir = new File(workDir, "configuration");
+        if (!configDir.exists()) {
+            assertTrue(configDir.mkdirs() || configDir.exists(), "Failed to create config directory");
+        }
+        File screenshotsDir = new File(workDir, "screenshots");
+        if (screenshotsDir.exists()) {
+            org.apache.commons.io.FileUtils.cleanDirectory(screenshotsDir);
+        }
+        screenshotsDir.mkdirs();
+
+        File yaml = new File(configDir, "sdk-config.yaml");
+        org.apache.commons.io.FileUtils.writeStringToFile(yaml, "screenshots:\n  outputDir: \"screenshots\"\n", "UTF-8");
+
+        try {
+            System.setProperty("user.dir", workDir.getAbsolutePath());
+            System.setProperty("sdk.config.dir", configDir.getAbsolutePath());
+            resetYamlConfigReaderSingleton();
+
+            WebDriver mockedDriver = Mockito.mock(WebDriver.class,
+                    Mockito.withSettings().extraInterfaces(TakesScreenshot.class));
+            File fakeCapture = new File(workDir, "fake-capture.png");
+            org.apache.commons.io.FileUtils.writeStringToFile(fakeCapture, "not-a-real-png", "UTF-8");
+            Mockito.when(((TakesScreenshot) mockedDriver).getScreenshotAs(OutputType.FILE)).thenReturn(fakeCapture);
+
+            ITestResult mockedResult = Mockito.mock(ITestResult.class);
+            Mockito.when(mockedResult.getName()).thenReturn("someFailingTest");
+
+            List<com.test.automation.sdk.reporting.ExecutionEvidence> evidence =
+                    captureFailureEvidence(mockedDriver, mockedResult);
+
+            assertEquals(2, evidence.size(),
+                    "Default config: only the pre-v1.5.1 screenshot+DOM RCA trio should be present "
+                    + "(browserConsole retrieval unsupported by a plain mock -> skipped; network disabled by default)");
+            assertEquals("screenshot", evidence.get(0).getType());
+            assertEquals("dom", evidence.get(1).getType());
         } finally {
             if (originalUserDir != null) {
                 System.setProperty("user.dir", originalUserDir);

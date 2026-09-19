@@ -7,7 +7,7 @@ section 16 (Priorities 1-6), which tracks final implementation status and is
 the single authoritative current-state section. Statements below describing
 work as not-yet-done reflect the state at proposal time, not the current
 implementation.
-Author: Copilot CLI (architecture pass), for @vkruglyak_NYC
+Author: Copilot CLI (architecture pass), for the architecture team
 Scope: `com.test.automation.sdk` — driver lifecycle, config, test base, execution strategy
 
 ---
@@ -24,10 +24,10 @@ The repository is the *physical* merge of two SDKs (web + mobile), not an
 | Config directory resolver | `testbase.SdkConfig` | `mobile.testbase.MobileSdkConfig` | Byte-for-byte duplicate logic (same `-D`/env/default resolution order), different system property names (`sdk.config.dir` vs `mobile.sdk.config.dir`), so a consumer running both web and mobile tests must configure two independent config roots. |
 | YAML reader | `utility.YamlConfigReader` (full nested parser, drives `sdk-config.yaml`, already handles `accessibility.*`, `reporting.*`, `proxy.*`) | `mobile.config.MobileConfigReader` (near-identical hand-rolled parser, drives a **second** file `mobile-config.yaml`) | Two config files, two parsers, no single source of truth. A consumer project must maintain `sdk-config.yaml` *and* `mobile-config.yaml` *and* `browserstack.yml`. |
 | Remote/cloud execution | None — web has no BrowserStack/Grid concept | `mobile.execution.{ExecutionTarget, MobileExecutionStrategy, MobileExecutionStrategyFactory, LocalExecutionStrategy, BrowserStackExecutionStrategy, MobileSessionRequest}` | The one genuinely good pattern here (pluggable execution target) is mobile-only. Web has no equivalent, so "run this Selenium suite on BrowserStack Automate" isn't a first-class concept anywhere in the SDK. |
-| Page objects | None (correctly — web SDK has zero page objects) | `mobile.uiActions.*` (7 concrete 311-app screens: `HomePage`, `NewServiceRequestPage`, `PermissionControllerPopUp`, `TermsOfUsePage`, `UserDataPolicyPage`, ...) | App-specific screens baked into the reusable SDK jar. Violates the SDK's own contract that it ships zero app knowledge. |
+| Page objects | None (correctly — web SDK has zero page objects) | `mobile.uiActions.*` (7 concrete reference-app screens: `HomePage`, `FeatureListPage`, `PermissionDialog`, `TermsPage`, `PrivacyPage`, ...) | App-specific screens baked into the reusable SDK jar. Violates the SDK's own contract that it ships zero app knowledge. |
 
 Root cause: the mobile SDK was ported from a working standalone project
-(`311_Mobile_Automation`, referenced directly in code comments) by translating
+(`external-mobile-consumer`, referenced directly in code comments) by translating
 its package names, not by asking "what does this concept become when Web and
 Mobile share one execution model?" Every class above answers the same
 question — *"how do I get a driver, read config, and run a test?"* — twice,

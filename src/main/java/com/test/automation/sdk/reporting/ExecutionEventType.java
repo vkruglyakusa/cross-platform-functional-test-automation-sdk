@@ -5,6 +5,8 @@ package com.test.automation.sdk.reporting;
  * reporting layer.
  */
 public enum ExecutionEventType {
+    SUITE_STARTED,
+    SUITE_COMPLETED,
     TEST_STARTED,
     TEST_PASSED,
     TEST_FAILED,
@@ -21,5 +23,10 @@ public enum ExecutionEventType {
     SCREENSHOT_CAPTURED,
     DOM_CAPTURED,
     PAGE_SOURCE_CAPTURED,
+    API_PAYLOAD_CAPTURED,
+    /** SDK v1.5.1 -- browser console log evidence captured for a failed Web test. */
+    BROWSER_CONSOLE_CAPTURED,
+    /** SDK v1.5.1 -- browser network trace evidence captured for a failed Web test (not a canonical HAR document). */
+    NETWORK_TRACE_CAPTURED,
     EXCEPTION
 }

@@ -32,6 +32,35 @@ public final class ExecutionEvidence {
         return new ExecutionEvidence(name, "pageSource", "text/html", path);
     }
 
+    /**
+     * API request/response payload dump (see {@code com.test.automation.sdk.api.ApiTestBase}),
+     * captured to disk once per call and published as evidence only when the call is
+     * reported as failed -- mirrors the web/mobile "capture once, publish many" pattern.
+     */
+    public static ExecutionEvidence apiPayload(String name, Path path) {
+        return new ExecutionEvidence(name, "apiPayload", "application/json", path);
+    }
+
+    /**
+     * SDK v1.5.1 -- browser console log captured for a failed Web test (see
+     * {@code com.test.automation.sdk.evidence.BrowserConsoleCapture}). Additional,
+     * optional diagnostic evidence -- never replaces the screenshot/DOM/log RCA trio.
+     */
+    public static ExecutionEvidence browserConsole(String name, Path path) {
+        return new ExecutionEvidence(name, "browserConsole", "text/plain", path);
+    }
+
+    /**
+     * SDK v1.5.1 -- browser network trace captured for a failed Web test (see
+     * {@code com.test.automation.sdk.evidence.NetworkTraceRecorder}). This is a
+     * simplified network-trace JSON artifact, not a canonical HAR document.
+     * Additional, optional diagnostic evidence -- never replaces the
+     * screenshot/DOM/log RCA trio.
+     */
+    public static ExecutionEvidence networkTrace(String name, Path path) {
+        return new ExecutionEvidence(name, "networkTrace", "application/json", path);
+    }
+
     public String getName() {
         return name;
     }

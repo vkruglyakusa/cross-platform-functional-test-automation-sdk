@@ -37,13 +37,20 @@ If autonomous mode is **not** granted, ask one question at a time and wait for c
 ## Required Information
 
 Before starting, confirm you have:
-- **Target URL**: the page to automate
+- **Platform**: `web` (Selenium/browser) | `android` | `ios` (Appium/native or hybrid app). If not stated, infer from the test case source (page URL vs. app screen name) and confirm with the user.
+- **Target URL** (web) or **Target screen/app** (mobile): the page or screen to automate
 - **Test case source**: local file path OR Azure DevOps test case ID(s)
 - **Test class name**: e.g. `Test_LoginPage`
 - **Excel sheet name**: e.g. `LoginData`
 - **Environment**: `stg` | `tst` | `dev`
 
 If any of the above is missing, ask the user before proceeding.
+
+> **Web vs Mobile branching**: every step below has a web path (default) and a
+> mobile path. Mobile steps use `mobile-locator-strategy.instructions.md` instead
+> of `locator-strategy.instructions.md`, `MobileElementCrawler`/`MobilePageObjectGenerator`
+> instead of `ElementCrawler`/`PageObjectGenerator`, and `MobileTestBase` instead
+> of `TestBase`. Use the mobile path whenever **Platform** is `android` or `ios`.
 
 ---
 
@@ -72,25 +79,39 @@ project's existing SDK credential/secret-resolution flow. Treat explicit inline
 fallback for one-off local troubleshooting only -- never as the default or a
 committed script.
 
+**Web:**
 ```bash
 mvn test -Dsurefire.suiteXmlFiles=crawler_suite.xml \
          -Denvironment=${environment} -DbrowserName=chrome \
          -Dinv.email=${email} -Dinv.password=${password}
 ```
+Review `test-output/crawler/` report. Use **only `UNIQUE [x]` locators**. Follow
+`locator-strategy.instructions.md`.
 
-Review `test-output/crawler/` report. Use **only `UNIQUE [x]` locators**.
+**Mobile (android/ios):**
+```bash
+mvn test -Dsurefire.suiteXmlFiles=mobile_crawler_suite.xml \
+         -Denvironment=${environment} -DmobileOS=${platform} \
+         -Dinv.email=${email} -Dinv.password=${password}
+```
+Review the mobile crawler report. Use only `UNIQUE` locators and reject anything
+flagged `DYNAMIC`/`STRUCTURAL`. Follow `mobile-locator-strategy.instructions.md`
+(priority ladder, recycled-list-id rejection, React Native fallback rules).
+
 If no stable locators found for a required element -- write a blocker entry (see Step 6).
 
 ### Step 2 -- Create or Verify Page Object
-- If page object for this page exists in `uiActions/`, verify all locators are current.
-- If it does not exist, create it following `page-object-creation.instructions.md`.
-- Every `@FindBy` must be `UNIQUE [x]` from the crawler report.
+- If page object for this page/screen exists in `uiActions/`, verify all locators are current.
+- **Web**: create following `page-object-creation.instructions.md` (class extends `TestBase`, `@FindBy` XPath only).
+- **Mobile**: create a class extending `MobileTestBase` with `@AndroidFindBy`/`@iOSXCUITFindBy` annotations, following the same locator-uniqueness discipline via `mobile-locator-strategy.instructions.md`.
+- Every locator must be `UNIQUE [x]` (web) / `UNIQUE` (mobile) from the crawler report.
 - **All test case steps must be represented by page object methods** -- if a step
   requires an action not yet in the page object, add the method now.
 
 ### Step 3 -- Create Test Class -- Full Step Coverage Required
 Follow `test-creation.instructions.md` exactly:
-- Class extends `TestBase`
+- **Web**: class extends `TestBase`.
+- **Mobile**: class extends `MobileTestBase` and supplies `mobileOS`/`deviceName` TestNG parameters instead of `browserName`.
 - Generate code compatible with Java 20 or newer (`Java >=20`). Do not downlevel generated code to Java 8.
 - `@DataProvider` backed by Excel sheet `${Excel sheet name}`
 - **Strict 1:1 Test Case Generation Contract**: one Azure Test Case ID MUST produce exactly one `@Test` method. Never split one TC ID's steps, preconditions, validations, cleanup, alternate UI paths, or many assertions across multiple `@Test` methods. This rule has higher priority than granularity, readability, decomposition, or attempts to create smaller independent tests. Helper methods (`login()`, `createRequest()`, `validateRequest()`, etc.) are encouraged for readability, but helper methods must NOT carry `@Test` unless they represent a genuinely separate Azure TC ID. Distinct Azure TC IDs in the input must equal generated `@Test` method count (for example: 3 distinct TC IDs -> exactly 3 `@Test` methods). This contract concerns `@Test` METHOD count, not TestNG runtime invocation count -- one `@Test(dataProvider = "data")` method with 10 rows is still one `@Test` method. Before returning code, self-validate: (1) extract distinct TC IDs, (2) count them, (3) count generated `@Test` annotations, (4) verify counts match, (5) verify each `@Test` maps to exactly one TC ID, (6) verify no TC ID maps to multiple `@Test` methods, and (7) verify helper methods contain no `@Test`. If any check fails, the result is INVALID and must be corrected before returning it. See `formal-testcase-to-script.instructions.md` for full contract and examples.

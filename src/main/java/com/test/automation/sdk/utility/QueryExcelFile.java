@@ -68,10 +68,10 @@ public class QueryExcelFile {
 	}
 
 	public static void main(String[] args) throws ClassNotFoundException, SQLException, InvalidFormatException, IOException {
-		//String quary = "SELECT TestCaseName,Email,Password,RunMode FROM POLETOP_NONPROD_TestData";
-		String quary = "SELECT TestCaseName,Email,Password,RunMode FROM POLETOP_PROD_TestData";
+		//String quary = "SELECT TestCaseName,Email,Password,RunMode FROM SAMPLE_NONPROD_TestData";
+		String quary = "SELECT TestCaseName,Email,Password,RunMode FROM SAMPLE_PROD_TestData";
 		String sheetName = "SocialMedia";
-		String documentName = System.getProperty("user.dir") + "/src/main/resources/sdk-defaults/" + "POLETOP_NONPROD_TestData.xlsx";
+		String documentName = System.getProperty("user.dir") + "/src/main/resources/sdk-defaults/" + "SAMPLE_NONPROD_TestData.xlsx";
 
 		Object[][] data = getDataFromSheet(documentName,sheetName,quary);
 	}

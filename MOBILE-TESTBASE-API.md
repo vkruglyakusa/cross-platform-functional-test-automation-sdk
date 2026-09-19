@@ -72,7 +72,7 @@ set in `setUpDriver`. Throws `IllegalStateException` if neither source is set.
 if (verifyIfDeviceIphone()) {
     // iOS-specific step
 } else {
-    new PermissionControllerPopUp(driver).allow();
+    new PermissionDialog(driver).allow();
 }
 ```
 

@@ -66,7 +66,7 @@ roadmap** (section 20/30). Reviewing it against the current codebase found:
      multi-session YAML) should not be built speculatively; this follows the
      document's own Guardrail #10 ("Do not add layers without a concrete
      second implementation or responsibility"). No current consumer project
-     (`311-Automation-SDK`, `mobile-functional-automation-consumer-template`)
+     (`external consumer project`, `mobile-functional-automation-consumer-template`)
      has a hybrid-session test case today.
 4. This section's roadmap numbering (Phase 1–12 in sections 20/30) should be
    updated to insert multi-session work explicitly once Phase 3 is underway,

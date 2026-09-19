@@ -25,7 +25,7 @@ import java.util.List;
  *
  * Example:
  * <pre>
- *   CrawlerScenario tc = CrawlerScenario.fromTestCase("TC-311 Noise Complaint",
+ *   CrawlerScenario tc = CrawlerScenario.fromTestCase("TC-SAMPLE-001 Sample Workflow",
  *       CrawlerStep.selectByLabel("Complaint Type", "Noise")
  *                  .describe("Step 1: Select Complaint Type = Noise"),
  *       CrawlerStep.selectByLabel("Noise Category", "Music")
@@ -82,7 +82,7 @@ public class CrawlerScenario {
      * Snapshot-after-each-step is enabled automatically so every DOM change
      * is captured as the crawler follows the complete test case flow.
      *
-     * @param testCaseName human-readable test case name (e.g. "TC-311: Noise Complaint")
+     * @param testCaseName human-readable test case name (e.g. "TC-SAMPLE-001: Sample Workflow")
      * @param steps        ordered list of steps from the test case
      */
     public static CrawlerScenario fromTestCase(String testCaseName, List<CrawlerStep> steps) {

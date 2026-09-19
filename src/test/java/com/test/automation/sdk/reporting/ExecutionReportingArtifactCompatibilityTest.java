@@ -38,17 +38,26 @@ class ExecutionReportingArtifactCompatibilityTest {
 
         String allureJson = Files.readString(findSingleFile(workDir.resolve("allure-results"), "-result.json"), StandardCharsets.UTF_8);
         assertTrue(allureJson.contains("\"name\":\"sdk-reporting-pass\""));
+        assertTrue(allureJson.contains("\"name\":\"parentSuite\",\"value\":\"Example Suite Name\""), allureJson);
+        assertTrue(allureJson.contains("\"name\":\"suite\",\"value\":\"Example Test Group\""), allureJson);
+        assertTrue(allureJson.contains("\"name\":\"subSuite\",\"value\":\"StepEnabledProbeTestBase\""), allureJson);
         assertTrue(allureJson.contains("\"name\":\"Step 1: Initialization\""), allureJson);
         assertTrue(allureJson.contains("\"name\":\"Step 2: Verify announcements section\""), allureJson);
         assertTrue(allureJson.contains("\"status\":\"passed\""), allureJson);
 
         String extentHtml = Files.readString(workDir.resolve("extent").resolve("Test-Automaton-Report.html"), StandardCharsets.UTF_8);
         assertTrue(extentHtml.contains("ADO-900 Pass Story"), "Extent report missing test case name");
+        assertTrue(extentHtml.contains("Example Suite Name"), "Extent report missing suite metadata");
+        assertTrue(extentHtml.contains("Example Test Group"), "Extent report missing TestNG test metadata");
         assertTrue(extentHtml.contains("Initialization"), "Extent report missing first step");
         assertTrue(extentHtml.contains("Verify announcements section"), "Extent report missing second step");
 
         String logOutput = Files.readString(workDir.resolve("logs").resolve("sdk-reporting.log"), StandardCharsets.UTF_8);
+        assertTrue(logOutput.contains("Suite started: Example Suite Name"), logOutput);
+        assertTrue(logOutput.contains("Suite completed: Example Suite Name"), logOutput);
         assertTrue(logOutput.contains("TEST_STARTED"), logOutput);
+        assertTrue(logOutput.contains("suite=Example Suite Name"), logOutput);
+        assertTrue(logOutput.contains("testngTest=Example Test Group"), logOutput);
         assertTrue(logOutput.contains("STEP_PASSED"), logOutput);
         assertTrue(logOutput.contains("Initialization"), logOutput);
         assertFalse(logOutput.contains("beforeFindElement"), "Low-level Selenium noise should not dominate INFO log");
@@ -64,6 +73,8 @@ class ExecutionReportingArtifactCompatibilityTest {
         runProbe(workDir, FailingExecutionReportingProbe.class.getName());
 
         String allureJson = Files.readString(findSingleFile(workDir.resolve("allure-results"), "-result.json"), StandardCharsets.UTF_8);
+        assertTrue(allureJson.contains("\"name\":\"parentSuite\",\"value\":\"Example Suite Name\""), allureJson);
+        assertTrue(allureJson.contains("\"name\":\"suite\",\"value\":\"Example Test Group\""), allureJson);
         assertTrue(allureJson.contains("\"status\":\"failed\""), allureJson);
         assertTrue(allureJson.contains("\"name\":\"Step 2: Verify links\""), allureJson);
         assertTrue(allureJson.contains("\"message\":\"Intentional reporting failure\""), allureJson);
@@ -77,13 +88,25 @@ class ExecutionReportingArtifactCompatibilityTest {
 
         String extentHtml = Files.readString(workDir.resolve("extent").resolve("Test-Automaton-Report.html"), StandardCharsets.UTF_8);
         assertTrue(extentHtml.contains("ADO-901 Fail Story"), "Extent report missing failing test case name");
+        assertTrue(extentHtml.contains("Example Suite Name"), "Extent report missing failing suite metadata");
         assertTrue(extentHtml.contains("Verify links"), "Extent report missing failing step");
         assertTrue(extentHtml.contains("failure.png"), "Extent report missing screenshot evidence");
 
         String logOutput = Files.readString(workDir.resolve("logs").resolve("sdk-reporting.log"), StandardCharsets.UTF_8);
+        assertTrue(logOutput.contains("Suite started: Example Suite Name"), logOutput);
         assertTrue(logOutput.contains("TEST_FAILED"), logOutput);
         assertTrue(logOutput.contains("Verify links"), logOutput);
         assertTrue(logOutput.contains("Intentional reporting failure"), logOutput);
+
+        // SDK v1.5.1 -- additional, optional diagnostic evidence must also reach
+        // both Allure and Extent, reusing the same generic evidence pipeline as
+        // screenshot/DOM (no separate attachment mechanism was introduced).
+        assertTrue(attachmentBodies.stream().anyMatch(body -> body.contains("Uncaught TypeError")),
+                "Expected browser console log attachment content");
+        assertTrue(attachmentBodies.stream().anyMatch(body -> body.contains("\"method\": \"GET\"")),
+                "Expected network trace attachment content");
+        assertTrue(extentHtml.contains("Browser Console Log"), "Extent report missing browser console evidence reference");
+        assertTrue(extentHtml.contains("Network Trace"), "Extent report missing network trace evidence reference");
     }
 
     private void writeReportingConfig(Path workDir) throws IOException {
@@ -186,7 +209,7 @@ class ExecutionReportingArtifactCompatibilityTest {
         try (Stream<Path> files = Files.list(dir)) {
             return files
                     .filter(Files::isRegularFile)
-                    .filter(path -> !path.getFileName().toString().endsWith(".json"))
+                    .filter(path -> !path.getFileName().toString().endsWith("-result.json"))
                     .map(path -> {
                         try {
                             return Files.readString(path, StandardCharsets.UTF_8);
@@ -201,10 +224,13 @@ class ExecutionReportingArtifactCompatibilityTest {
 
 class PassingExecutionReportingProbe {
 
+    static final String SUITE_NAME = "Example Suite Name";
+    static final String TEST_NG_TEST_NAME = "Example Test Group";
+
     public static void main(String[] args) throws Exception {
         StepEnabledProbeTestBase base = new StepEnabledProbeTestBase();
         TestResult allureResult = startAllureTest("sdk-reporting-pass");
-        org.testng.ITestResult testNgResult = ProbeResults.mockResult("sdkReportingPass");
+        org.testng.ITestResult testNgResult = ProbeResults.mockResult(SUITE_NAME, TEST_NG_TEST_NAME, "sdkReportingPass");
 
         TestBase.setCurrentTestCaseName("ADO-900 Pass Story");
         ExecutionReporting.setReporterForTests(new CompositeExecutionReporter(
@@ -212,6 +238,7 @@ class PassingExecutionReportingProbe {
                 new AllureExecutionReporter(),
                 new ExtentExecutionReporter()));
 
+        ExecutionReporting.onSuiteStarted(ProbeResults.mockSuite(SUITE_NAME));
         ExecutionReporting.onTestStarted(testNgResult);
         base.runStep("Initialization", new TestBase.StepAction() {
             @Override
@@ -224,6 +251,7 @@ class PassingExecutionReportingProbe {
             }
         });
         ExecutionReporting.onTestPassed(testNgResult);
+        ExecutionReporting.onSuiteFinished(ProbeResults.mockSuite(SUITE_NAME));
 
         finishAllureTest(allureResult, Status.PASSED);
         com.test.automation.sdk.utility.reports.ExtentTestManager.endTest();
@@ -251,7 +279,10 @@ class FailingExecutionReportingProbe {
     public static void main(String[] args) throws Exception {
         StepEnabledProbeTestBase base = new StepEnabledProbeTestBase();
         TestResult allureResult = PassingExecutionReportingProbe.startAllureTest("sdk-reporting-fail");
-        org.testng.ITestResult testNgResult = ProbeResults.mockResult("sdkReportingFail");
+        org.testng.ITestResult testNgResult = ProbeResults.mockResult(
+                PassingExecutionReportingProbe.SUITE_NAME,
+                PassingExecutionReportingProbe.TEST_NG_TEST_NAME,
+                "sdkReportingFail");
 
         TestBase.setCurrentTestCaseName("ADO-901 Fail Story");
         ExecutionReporting.setReporterForTests(new CompositeExecutionReporter(
@@ -259,6 +290,7 @@ class FailingExecutionReportingProbe {
                 new AllureExecutionReporter(),
                 new ExtentExecutionReporter()));
 
+        ExecutionReporting.onSuiteStarted(ProbeResults.mockSuite(PassingExecutionReportingProbe.SUITE_NAME));
         ExecutionReporting.onTestStarted(testNgResult);
         base.runStep("Initialization", new TestBase.StepAction() {
             @Override
@@ -279,12 +311,19 @@ class FailingExecutionReportingProbe {
             Files.createDirectories(evidenceDir);
             Path screenshot = evidenceDir.resolve("failure.png");
             Path dom = evidenceDir.resolve("failure_DOM.html");
+            Path console = evidenceDir.resolve("failure_console.log");
+            Path network = evidenceDir.resolve("failure_network-trace.json");
             FileUtils.writeStringToFile(screenshot.toFile(), "fake image body", StandardCharsets.UTF_8.name());
             FileUtils.writeStringToFile(dom.toFile(), "<html>failure dom</html>", StandardCharsets.UTF_8.name());
+            FileUtils.writeStringToFile(console.toFile(), "Uncaught TypeError: x is not a function", StandardCharsets.UTF_8.name());
+            FileUtils.writeStringToFile(network.toFile(), "{\"log\":{\"entries\":[{\"request\":{\"method\": \"GET\"}}]}}", StandardCharsets.UTF_8.name());
             ExecutionReporting.onTestFailed(testNgResult, expected, java.util.Arrays.asList(
                     ExecutionEvidence.screenshot("Failure Screenshot", screenshot),
-                    ExecutionEvidence.domDump("Failure DOM", dom)));
+                    ExecutionEvidence.domDump("Failure DOM", dom),
+                    ExecutionEvidence.browserConsole("Browser Console Log", console),
+                    ExecutionEvidence.networkTrace("Network Trace", network)));
         }
+        ExecutionReporting.onSuiteFinished(ProbeResults.mockSuite(PassingExecutionReportingProbe.SUITE_NAME));
 
         PassingExecutionReportingProbe.finishAllureTest(allureResult, Status.FAILED);
         com.test.automation.sdk.utility.reports.ExtentTestManager.endTest();
@@ -295,16 +334,28 @@ class FailingExecutionReportingProbe {
 
 class ProbeResults {
 
-    static org.testng.ITestResult mockResult(String methodName) {
+    static org.testng.ITestResult mockResult(String suiteName, String testNgTestName, String methodName) {
         org.testng.ITestResult result = org.mockito.Mockito.mock(org.testng.ITestResult.class);
         org.testng.ITestNGMethod testNgMethod = org.mockito.Mockito.mock(org.testng.ITestNGMethod.class);
         org.testng.ITestClass testClass = org.mockito.Mockito.mock(org.testng.ITestClass.class);
+        org.testng.ITestContext testContext = org.mockito.Mockito.mock(org.testng.ITestContext.class);
+        org.testng.ISuite suite = mockSuite(suiteName);
+
+        org.mockito.Mockito.when(testContext.getSuite()).thenReturn(suite);
+        org.mockito.Mockito.when(testContext.getName()).thenReturn(testNgTestName);
         org.mockito.Mockito.when(testClass.getRealClass()).thenReturn((Class) StepEnabledProbeTestBase.class);
         org.mockito.Mockito.when(testNgMethod.getMethodName()).thenReturn(methodName);
         org.mockito.Mockito.when(result.getTestClass()).thenReturn(testClass);
         org.mockito.Mockito.when(result.getMethod()).thenReturn(testNgMethod);
         org.mockito.Mockito.when(result.getName()).thenReturn(methodName);
+        org.mockito.Mockito.when(result.getTestContext()).thenReturn(testContext);
         return result;
+    }
+
+    static org.testng.ISuite mockSuite(String suiteName) {
+        org.testng.ISuite suite = org.mockito.Mockito.mock(org.testng.ISuite.class);
+        org.mockito.Mockito.when(suite.getName()).thenReturn(suiteName);
+        return suite;
     }
 }
 
