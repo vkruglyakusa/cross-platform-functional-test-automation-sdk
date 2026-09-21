@@ -30,7 +30,7 @@
       Password: your Personal Access Token (PAT)
     -->
     <server>
-      <id>functional-test-automation-sdk</id>
+      <id>cross-platform-functional-test-automation-sdk</id>
       <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
       <password>YOUR_PAT_HERE</password>
       <configuration>

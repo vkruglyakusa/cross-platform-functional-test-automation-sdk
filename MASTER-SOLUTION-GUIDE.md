@@ -2,7 +2,7 @@
 
 ## Architecture, SDK, Consumer Templates, Configuration, Execution, Reporting, and Operations Guide
 
-- **Current SDK version:** 1.5.1
+- **Current SDK version:** 1.5.2
 - **Document version:** 1.0
 - **Last updated:** 2026-09-18
 - **Owning team:** OTI QA Automation
@@ -160,14 +160,14 @@ flowchart TB
 
 - **Purpose:** shared automation framework — driver/session management, reporting, evidence, RCA, crawlers, self-healing, visual regression, accessibility, analytics, Test Impact Analysis, and Copilot resources.
 - **Ownership:** OTI QA Automation.
-- **Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk`, current version **1.5.1** (`pom.xml:6-8`).
+- **Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk`, current version **1.5.2** (`pom.xml:6-8`).
 - **Java:** 20 (`pom.xml:22-25`).
 - **Consumer Maven dependency:**
   ```xml
   <dependency>
       <groupId>com.test.automation</groupId>
       <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-      <version>1.5.1</version>
+      <version>1.5.2</version>
   </dependency>
   ```
 - **Major packages** (see Section 3/architecture and Section 6-23 for detail): `config`, `testbase`, `api`, `mobile`, `driver`, `execution`, `session`, `listener`, `reporting`, `evidence`, `evidence.network`, `discovery`, `utility`, `tools.crawler.web`, `tools.crawler.mobile`, `tools.locator`, `tools.pageobject`, `healing`, `visual`, `accessibility`, `impact`, `flaky`.
@@ -741,7 +741,7 @@ mvn exec:java -Dexec.mainClass="com.test.automation.sdk.utility.InstructionExtra
 
 1. **Prerequisites:** Java 20+, Maven, Chrome/Edge installed locally, access to the SDK Maven artifact (Azure Artifacts feed or the local `maven-repository` fallback).
 2. **Clone/create:** clone `functional-automation-consumer-template`, rename the Maven `artifactId`/`groupId` as appropriate.
-3. **Set SDK dependency:** confirm `pom.xml`'s SDK `<version>` matches the intended release (currently `1.5.1`).
+3. **Set SDK dependency:** confirm `pom.xml`'s SDK `<version>` matches the intended release (currently `1.5.2`).
 4. **Configure project:** update `configuration/config.properties` (base URLs, data-set file names) and `configuration/sdk-config.yaml` (browser, evidence, reporting).
 5. **Configure environment:** decide the environment key(s) you will pass via `-Denvironment=...` (the established convention in this workspace is `stg` only — see Section 40).
 6. **Create test:** add a page object under `uiActions/` and a test class under `testCases/`, following `WikipediaSearchTest`/`Test_Example` as reference patterns.
@@ -858,9 +858,9 @@ Common local-only flags: `-DbrowserName=chrome|edge|firefox`, `-Denvironment=stg
 
 ## 29. SDK Versioning and Release Management
 
-- **Scheme:** semantic versioning (`MAJOR.MINOR.PATCH`), e.g. `1.5.1`.
+- **Scheme:** semantic versioning (`MAJOR.MINOR.PATCH`), e.g. `1.5.2`.
 - **Release branch convention:** work happens on `master` first; only merge/push to `trunk` (the production branch) once users have evaluated and approved the changes (established convention for newer, in-progress SDK/template repos).
-- **Tag convention:** annotated tag `vMAJOR.MINOR.PATCH` (e.g. `v1.5.1`) created on the exact release commit.
+- **Tag convention:** annotated tag `vMAJOR.MINOR.PATCH` (e.g. `v1.5.2`) created on the exact release commit.
 - **CHANGELOG:** maintained per release; must describe user-facing behavior changes, fixes, and known limitations (not just a commit list).
 - **Deployment:** the SDK jar (+ sources + javadoc) is deployed to a Maven repository — either the org's Azure Artifacts feed (when credentials/PAT are available) or the git-backed local file repository at `maven-repository` (`trunk` branch) as an interim fallback. `mvn install` only installs to the local `~/.m2` cache and is **not** equivalent to publishing a shared artifact.
 - **Consumer template version bump procedure:** after an SDK release, bump the `<version>` in each of the three templates' `pom.xml`, then update each template's `README.md`/`GETTING-STARTED.md` version references to match (**do not update `pom.xml` only** — this was an actual discrepancy found and corrected during this SDK v1.5.1 cycle; see audit report).
@@ -1006,17 +1006,17 @@ The workspace history includes a real cross-platform migration exemplar: the `31
 
 ---
 
-## 40. Validation Status (Current, as of v1.5.1)
+## 40. Validation Status (Current, as of v1.5.2)
 
 - **SDK regression:** 701/701 tests passing.
-- **Web consumer template:** validated against SDK 1.5.1 (compile, test-compile, smoke test).
-- **API consumer template:** validated against SDK 1.5.1 (2/2 tests passing, requires `-Denvironment=stg`).
-- **Mobile consumer template:** validated against SDK 1.5.1 for **compile and XML validity only** — no live Appium/device/emulator execution was performed in this cycle.
-- **Poletop_Automation:** used for **validation only** (WebEventListener fix, Allure lifecycle fix) — not part of the official template set, not pushed as part of the v1.5.1 release.
+- **Web consumer template:** validated against SDK 1.5.2 (compile, test-compile, smoke test).
+- **API consumer template:** validated against SDK 1.5.2 (2/2 tests passing, requires `-Denvironment=stg`).
+- **Mobile consumer template:** validated against SDK 1.5.2 for **compile and XML validity only** — no live Appium/device/emulator execution was performed in this cycle.
+- **Poletop_Automation:** used for **validation only** (WebEventListener fix, Allure lifecycle fix, Allure `updateTestCase` race fix) — not part of the official template set, not pushed as part of the v1.5.2 release.
 - **Environment convention:** this workspace's actual validated environment is **STG only** (`-Denvironment=stg`); DEV/TST/NONPROD/PROD config/data files exist in some repos but are not exercised in practice.
 - **Network trace:** CDP mismatch (adapter v146 vs. installed Chrome/Edge 153) was detected correctly and failed safely; end-to-end network-trace generation was **not validated** on the current environment.
 - **Secret redaction:** covered by automated tests.
-- **Artifact publishing:** SDK 1.5.1 jar/sources/javadoc deployed to the local git-backed `maven-repository` (`trunk`); Azure Artifacts feed deployment not performed in this cycle (no PAT available at the time).
+- **Artifact publishing:** SDK 1.5.2 jar/sources/javadoc deployed to the local git-backed `maven-repository` (`trunk`); Azure Artifacts feed deployment not performed in this cycle (no PAT available at the time).
 
 ---
 
@@ -1026,10 +1026,10 @@ The workspace history includes a real cross-platform migration exemplar: the `31
 |---|---|---|---|
 | 1 | Network trace not end-to-end validated on current Chrome/Edge 153 | Documented, fail-safe | Adapter pinned to CDP v146; mismatch detected correctly, no test impact |
 | 2 | Firefox has no browser console or network-trace evidence | Permanent (CDP-only feature) | Not a regression; Firefox never supported these |
-| 3 | `AllureLifecycle` "could not update test case" cosmetic log message during `@BeforeMethod` | Pre-existing, cosmetic only | Does not affect attachments/outcome; tracked for a future maintenance release |
+| 3 | ~~`AllureLifecycle` "could not update test case" cosmetic log message during `@BeforeMethod`~~ | **Resolved in v1.5.2** | Root cause was a reactive `AllureExecutionReporter.applyTestMetadata()`/`updateTestCase()` call racing `AllureTestNg`'s own listener; removed and replaced with a race-free `AllureLabelLifecycleListener.afterTestWrite(...)`-scoped label lifecycle — see `CHANGELOG.md` `[1.5.2]` |
 | 4 | ~~Dual crawler implementations~~ | **Resolved (investigated, not a real duplication)** | Confirmed the `utility.*`/`mobile.crawler.*` classes are `@Deprecated` compatibility facades delegating to the single canonical `tools.crawler.*`/`tools.pageobject.*` implementation — see Sections 15/16 |
 | 5 | ~~Mobile template lacks `.sdkhash` sidecars~~ | **Resolved** | `InstructionExtractor` run against the Mobile template; `.github/instructions/`, `.github/prompts/`, and `.sdkhash` sidecars for `configuration/*.template`/`docs/sdk/*.md` now present, matching Web/API |
-| 6 | Mobile live Appium/device/emulator execution not performed for the v1.5.1 cycle | Documented gap | Only compile + XML validity confirmed; unchanged by this cleanup pass |
+| 6 | Mobile live Appium/device/emulator execution not performed for the v1.5.1/v1.5.2 cycles | Documented gap | Only compile + XML validity confirmed; unchanged by this cleanup pass |
 | 7 | Visual regression not documented as validated on Mobile | Documented gap | No evidence of a validated mobile visual-regression run found in source |
 | 8 | Azure Artifacts feed deployment not performed | Deferred, not a defect | Local git-backed `maven-repository` used as interim publishing mechanism |
 | 9 | ~~No standalone RCA JSON schema fixture~~ | **Resolved** | Added `src/main/resources/ai/schemas/rca-bundle-v1.schema.json`, verified against `RcaBundleWriter.toJson(...)` — see Section 14 |
@@ -1084,7 +1084,7 @@ The workspace history includes a real cross-platform migration exemplar: the `31
 This guide was compiled from direct inspection of:
 - SDK `pom.xml`, `ConfigurationManager.java`, `WebEventListener.java`, `Listener.java`, reporting/evidence/RCA classes, crawler packages (`utility.*` and `tools.*`), healing package, visual/accessibility/analytics/flaky/impact packages, and `src/main/resources/sdk-instructions|sdk-prompts|ai/` resources.
 - Each consumer template's `pom.xml`, directory structure, test/page/screen object samples, `sdk-config.yaml`/`mobile-config.yaml`, TestNG suite XML files, and pipeline templates.
-- This session's own SDK v1.5.1 release work (commit SHAs, tag, publishing report) as the authoritative record of what was actually shipped and validated.
+- This project's SDK v1.5.1 and v1.5.2 release work (commit SHAs, tags, publishing reports) as the authoritative record of what was actually shipped and validated.
 
 No section in this document relies solely on unverified prior documentation.
 

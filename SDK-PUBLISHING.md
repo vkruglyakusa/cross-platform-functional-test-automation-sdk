@@ -29,7 +29,7 @@ Produces in `~/.m2`:
 
 Feed URL (Azure DevOps):
 ```
-https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1
+https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/cross-platform-functional-test-automation-sdk/maven/v1
 ```
 
 The `<distributionManagement>` block in `pom.xml` already points to this feed.
@@ -51,7 +51,7 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
 
   <servers>
     <server>
-      <id>functional-test-automation-sdk</id>
+      <id>cross-platform-functional-test-automation-sdk</id>
       <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
       <password>YOUR_PAT_HERE</password>  <!-- PAT scope: Packaging Read+Write -->
     </server>
@@ -82,7 +82,7 @@ Add to `%USERPROFILE%\.m2\settings.xml`. This is a **one-time setup per machine*
 
   <servers>
     <server>
-      <id>functional-test-automation-sdk</id>
+      <id>cross-platform-functional-test-automation-sdk</id>
       <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
       <password>YOUR_PAT_HERE</password>  <!-- PAT scope: Packaging Read+Write -->
       <configuration>

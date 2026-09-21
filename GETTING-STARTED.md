@@ -77,7 +77,7 @@ This places the jar in:
 <repositories>
     <repository>
         <id>cross-platform-functional-test-automation-sdk</id>
-        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/cross-platform-functional-test-automation-sdk/maven/v1</url>
         <releases><enabled>true</enabled></releases>
         <snapshots><enabled>true</enabled></snapshots>
     </repository>
@@ -116,7 +116,24 @@ This places the jar in:
 
 ## Step 4 -- Extract Copilot Instructions
 
-Run this once per consumer project, and again after every SDK upgrade:
+Run this once per consumer project, and again after every SDK upgrade.
+
+**Preferred: use the wrapper script.** All official consumer templates (Web, API,
+Mobile) already include `extract-instructions.ps1`/`extract-instructions.sh` at the
+project root -- run that instead of typing the raw Maven command by hand:
+
+```bash
+# Windows (PowerShell)
+./extract-instructions.ps1
+
+# macOS/Linux
+./extract-instructions.sh
+```
+
+If your project doesn't have the wrapper script yet, run the underlying command
+directly -- **type it manually rather than copy-pasting it from a chat message**;
+copy-pasting from chat clients can silently introduce a stray space or line-break
+and produce a confusing `Unknown lifecycle phase` error:
 
 ```bash
 mvn exec:java "-Dexec.mainClass=com.test.automation.sdk.utility.InstructionExtractor"
@@ -331,6 +348,7 @@ If compile and the smoke test both succeed, your setup is complete.
 | `Could not resolve dependencies... cross-platform-functional-test-automation-sdk` | SDK not installed locally and feed auth is missing or wrong | Re-run Step 2 for a local install, or fix Step 3C feed credentials. |
 | `UnsupportedClassVersionError` at runtime | Maven is running on a JVM older than Java 20 | Point `JAVA_HOME` and your IDE/test runner to JDK 20+. |
 | `mvn exec:java` cannot find `InstructionExtractor` | `exec-maven-plugin` missing from the consumer `pom.xml` | Add the plugin block from Step 3D. |
+| `Unknown lifecycle phase ".mainClass=...InstructionExtractor"` | The command was copy-pasted from a chat client that stripped/added a space between `exec` and `.mainClass=` | Use `./extract-instructions.ps1` / `.sh`, or retype the raw command manually -- never copy-paste it from chat. |
 | WebDriver fails to start | Browser/driver mismatch or corporate proxy interference | Leave `browser.chromeDriverPath` empty for WebDriverManager, or configure `proxy.*` / pin a known-good driver path. |
 | Appium local session fails immediately | Emulator/device not running, Appium not started, or wrong `appium.localUrl` | Re-check `adb devices`, `appium`, and the `appium.localUrl` value. |
 | BrowserStack session fails before app launch | `browserstack.yml` missing/misplaced or credentials invalid | Keep `browserstack.yml` at project root and verify `BROWSERSTACK_USERNAME` / `BROWSERSTACK_ACCESS_KEY`. |

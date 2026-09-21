@@ -77,7 +77,7 @@ This places the jar in:
 <repositories>
     <repository>
         <id>cross-platform-functional-test-automation-sdk</id>
-        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/cross-platform-functional-test-automation-sdk/maven/v1</url>
         <releases><enabled>true</enabled></releases>
         <snapshots><enabled>true</enabled></snapshots>
     </repository>

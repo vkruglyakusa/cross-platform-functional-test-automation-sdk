@@ -188,8 +188,8 @@ Also add the Azure Artifacts repository so Maven knows where to download it from
 ```xml
 <repositories>
     <repository>
-        <id>functional-test-automation-sdk</id>
-        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+        <id>cross-platform-functional-test-automation-sdk</id>
+        <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/cross-platform-functional-test-automation-sdk/maven/v1</url>
         <releases><enabled>true</enabled></releases>
         <snapshots><enabled>false</enabled></snapshots>
     </repository>
@@ -385,14 +385,14 @@ exact same id:
 
 ```xml
 <repository>
-  <id>functional-test-automation-sdk</id>
-  <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+  <id>cross-platform-functional-test-automation-sdk</id>
+  <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/cross-platform-functional-test-automation-sdk/maven/v1</url>
 </repository>
 ```
 
 ```xml
 <server>
-  <id>functional-test-automation-sdk</id>
+  <id>cross-platform-functional-test-automation-sdk</id>
   <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
   <password>YOUR_PAT_HERE</password>
 </server>
@@ -503,7 +503,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 
   <servers>
     <server>
-      <id>functional-test-automation-sdk</id>
+      <id>cross-platform-functional-test-automation-sdk</id>
       <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
       <password>YOUR_PAT_HERE</password>
     </server>
@@ -534,7 +534,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 
   <servers>
     <server>
-      <id>functional-test-automation-sdk</id>
+      <id>cross-platform-functional-test-automation-sdk</id>
       <username>clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d</username>
       <password>YOUR_PAT_HERE</password>
       <configuration>
@@ -687,8 +687,8 @@ injected `<server>` credentials apply to which repository:
 
 ```xml
 <repository>
-  <id>functional-test-automation-sdk</id>
-  <url>https://pkgs.dev.azure.com/<Org>/<Project>/_packaging/functional-test-automation-sdk/maven/v1</url>
+  <id>cross-platform-functional-test-automation-sdk</id>
+  <url>https://pkgs.dev.azure.com/<Org>/<Project>/_packaging/cross-platform-functional-test-automation-sdk/maven/v1</url>
 </repository>
 ```
 

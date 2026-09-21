@@ -1,5 +1,11 @@
 # SDK Fix Prompt: Allure `updateTestCase` Lifecycle Race — "Could not update test case: test case with uuid X not found"
 
+> **Status: RESOLVED in SDK v1.5.2.** See `CHANGELOG.md` `[1.5.2]` and
+> `SDK-USER-GUIDE.md` §13.4.1 for the shipped fix description. This document
+> is retained as the original root-cause investigation/fix-request record;
+> its body below (including "SDK 1.5.1") describes the state *at the time
+> the bug was found and diagnosed*, prior to the fix.
+
 ## Where
 - **Repo**: `cross-platform-functional-test-automation-sdk`
 - **File**: `src/main/java/com/test/automation/sdk/reporting/AllureExecutionReporter.java`

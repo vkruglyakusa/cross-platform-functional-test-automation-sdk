@@ -130,8 +130,8 @@ are starting, or follow Option B below to add the SDK to an existing project.
 ```xml
 <repositories>
   <repository>
-    <id>functional-test-automation-sdk</id>
-    <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/functional-test-automation-sdk/maven/v1</url>
+    <id>cross-platform-functional-test-automation-sdk</id>
+    <url>https://clt-40ea1dd4-1b0b-4f09-89ee-422fdfbba51d.pkgs.visualstudio.com/_packaging/cross-platform-functional-test-automation-sdk/maven/v1</url>
   </repository>
 </repositories>
 ```
@@ -150,7 +150,7 @@ For CI, prefer secret-backed `settings.xml` injection or `MavenAuthenticate@0`
 rather than storing or echoing credentials inline.
 ```xml
 <server>
-  <id>functional-test-automation-sdk</id>
+  <id>cross-platform-functional-test-automation-sdk</id>
   <username>YOUR_AZURE_ARTIFACTS_USERNAME</username>
   <password>YOUR_PAT_HERE</password>  <!-- PAT scope: Packaging -> Read -->
 </server>
