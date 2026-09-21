@@ -158,6 +158,19 @@
             <artifactId>log4j-slf4j2-impl</artifactId>
             <version>2.20.0</version>
         </dependency>
+        <!-- JUnit 5 API — needed ONLY to compile the optional A11yExtension/@EnableA11y
+             JUnit 5 integration. scope=provided + optional=true is deliberate: this SDK is
+             primarily TestNG-based (testng is a hard compile dependency above), so this must
+             NOT become a transitive runtime dependency forced onto every TestNG-only consumer.
+             A JUnit 5 consumer project already has junit-jupiter on its own classpath at
+             runtime; provided+optional just lets our extension compile against the API here. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.9.3</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
 
         <!-- SDK unit tests -->
         <dependency>
@@ -189,6 +202,26 @@
     </dependencies>
 
     <build>
+        <!-- Only the accessibility library-version stamp is filtered (Maven substitutes
+             ${project.version} into it at build time); every other resource is copied
+             as-is so binary/report template resources are never accidentally mangled
+             by property-placeholder substitution. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>accessibility/a11y-library-version.properties</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>accessibility/a11y-library-version.properties</include>
+                </includes>
+            </resource>
+        </resources>
         <extensions>
             <!-- Enables preemptive HTTPS authentication for Azure Artifacts deploy -->
             <extension>

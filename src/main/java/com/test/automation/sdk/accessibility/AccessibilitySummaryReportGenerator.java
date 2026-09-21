@@ -13,11 +13,13 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -104,12 +106,57 @@ public final class AccessibilitySummaryReportGenerator {
                     }
                     record.violations.add(vd);
                 }
+                applySuppression(record);
                 records.add(record);
             } catch (Exception ex) {
                 logger.debug("Skipping malformed accessibility artifact {}: {}", file, ex.getMessage());
             }
         }
         return records;
+    }
+
+    /**
+     * Moves actively-suppressed (verified false positive) violations out of the
+     * counted totals for this scan and into {@code record.suppressedViolations}.
+     * <p>
+     * This is applied once, at report-generation time, right after a {@code ScanRecord}
+     * is parsed from its {@code _a11y.json} artifact -- it has ZERO effect on live scan
+     * behavior in {@link AccessibilityChecker} (which already ran and wrote that artifact
+     * before this method is ever called). Suppressed violations are never dropped from the
+     * report entirely; they remain fully visible in the dedicated "Verified False
+     * Positives" section, only excluded from the counted totals/PASS-FAIL outcome.
+     */
+    private static void applySuppression(ScanRecord record) {
+        if (record.violations.isEmpty()) {
+            return;
+        }
+        List<ViolationDetail> counted = new ArrayList<>();
+        for (ViolationDetail vd : record.violations) {
+            if (A11ySuppressionRegistry.isActivelySuppressed(vd.ruleId)) {
+                record.suppressedViolations.add(vd);
+            } else {
+                counted.add(vd);
+            }
+        }
+        if (record.suppressedViolations.isEmpty()) {
+            return;
+        }
+        record.violations.clear();
+        record.violations.addAll(counted);
+        record.violationCount = counted.size();
+        record.ruleIds.clear();
+        record.impacts.clear();
+        for (ViolationDetail vd : counted) {
+            if (!vd.ruleId.trim().isEmpty()) {
+                record.ruleIds.add(vd.ruleId);
+            }
+            record.impacts.add(vd.impact);
+        }
+        // Only downgrade a FAIL to PASS once every violation on this scan was suppressed --
+        // never touch SKIPPED/ERROR outcomes, which are unrelated to violation counting.
+        if (counted.isEmpty() && "FAIL".equalsIgnoreCase(record.outcome)) {
+            record.outcome = "PASS";
+        }
     }
 
     private static String buildHtml(List<ScanRecord> scans) {
@@ -365,6 +412,8 @@ public final class AccessibilitySummaryReportGenerator {
             .append("<div class='report-label'>Automated Testing</div>")
             .append("<div class='report-name'>Accessibility Summary Report</div>")
             .append("<div class='report-project'>&#128193; ").append(escapeHtml(projectName)).append("</div>")
+            .append("<div class='report-project' style='color:#888;font-weight:400;'>SDK v")
+            .append(escapeHtml(A11yLibraryVersion.get())).append("</div>")
             .append("</div>")
             .append("</header>");
 
@@ -380,6 +429,20 @@ public final class AccessibilitySummaryReportGenerator {
 
         // ── Main content ─────────────────────────────────────────────────────
         html.append("<div class='content'>");
+
+        // "Floor check, not a certification" methodology notice — axe-core (and this
+        // report) catch a meaningful subset of WCAG failures, not all of them; manual
+        // review by an accessibility SME is still required for full conformance.
+        html.append("<div class='noise-banner' style='border-left-color:#1A1A1A;'>")
+            .append("<b>&#9888; Floor Check, Not a Certification &nbsp;&mdash;&nbsp;</b> ")
+            .append("Automated scanning (axe-core plus this suite's custom interaction/structural checks) ")
+            .append("typically detects roughly 30&ndash;40% of WCAG conformance issues. ")
+            .append("A clean report establishes a baseline floor of accessibility quality; it is ")
+            .append("<b>not</b> a substitute for manual review, assistive-technology testing, or a full audit.")
+            .append("</div>");
+
+        // Verified false positives — suppressed from counted totals, still fully visible.
+        appendSuppressionSection(html, scans);
 
         // Noise suppression notice
         if (noiseActive) {
@@ -577,6 +640,60 @@ public final class AccessibilitySummaryReportGenerator {
              + "<div class='kpi-label'>" + escapeHtml(label) + "</div>"
              + "<div class='kpi-value'>" + escapeHtml(value) + "</div>"
              + "</div>";
+    }
+
+    /**
+     * Renders the "Verified False Positives" section: every violation excluded from
+     * counted totals by {@link A11ySuppressionRegistry}, together with its audit trail
+     * (reason / verified-on / expires-on). Also flags any expired suppression entries
+     * so a reader knows exactly which judgements need to be re-verified.
+     */
+    private static void appendSuppressionSection(StringBuilder html, List<ScanRecord> scans) {
+        Map<String, List<String>> suppressedPagesByRule = new LinkedHashMap<>();
+        for (ScanRecord scan : scans) {
+            for (ViolationDetail vd : scan.suppressedViolations) {
+                suppressedPagesByRule.computeIfAbsent(vd.ruleId, k -> new ArrayList<>()).add(scan.pageName);
+            }
+        }
+
+        Collection<A11ySuppressionRegistry.Entry> expired = A11ySuppressionRegistry.getExpiredEntries();
+        if (!expired.isEmpty()) {
+            html.append("<div class='noise-banner' style='border-left-color:#DC3545;'>")
+                .append("<b>&#9888; Suppressions Needing Re-Verification &nbsp;&mdash;&nbsp;</b> ")
+                .append("The following verified false-positive suppressions have expired and no longer ")
+                .append("suppress their rule (violations count normally again): <b>")
+                .append(escapeHtml(expired.stream().map(e -> e.ruleId).collect(Collectors.joining(", "))))
+                .append("</b>. Re-review and refresh their <code>verified</code>/<code>expires</code> dates if still valid.")
+                .append("</div>");
+        }
+
+        if (suppressedPagesByRule.isEmpty()) {
+            return;
+        }
+
+        html.append("<div class='section'>")
+            .append("<div class='section-head'>&#9632; Verified False Positives &mdash; Not Counted Toward Score</div>")
+            .append("<div class='section-subtext'>Reviewed and justified by a human; excluded from PASS/FAIL ")
+            .append("and violation totals above, but never hidden from this report.</div>")
+            .append("<table><thead><tr>")
+            .append("<th>Rule ID</th><th>Pages Affected</th><th>Reason</th><th>Verified</th><th>Expires</th>")
+            .append("</tr></thead><tbody>");
+        for (Map.Entry<String, List<String>> e : suppressedPagesByRule.entrySet()) {
+            A11ySuppressionRegistry.Entry entry = A11ySuppressionRegistry.get(e.getKey());
+            String reason   = entry != null ? entry.reason : "(no longer registered)";
+            String verified = entry != null ? entry.verifiedOn.toString() : "";
+            String expires  = entry != null ? entry.expiresOn.toString() : "";
+            Set<String> pages = new LinkedHashSet<>(e.getValue());
+            html.append("<tr>")
+                .append("<td><code style='font-size:12px;color:#D4006E;'>")
+                .append(escapeHtml(e.getKey())).append("</code></td>")
+                .append("<td>").append(pages.size()).append("</td>")
+                .append("<td>").append(escapeHtml(reason)).append("</td>")
+                .append("<td>").append(escapeHtml(verified)).append("</td>")
+                .append("<td>").append(escapeHtml(expires)).append("</td>")
+                .append("</tr>");
+        }
+        html.append("</tbody></table></div>");
     }
 
     private static void appendImpactRow(StringBuilder html, String impact, int count) {
@@ -883,6 +1000,8 @@ public final class AccessibilitySummaryReportGenerator {
         final List<String>          ruleIds    = new ArrayList<>();
         final List<String>          impacts    = new ArrayList<>();
         final List<ViolationDetail> violations = new ArrayList<>();
+        /** Violations excluded from counted totals by {@link A11ySuppressionRegistry} — still rendered, never counted. */
+        final List<ViolationDetail> suppressedViolations = new ArrayList<>();
     }
 }
 

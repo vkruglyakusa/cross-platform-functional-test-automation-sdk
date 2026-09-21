@@ -83,6 +83,7 @@ public final class AccessibilityExcelReporter {
                 buildSummarySheet(workbook, styles, scans);
                 buildScanHistorySheet(workbook, styles, scans);
                 buildViolationsDetailSheet(workbook, styles, scans);
+                buildSuppressionSheet(workbook, styles, scans);
 
                 try (OutputStream out = Files.newOutputStream(outputPath)) {
                     workbook.write(out);
@@ -123,20 +124,53 @@ public final class AccessibilityExcelReporter {
         for (Path file : files) {
             try {
                 String fileName = file.getFileName().toString();
+                ScanRecord record;
                 if (fileName.contains("_interaction_")) {
                     // Interaction / structural / WCAG-2.2 / motion artifact
-                    ScanRecord record = parseInteractionArtifact(file);
-                    if (record != null) records.add(record);
+                    record = parseInteractionArtifact(file);
                 } else {
                     // axe-core artifact
-                    ScanRecord record = parseAxeArtifact(file);
-                    if (record != null) records.add(record);
+                    record = parseAxeArtifact(file);
+                }
+                if (record != null) {
+                    applySuppression(record);
+                    records.add(record);
                 }
             } catch (Exception ex) {
                 logger.debug("Skipping malformed accessibility artifact {}: {}", file, ex.getMessage());
             }
         }
         return records;
+    }
+
+    /**
+     * Moves actively-suppressed (verified false positive) violations out of the counted
+     * totals for this scan and into {@code record.suppressedViolations}. Mirrors
+     * {@code AccessibilitySummaryReportGenerator}'s identical helper — see that class's
+     * javadoc for the full safety-boundary rationale (report-generation-time only, never
+     * hidden from the report, only excluded from counted totals/outcome).
+     */
+    private static void applySuppression(ScanRecord record) {
+        if (record.violations.isEmpty()) {
+            return;
+        }
+        List<ViolationRecord> counted = new ArrayList<>();
+        for (ViolationRecord vr : record.violations) {
+            if (A11ySuppressionRegistry.isActivelySuppressed(vr.ruleId)) {
+                record.suppressedViolations.add(vr);
+            } else {
+                counted.add(vr);
+            }
+        }
+        if (record.suppressedViolations.isEmpty()) {
+            return;
+        }
+        record.violations.clear();
+        record.violations.addAll(counted);
+        record.violationCount = counted.size();
+        if (counted.isEmpty() && "FAIL".equalsIgnoreCase(record.outcome)) {
+            record.outcome = "PASS";
+        }
     }
 
     private static ScanRecord parseAxeArtifact(Path file) {
@@ -235,7 +269,18 @@ public final class AccessibilityExcelReporter {
 
         row = writeTitle(sheet, sk, row, "Accessibility Test Run Summary",
                 "Generated: " + LocalDateTime.now().format(DISPLAY_TS)
-                        + "   |   Source: " + reportDir());
+                        + "   |   Source: " + reportDir()
+                        + "   |   SDK v" + A11yLibraryVersion.get());
+        row++;
+
+        row = writeSectionHeader(sheet, sk, row, "Floor Check, Not a Certification");
+        Row floorCheckRow = sheet.createRow(row++);
+        Cell floorCheckCell = floorCheckRow.createCell(0);
+        floorCheckCell.setCellValue("Automated scanning (axe-core plus this suite's custom interaction/structural "
+                + "checks) typically detects roughly 30-40% of WCAG conformance issues. A clean report establishes "
+                + "a baseline floor of accessibility quality; it is not a substitute for manual review, "
+                + "assistive-technology testing, or a full audit.");
+        floorCheckCell.setCellStyle(sk.muted);
         row++;
 
         row = writeSectionHeader(sheet, sk, row, "Run Overview");
@@ -589,6 +634,63 @@ public final class AccessibilityExcelReporter {
         }
     }
 
+    /** Sheet 4 — Verified false positives, excluded from counted totals, still fully visible. */
+    private static void buildSuppressionSheet(XSSFWorkbook wb, StyleKit sk, List<ScanRecord> scans) {
+        Map<String, List<String>> suppressedPagesByRule = new LinkedHashMap<>();
+        for (ScanRecord scan : scans) {
+            for (ViolationRecord vr : scan.suppressedViolations) {
+                suppressedPagesByRule.computeIfAbsent(vr.ruleId, k -> new ArrayList<>()).add(scan.pageName);
+            }
+        }
+
+        XSSFSheet sheet = wb.createSheet("Verified False Positives");
+        sheet.setColumnWidth(0, 22 * 256);
+        sheet.setColumnWidth(1, 14 * 256);
+        sheet.setColumnWidth(2, 50 * 256);
+        sheet.setColumnWidth(3, 14 * 256);
+        sheet.setColumnWidth(4, 14 * 256);
+
+        int row = 0;
+        row = writeTitle(sheet, sk, row,
+                "Verified False Positives — Not Counted Toward Score",
+                "Reviewed and justified by a human; excluded from PASS/FAIL and violation totals, but never hidden from this report.");
+        row++;
+
+        Collection<A11ySuppressionRegistry.Entry> expired = A11ySuppressionRegistry.getExpiredEntries();
+        if (!expired.isEmpty()) {
+            row = writeSectionHeader(sheet, sk, row, "Needs Re-Verification (Expired)");
+            Row expiredRow = sheet.createRow(row++);
+            expiredRow.createCell(0).setCellValue(expired.stream()
+                    .map(e -> e.ruleId).collect(Collectors.joining(", ")));
+            row++;
+        }
+
+        row = writeTableHeader(sheet, sk, row,
+                "Rule ID", "Pages Affected", "Reason", "Verified", "Expires");
+
+        boolean alt = false;
+        for (Map.Entry<String, List<String>> e : suppressedPagesByRule.entrySet()) {
+            A11ySuppressionRegistry.Entry entry = A11ySuppressionRegistry.get(e.getKey());
+            String reason   = entry != null ? entry.reason : "(no longer registered)";
+            String verified = entry != null ? entry.verifiedOn.toString() : "";
+            String expires  = entry != null ? entry.expiresOn.toString() : "";
+            Set<String> pages = new LinkedHashSet<>(e.getValue());
+
+            Row r = sheet.createRow(row++);
+            applyDataStyle(r.createCell(0), sk, alt).setCellValue(e.getKey());
+            applyDataStyle(r.createCell(1), sk, alt).setCellValue(pages.size());
+            applyDataStyle(r.createCell(2), sk, alt).setCellValue(reason);
+            applyDataStyle(r.createCell(3), sk, alt).setCellValue(verified);
+            applyDataStyle(r.createCell(4), sk, alt).setCellValue(expires);
+            alt = !alt;
+        }
+
+        if (suppressedPagesByRule.isEmpty()) {
+            Row r = sheet.createRow(row);
+            r.createCell(0).setCellValue("No verified false positives suppressed in this run.");
+        }
+    }
+
     private static long countOutcome(List<ScanRecord> scans, String outcome) {
         return scans.stream().filter(s -> outcome.equalsIgnoreCase(s.outcome)).count();
     }
@@ -603,6 +705,8 @@ public final class AccessibilityExcelReporter {
         String engine = "axe-core";
         final List<String> tags = new ArrayList<>();
         final List<ViolationRecord> violations = new ArrayList<>();
+        /** Violations excluded from counted totals by {@link A11ySuppressionRegistry} — still rendered, never counted. */
+        final List<ViolationRecord> suppressedViolations = new ArrayList<>();
     }
 
     private static final class ViolationRecord {
