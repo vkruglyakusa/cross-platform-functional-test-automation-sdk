@@ -144,6 +144,14 @@ public class A11yTestNGListener implements ITestListener {
             Diag.print("Could not generate HTML summary: {}", e.getMessage());
             log.warn("[A11Y LISTENER] Could not generate HTML summary: {}", e.getMessage());
         }
+        try {
+            AccessibilityVpatReportGenerator.generate();
+            Diag.print("VPAT draft report written under '{}'", A11yConfig.outputDir().toAbsolutePath());
+            log.info("[A11Y LISTENER] VPAT draft report generated");
+        } catch (Exception e) {
+            Diag.print("Could not generate VPAT draft report: {}", e.getMessage());
+            log.warn("[A11Y LISTENER] Could not generate VPAT draft report: {}", e.getMessage());
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

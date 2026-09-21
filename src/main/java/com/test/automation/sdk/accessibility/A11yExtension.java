@@ -179,6 +179,14 @@ public class A11yExtension implements BeforeAllCallback, AfterEachCallback, Afte
             Diag.print("Could not generate HTML summary: {}", e.getMessage());
             log.warn("[A11Y EXTENSION] Could not generate HTML summary: {}", e.getMessage());
         }
+        try {
+            AccessibilityVpatReportGenerator.generate();
+            Diag.print("VPAT draft report written under '{}'", A11yConfig.outputDir().toAbsolutePath());
+            log.info("[A11Y EXTENSION] VPAT draft report generated");
+        } catch (Throwable e) {
+            Diag.print("Could not generate VPAT draft report: {}", e.getMessage());
+            log.warn("[A11Y EXTENSION] Could not generate VPAT draft report: {}", e.getMessage());
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
