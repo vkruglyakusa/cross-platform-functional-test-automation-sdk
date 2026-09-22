@@ -290,9 +290,23 @@ public class AccessibilityChecker {
         return rank > 0 && rank >= severityRank(getFailOnSeverity());
     }
 
-    /** {@code true} when any axe-core violation's impact meets the configured failure threshold. */
+    /**
+     * Returns {@code true} when the finding for {@code ruleId} must be excluded from both
+     * reporting and enforcement — because it is on the session noise/allowlist
+     * ({@link A11ySessionManager#isReportable}) or is an actively-verified suppression
+     * ({@link A11ySuppressionRegistry#isActivelySuppressed}). Enforcement must only ever
+     * evaluate findings that survive this filter: scan → suppression/allowlist →
+     * severity evaluation → reporting → enforcement decision.
+     */
+    static boolean isSuppressed(String ruleId, String impact) {
+        if (!A11ySessionManager.isReportable(ruleId, impact)) return true;
+        return A11ySuppressionRegistry.isActivelySuppressed(ruleId);
+    }
+
+    /** {@code true} when any non-suppressed axe-core violation's impact meets the configured failure threshold. */
     private static boolean shouldFailForViolations(List<Rule> violations) {
         for (Rule v : violations) {
+            if (isSuppressed(v.getId(), v.getImpact())) continue;
             if (meetsFailureThreshold(v.getImpact())) {
                 return true;
             }
@@ -300,9 +314,10 @@ public class AccessibilityChecker {
         return false;
     }
 
-    /** {@code true} when any interaction-layer issue's impact meets the configured failure threshold. */
+    /** {@code true} when any non-suppressed interaction-layer issue's impact meets the configured failure threshold. */
     private static boolean shouldFailForIssues(List<InteractionIssue> issues) {
         for (InteractionIssue i : issues) {
+            if (isSuppressed(i.ruleId, i.impact)) continue;
             if (meetsFailureThreshold(i.impact)) {
                 return true;
             }
@@ -503,9 +518,12 @@ public class AccessibilityChecker {
     }
 
     /**
-     * Always asserts no violations, ignoring {@code accessibility.fail.on.violation}.
-     * Throws {@link AccessibilityViolationException} when violations are found — which
-     * surfaces as a failure in both JUnit and TestNG.
+     * Always asserts no violations, ignoring {@code accessibility.mode},
+     * {@code accessibility.fail.on.violation}, and {@link A11ySuppressionRegistry}
+     * verified suppressions — a deliberate hard assertion, distinct from the
+     * configurable enforcement path used by {@link #check}/{@link #checkWithTags}/
+     * {@link #checkFullSuite}. Throws {@link AccessibilityViolationException} when
+     * violations are found — which surfaces as a failure in both JUnit and TestNG.
      * <p>If accessibility checking is disabled this is a no-op.</p>
      */
     public static void assertNoViolations(WebDriver driver, String pageName) {
@@ -770,11 +788,11 @@ public class AccessibilityChecker {
             return;
         }
 
-        // ── Apply noise filter (allowlist + impact threshold) ─────────────────
+        // ── Apply noise filter (allowlist + impact threshold + verified suppressions) ──
         // JSON artifacts always contain the full unfiltered violation list.
         // Only the live reporter output respects the session noise settings.
         List<Rule> reportable = violations.stream()
-                .filter(v -> A11ySessionManager.isReportable(v.getId(), v.getImpact()))
+                .filter(v -> !isSuppressed(v.getId(), v.getImpact()))
                 .collect(Collectors.toList());
         int suppressed = violations.size() - reportable.size();
 

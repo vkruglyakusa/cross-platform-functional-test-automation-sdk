@@ -51,11 +51,15 @@ import java.util.stream.Collectors;
  * accessibility.suppression.duplicate-id.expires=2026-10-15
  * </pre>
  *
- * <p><b>Report generation only</b> — this registry has no effect on
- * {@link AccessibilityChecker}'s live scan/assert/fail-on-violation behavior
- * (a test that asserts on live violations still sees the real, unsuppressed
- * count). It only affects the aggregate HTML/Excel summary reports produced
- * at the end of a run.</p>
+ * <p><b>Live enforcement + report generation.</b> A verified suppression is excluded
+ * from the configurable {@code accessibility.mode=fail-test} enforcement decision
+ * (see {@link AccessibilityChecker#getEnforcementMode()}) — a verified false positive
+ * must never fail a test, live or in aggregate — as well as from the aggregate
+ * HTML/Excel summary reports produced at the end of a run. {@link
+ * AccessibilityChecker#assertNoViolations} is the one deliberate exception: it is a
+ * hard, always-fail assertion API that intentionally ignores both this registry and
+ * {@code accessibility.mode}, so a test that calls it always sees the real,
+ * unsuppressed count.</p>
  */
 public final class A11ySuppressionRegistry {
 

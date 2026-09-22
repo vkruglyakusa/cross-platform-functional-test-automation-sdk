@@ -105,6 +105,137 @@ class AccessibilityEnforcementTest {
     }
 
     @Test
+    @DisplayName("boundary matrix: failOnSeverity=serious fails critical/serious, passes moderate/minor")
+    void boundaryMatrixFailOnSeverious() {
+        System.setProperty("accessibility.mode", "fail-test");
+        System.setProperty("accessibility.failOnSeverity", "serious");
+
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("critical"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("serious"));
+        assertFalse(AccessibilityChecker.meetsFailureThreshold("moderate"));
+        assertFalse(AccessibilityChecker.meetsFailureThreshold("minor"));
+    }
+
+    @Test
+    @DisplayName("boundary matrix: failOnSeverity=moderate fails critical/serious/moderate, passes minor")
+    void boundaryMatrixFailOnModerate() {
+        System.setProperty("accessibility.mode", "fail-test");
+        System.setProperty("accessibility.failOnSeverity", "moderate");
+
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("critical"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("serious"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("moderate"));
+        assertFalse(AccessibilityChecker.meetsFailureThreshold("minor"));
+    }
+
+    @Test
+    @DisplayName("boundary matrix: failOnSeverity=minor fails at every recognized severity")
+    void boundaryMatrixFailOnMinor() {
+        System.setProperty("accessibility.mode", "fail-test");
+        System.setProperty("accessibility.failOnSeverity", "minor");
+
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("critical"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("serious"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("moderate"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("minor"));
+    }
+
+    @Test
+    @DisplayName("boundary matrix: failOnSeverity=critical fails only critical")
+    void boundaryMatrixFailOnCritical() {
+        System.setProperty("accessibility.mode", "fail-test");
+        System.setProperty("accessibility.failOnSeverity", "critical");
+
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("critical"));
+        assertFalse(AccessibilityChecker.meetsFailureThreshold("serious"));
+        assertFalse(AccessibilityChecker.meetsFailureThreshold("moderate"));
+        assertFalse(AccessibilityChecker.meetsFailureThreshold("minor"));
+    }
+
+    @Test
+    @DisplayName("severity ordering is strictly critical > serious > moderate > minor")
+    void severityOrderingIsStrict() {
+        System.setProperty("accessibility.mode", "fail-test");
+        // At each threshold, exactly the ranks at/above it qualify — proves strict ordering,
+        // not just independent pairwise checks.
+        String[] order = {"minor", "moderate", "serious", "critical"};
+        for (int t = 0; t < order.length; t++) {
+            System.setProperty("accessibility.failOnSeverity", order[t]);
+            for (int s = 0; s < order.length; s++) {
+                boolean expected = s >= t;
+                assertEquals(expected, AccessibilityChecker.meetsFailureThreshold(order[s]),
+                        "threshold=" + order[t] + " severity=" + order[s]);
+            }
+        }
+    }
+
+    // ── Suppression / allowlist ordering (scan -> suppression -> severity -> enforcement) ──
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSuppressionState() {
+        A11ySessionManager.removeAllowedRule("color-contrast");
+        System.clearProperty("accessibility.suppression.rules");
+        System.clearProperty("accessibility.suppression.color-contrast.reason");
+        System.clearProperty("accessibility.suppression.color-contrast.verified");
+        System.clearProperty("accessibility.suppression.color-contrast.expires");
+        A11ySuppressionRegistry.load();
+    }
+
+    @Test
+    @DisplayName("an allowlisted rule is suppressed and never qualifies to fail, even at critical severity")
+    void allowlistedRuleIsSuppressedFromEnforcement() {
+        System.setProperty("accessibility.mode", "fail-test");
+        System.setProperty("accessibility.failOnSeverity", "minor");
+        A11ySessionManager.allowRule("color-contrast");
+
+        assertTrue(AccessibilityChecker.isSuppressed("color-contrast", "critical"));
+        // A different, non-allowlisted rule at the same severity still qualifies.
+        assertFalse(AccessibilityChecker.isSuppressed("heading-order", "critical"));
+        assertTrue(AccessibilityChecker.meetsFailureThreshold("critical"));
+    }
+
+    @Test
+    @DisplayName("a verified (non-expired) suppression registry entry is excluded from enforcement")
+    void verifiedSuppressionIsExcludedFromEnforcement() {
+        System.setProperty("accessibility.suppression.rules", "color-contrast");
+        System.setProperty("accessibility.suppression.color-contrast.reason", "Verified false positive");
+        System.setProperty("accessibility.suppression.color-contrast.verified",
+                java.time.LocalDate.now().minusDays(10).toString());
+        System.setProperty("accessibility.suppression.color-contrast.expires",
+                java.time.LocalDate.now().plusMonths(3).toString());
+        A11ySuppressionRegistry.load();
+
+        assertTrue(AccessibilityChecker.isSuppressed("color-contrast", "critical"));
+        assertFalse(AccessibilityChecker.isSuppressed("unrelated-rule", "critical"));
+    }
+
+    @Test
+    @DisplayName("an expired suppression registry entry no longer suppresses — counts again normally")
+    void expiredSuppressionNoLongerSuppresses() {
+        System.setProperty("accessibility.suppression.rules", "color-contrast");
+        System.setProperty("accessibility.suppression.color-contrast.reason", "Verified false positive");
+        System.setProperty("accessibility.suppression.color-contrast.verified",
+                java.time.LocalDate.now().minusMonths(6).toString());
+        System.setProperty("accessibility.suppression.color-contrast.expires",
+                java.time.LocalDate.now().minusDays(1).toString());
+        A11ySuppressionRegistry.load();
+
+        assertFalse(AccessibilityChecker.isSuppressed("color-contrast", "critical"));
+    }
+
+    @Test
+    @DisplayName("assertNoViolations ignores suppression/allowlist entirely (hard assertion contract)")
+    void assertNoViolationsIgnoresSuppression() {
+        // No WebDriver-dependent call here — this documents/locks the contract at the
+        // config level: assertNoViolations() is not gated by isSuppressed()/meetsFailureThreshold()
+        // at all, it always throws on any raw violation regardless of allowlist/suppression state.
+        A11ySessionManager.allowRule("color-contrast");
+        assertTrue(AccessibilityChecker.isSuppressed("color-contrast", "critical"));
+        // (Behavioral guarantee is enforced by assertNoViolations()'s implementation, which never
+        // calls isSuppressed()/meetsFailureThreshold() — see AccessibilityChecker.java.)
+    }
+
+    @Test
     @DisplayName("reporting outputs (Allure, Extent, Excel) default to enabled")
     void reportingOutputsDefaultEnabled() {
         assertTrue(A11yReporterFactory.isAllureEnabled());

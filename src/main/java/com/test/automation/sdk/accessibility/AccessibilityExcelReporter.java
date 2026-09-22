@@ -36,9 +36,12 @@ import java.util.stream.StreamSupport;
  *
  * <h3>Sheets produced</h3>
  * <ol>
- *   <li><b>Summary</b> — run-level KPIs and impact distribution</li>
+ *   <li><b>Summary</b> — run-level KPIs, impact distribution, and accessibility
+ *       enforcement mode/threshold/result (see {@link AccessibilityChecker#getEnforcementMode()})</li>
  *   <li><b>Scan History</b> — one row per scan (all engines)</li>
  *   <li><b>Violations Detail</b> — one row per violation (all engines)</li>
+ *   <li><b>Verified False Positives</b> — suppressed findings (see {@link A11ySuppressionRegistry}),
+ *       excluded from counted totals but never hidden from the report</li>
  * </ol>
  *
  * <h3>Relationship to {@link AccessibilityChecker#writeExcelReport()}</h3>
@@ -302,6 +305,20 @@ public final class AccessibilityExcelReporter {
         row = writeKV(sheet, sk, row, "ERROR", String.valueOf(error));
         row = writeKV(sheet, sk, row, "Total Violations", String.valueOf(totalViolations));
         row = writeKV(sheet, sk, row, "Unique Rule IDs", String.valueOf(uniqueRules));
+        row++;
+
+        row = writeSectionHeader(sheet, sk, row, "Accessibility Enforcement");
+        AccessibilityChecker.EnforcementMode mode = AccessibilityChecker.getEnforcementMode();
+        boolean failTest = mode == AccessibilityChecker.EnforcementMode.FAIL_TEST;
+        long suppressedTotal = scans.stream().mapToLong(s -> s.suppressedViolations.size()).sum();
+        String accessibilityResult = totalViolations > 0 ? "FINDINGS DETECTED" : "PASS";
+        row = writeKV(sheet, sk, row, "Enforcement Mode", failTest ? "FAIL-TEST" : "REPORT-ONLY");
+        row = writeKV(sheet, sk, row, "Fail-On-Severity Threshold",
+                failTest ? AccessibilityChecker.getFailOnSeverity().toUpperCase(Locale.ROOT) : "N/A (report-only)");
+        row = writeKV(sheet, sk, row, "Suppressed Findings (Verified False Positive)", String.valueOf(suppressedTotal));
+        row = writeKV(sheet, sk, row, "Accessibility Result", accessibilityResult);
+        row = writeKV(sheet, sk, row, "Accessibility Changed Test Result",
+                failTest ? "YES — when qualifying findings meet/exceed threshold" : "NO — report-only mode");
         row++;
 
         row = writeSectionHeader(sheet, sk, row, "Impact Distribution");

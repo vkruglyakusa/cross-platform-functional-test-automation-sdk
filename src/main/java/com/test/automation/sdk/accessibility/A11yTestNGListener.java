@@ -200,9 +200,31 @@ public class A11yTestNGListener implements ITestListener {
         String pageName = A11ySessionManager.resolvePageName(driver, testFallback);
         Diag.print("Scanning after test '{}' — page name resolved as '{}' (driver found: {})",
                 testFallback, pageName, driver.getClass().getSimpleName());
-        int count = A11ySessionManager.checkFullSuite(driver, pageName);
-        if (count >= 0) {
-            log.debug("[A11Y LISTENER] Scan after '{}' — {} violation(s)", pageName, count);
+        try {
+            int count = A11ySessionManager.checkFullSuite(driver, pageName);
+            if (count >= 0) {
+                log.debug("[A11Y LISTENER] Scan after '{}' — {} violation(s)", pageName, count);
+            }
+        } catch (AccessibilityViolationException ave) {
+            // fail-test enforcement fires from this post-test listener callback. TestNG does not
+            // reinterpret an exception thrown out of ITestListener as a test failure on its own —
+            // the result must be flipped explicitly. Never overwrite an already-failed functional
+            // result; the original functional failure always takes precedence.
+            if (result.getStatus() == ITestResult.SUCCESS) {
+                result.setStatus(ITestResult.FAILURE);
+                result.setThrowable(ave);
+                ITestContext ctx = result.getTestContext();
+                if (ctx != null) {
+                    ctx.getPassedTests().removeResult(result);
+                    ctx.getFailedTests().addResult(result);
+                }
+                log.warn("[A11Y LISTENER] '{}' marked FAILED — accessibility enforcement (fail-test) threshold met: {}",
+                        testFallback, ave.getMessage());
+            } else {
+                log.warn("[A11Y LISTENER] Accessibility enforcement threshold met for '{}' but the functional result "
+                        + "was already {} — preserving the original result; findings remain visible in reports: {}",
+                        testFallback, result.getStatus(), ave.getMessage());
+            }
         }
     }
 

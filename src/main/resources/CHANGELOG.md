@@ -19,6 +19,30 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Added
+- Accessibility enforcement modes: `accessibility.mode` (`report-only` default | `fail-test`) with
+  `accessibility.failOnSeverity` (`minor` < `moderate` < `serious` < `critical`) threshold. Legacy
+  `accessibility.fail.on.violation=true` remains a backward-compatible fallback, honored only when
+  `accessibility.mode` is unset.
+- Multi-format accessibility reporting via `A11yReporterFactory`: `accessibility.reporting.allure`,
+  `accessibility.reporting.extent`, `accessibility.reporting.excel` (all default `true`). New
+  `ExtentA11yReporter`. `.xlsx` accessibility report is part of the default reporting configuration
+  whenever accessibility scanning is enabled.
+- Excel `Summary` sheet now reports enforcement mode, fail-on-severity threshold, suppressed-finding
+  count, and accessibility result/enforcement effect.
+
+### Fixed
+- Accessibility enforcement now correctly respects suppression/allowlisting: a finding suppressed via
+  `accessibility.session.allowed.rules` (or an active, non-expired `A11ySuppressionRegistry` entry)
+  can no longer fail a test in `fail-test` mode. Processing order is now strictly
+  scan → suppression/allowlist → severity evaluation → reporting → enforcement decision.
+- `CompositeReporter` now isolates a failing delegate (e.g. Allure/Extent throwing) so the remaining
+  reporters still receive the finding and a reporter-internal failure never replaces the real
+  functional/accessibility test result.
+- `A11yTestNGListener`'s automatic post-test scan now correctly flips the `ITestResult` to `FAILURE`
+  (and moves it between TestNG's passed/failed result maps) when `fail-test` enforcement fires,
+  without ever overwriting an already-failed functional result.
+
 ---
 
 ## [1.5.2] — 2026-09-18

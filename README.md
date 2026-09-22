@@ -74,6 +74,8 @@ explicitly with their own `com.browserstack:browserstack-java-sdk` dependency,
 | **A11ySessionManager** | `sdk.accessibility.A11ySessionManager` | Scan de-duplication, severity thresholding, allowlists, and DOM fingerprint protection |
 | **A11yTestNGListener** | `sdk.accessibility.A11yTestNGListener` | Automatic post-test accessibility scanning when enabled |
 | **AllureA11yReporter** | `sdk.accessibility.AllureA11yReporter` | Publishes accessibility findings to Allure with attachments |
+| **ExtentA11yReporter** | `sdk.accessibility.report.ExtentA11yReporter` | Publishes accessibility findings to the active ExtentReports test |
+| **A11yReporterFactory** | `sdk.accessibility.report.A11yReporterFactory` | Composes the default Allure/Extent/Excel reporter set from `accessibility.reporting.*` config |
 | **ApiTestBase** | `sdk.api.ApiTestBase` | Standalone base class for pure REST API tests (RestAssured-backed) -- no `WebDriver` required; `get/post/put/patch/delete`, status/JSON-path/response-time/JSON-schema assertions -- see [SDK-USER-GUIDE.md §18](SDK-USER-GUIDE.md#18-api-testing-apitestbase) and [`API-TESTBASE-API.md`](API-TESTBASE-API.md) |
 | **MobileTestBase** | `sdk.mobile.testbase.MobileTestBase` | Appium (Android/iOS) peer of `TestBase` -- 60+ mobile gesture/wait/assertion helpers, no `WebDriver`/browser dependency |
 | **MobileDriverFactory** | `sdk.mobile.driver.MobileDriverFactory` | Appium session initialization -- local Android/iOS and BrowserStack App Automate |
@@ -209,6 +211,10 @@ The SDK includes a built-in accessibility framework with a 5-layer WCAG engine,
 automatic TestNG listener scans, WebEventListener per-element checks, and
 `TestBase` helpers for manual scans and assertions. All accessibility features are
 opt-in and write JSON, Excel, and HTML artifacts under `reporting.accessibilityDir`.
+
+Findings support configurable enforcement (`accessibility.mode=report-only|fail-test`
+with `accessibility.failOnSeverity`) and multi-format reporting (Allure/Extent/Excel,
+all default `true`) — see [SDK-USER-GUIDE.md §14.1a](SDK-USER-GUIDE.md#141a-enforcement-modes-and-reporting-outputs).
 
 ---
 

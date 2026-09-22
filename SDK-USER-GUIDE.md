@@ -1076,7 +1076,12 @@ path, but it is deprecated and should not be the primary setup path for new work
 | Key | Default | Purpose |
 |---|---|---|
 | `accessibility.checking.enabled` | `false` | Master opt-in toggle for accessibility scanning. |
-| `accessibility.fail.on.violation` | `false` | Fails the test when violations are found. |
+| `accessibility.mode` | `report-only` | `report-only` (findings never change the test result) or `fail-test` (fails when qualifying findings meet `accessibility.failOnSeverity`). Always authoritative over the legacy flag below when set. |
+| `accessibility.failOnSeverity` | `minor` | Severity threshold for `fail-test` mode: `minor` \| `moderate` \| `serious` \| `critical` (ordering: `critical > serious > moderate > minor`). Suppressed/allowlisted findings never count toward this threshold. |
+| `accessibility.fail.on.violation` | `false` | **Legacy.** Honored as `fail-test` (minor threshold — fail on any violation) only when `accessibility.mode` is unset; ignored once `accessibility.mode` is explicitly set. |
+| `accessibility.reporting.allure` | `true` | Routes live accessibility findings to Allure steps/attachments. Part of the default reporting configuration. |
+| `accessibility.reporting.extent` | `true` | Routes live accessibility findings to the active ExtentReports test. Part of the default reporting configuration. |
+| `accessibility.reporting.excel` | `true` | Generates the `accessibility-report_<timestamp>.xlsx` workbook at suite end. Part of the default reporting configuration — set to `false` to explicitly disable. |
 | `accessibility.wcag.tags` | `wcag2a,wcag2aa` | Axe-core tag set used for Layer 1 scanning. |
 | `accessibility.debug` | `false` | Enables verbose accessibility debug output. |
 | `accessibility.session.noise.threshold` | `MINOR` | Minimum severity recorded by the session manager. |
@@ -2794,8 +2799,49 @@ accessibility:
 | Key | Meaning |
 |---|---|
 | `accessibility.checking.enabled` | Master on/off switch. Default `false`. When `false`, the listener and WebEventListener checks short-circuit immediately. |
-| `accessibility.fail.on.violation` | Throws on detected violations when enabled. |
+| `accessibility.fail.on.violation` | **Legacy.** Throws on detected violations when enabled and `accessibility.mode` is unset. Superseded by `accessibility.mode`/`accessibility.failOnSeverity` below. |
 | `accessibility.wcag.tags` | Comma-separated axe-core tag set for Layer 1 scans. |
+
+### 14.1a Enforcement modes and reporting outputs
+
+Accessibility findings are always detected, allowlist/suppression-filtered, and
+reported — the enforcement mode only controls whether qualifying findings also
+change the functional test result:
+
+```yaml
+accessibility:
+  mode: report-only          # report-only (default) | fail-test
+  failOnSeverity: serious    # minor | moderate | serious | critical
+  reporting:
+    allure: true             # default true
+    extent: true              # default true
+    excel:  true              # default true — .xlsx is part of the default reporting
+                               # configuration whenever accessibility scanning is enabled
+```
+
+| Mode | Behavior |
+|---|---|
+| `report-only` (default) | Findings are scanned, allowlist/suppression-filtered, severity-classified, and reported to every enabled sink — the functional test result is never changed. |
+| `fail-test` | Same pipeline, but the test also fails when a qualifying (non-suppressed) finding's severity meets or exceeds `accessibility.failOnSeverity`. |
+
+Severity ordering is `critical > serious > moderate > minor`. A finding must be
+**both** non-suppressed (not on the `accessibility.session.allowed.rules` allowlist
+and not an active `A11ySuppressionRegistry` entry) **and** at/above the configured
+threshold to fail the test — the processing order is always:
+scan → suppression/allowlist → severity evaluation → reporting → enforcement decision.
+
+`accessibility.fail.on.violation=true` (legacy) is honored as `fail-test` with the
+default `minor` threshold only when `accessibility.mode` is unset; an explicit
+`accessibility.mode` always takes precedence and the two are never combined
+ambiguously.
+
+`assertNoAccessibilityViolations(pageName)` is a separate, always-fail hard
+assertion API — it intentionally ignores `accessibility.mode`,
+`accessibility.fail.on.violation`, and suppression/allowlist entries entirely.
+
+Each reporting output can be disabled independently without affecting the others;
+`A11yReporterFactory` composes exactly the enabled sinks (SLF4J is always included
+as a baseline so findings are never silently lost).
 
 ### 14.2 Five engine layers
 
