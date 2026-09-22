@@ -1,0 +1,217 @@
+name: release
+version: 1.0
+
+description: >
+  Describes the formal, multi-repository release process for the Cross-Platform
+  Functional Test Automation solution: the SDK repository, the internal
+  Git-based Maven repository, and the three official consumer templates
+  (Web, API, Mobile). This skill is the semantic/process counterpart to
+  scripts/release.ps1 -- release.ps1 performs automated/mechanical checks
+  (see `mechanicalChecks` below); this skill defines the human/semantic
+  judgment calls release.ps1 cannot make on its own (does documentation
+  actually describe the new behavior correctly, does the Master Solution
+  Guide or Executive Summary need updating, did known limitations change).
+  A release is a single unit spanning all five components below -- it is not
+  complete until all of them are consistent and validated.
+
+releaseUnit:
+  - sdk-repository            # cross-platform-functional-test-automation-sdk
+  - web-consumer-template     # functional-automation-consumer-template
+  - api-consumer-template     # api-functional-automation-consumer-template
+  - mobile-consumer-template  # mobile-functional-automation-consumer-template
+  - internal-maven-repository # Git-based Maven repo consumed via <repositories> in each template's pom.xml
+
+tools:
+  - scripts/release.ps1   # mechanical/automated release gates for this repo
+
+# ---------------------------------------------------------------------------
+# release.ps1 (mechanical) vs. this skill (semantic) -- explicit division
+# ---------------------------------------------------------------------------
+mechanicalChecks:                       # owned by scripts/release.ps1
+  - sdk-version-consistency             # SDK version string consistent across pom.xml/docs
+  - template-dependency-version-match   # each template's SDK dependency version == SDK version
+  - documentation-version-string-checks # version numbers referenced in docs are current
+  - legacy-allure-pattern-scan          # fails release if S3Upload@1 / AllureReportPathBuilder /
+                                         # automation-test-results/ / Publish-AllureReport.ps1 reappear
+  - publish-allure-report-task-presence # each template pipeline contains PublishAllureReport@2
+  - maven-artifact-build-and-version-check
+  - final-verification-matrix           # machine-checkable pass/fail rows
+
+semanticReviewChecklist:                # owned by this skill -- requires human/agent judgment,
+                                         # not just a version-number diff
+  - new-features-described-accurately
+  - changed-defaults-documented          # e.g. allure results directory default change
+  - changed-configuration-documented      # sdk-config.yaml.template keys/comments
+  - changed-reporting-behavior-documented # Allure/Extent/accessibility reporting changes
+  - changed-known-limitations-documented  # e.g. "no live ADO validation performed yet"
+  - changed-validation-status-documented  # test counts, compile status, what was/was not run
+  - changed-pipeline-behavior-documented  # azure-pipelines.yml.template / .azdo/steps changes
+  - master-solution-guide-needs-update    # decide yes/no explicitly, do not skip silently
+  - executive-summary-needs-update        # only when business-facing capability materially changes
+
+# ---------------------------------------------------------------------------
+# Documentation synchronization -- required scope
+# ---------------------------------------------------------------------------
+documentationSync:
+  sdk:
+    - README.md
+    - SDK-USER-GUIDE.md
+    - CHANGELOG.md
+    - sdk-config.yaml.template
+    - src/main/resources/**            # packaged documentation mirrors must match root copies
+    - MASTER-SOLUTION-GUIDE.md
+    - executive-summary               # only when business-facing capabilities materially change
+  templates:
+    - web-template: [README.md, GETTING-STARTED.md]
+    - api-template: [README.md, GETTING-STARTED.md]
+    - mobile-template: [README.md, GETTING-STARTED.md]
+  rule: >
+    Synchronization is not satisfied by a version-number bump alone. Every
+    entry above must be reviewed against semanticReviewChecklist for this
+    release's actual changes before the release is considered synchronized.
+    Historical CHANGELOG entries describing older versions must remain
+    unchanged.
+
+# ---------------------------------------------------------------------------
+# Version synchronization gate
+# ---------------------------------------------------------------------------
+versionSyncGate: >
+  SDK version == Maven published artifact version == Web template SDK
+  dependency version == API template SDK dependency version == Mobile
+  template SDK dependency version == active documentation version.
+  All five must match exactly before a release is considered synchronized.
+
+# ---------------------------------------------------------------------------
+# Allure publishing standard (authoritative for this solution)
+# ---------------------------------------------------------------------------
+allurePublishing:
+  standardArchitecture: >
+    SDK generates target/allure-results
+      -> Consumer Azure DevOps pipeline runs PublishAllureReport@2
+      -> Azure DevOps Allure Report tab renders the report.
+  approvedPipelinePattern: |
+    - task: PublishAllureReport@2
+      condition: always()
+      inputs:
+        testResultsDir: 'target/allure-results'
+        allureVersion: '2.36.0'   # use the currently approved version if this changes later
+        reportName: 'Allure Report'
+  prohibitedLegacyPatterns:        # must not reappear unless explicitly approved as a separate
+                                    # legacy requirement, documented as such, and never the default
+    - S3Upload@1
+    - custom-html-hosting
+    - custom-index-html-urls
+    - automation-test-results/*
+    - Publish-AllureReport.ps1
+    - custom-allure-report-path-builders
+  templateSyncCheck: >
+    Every release must verify all three templates (Web, API, Mobile) contain
+    the approved pipeline pattern verbatim (module/version may differ only
+    if the approved allureVersion changes for all templates together).
+
+allureReleaseValidation:
+  required:
+    - sdk-allure-result-generation-validated
+    - web-template-allure-configuration-validated
+    - api-template-allure-configuration-validated
+    - mobile-template-allure-configuration-validated
+    - stale-legacy-pattern-scan-clean
+  whenAzureDevOpsInfrastructureAvailable:
+    - allure-tab-opens
+    - passing-test-visible
+    - failing-test-visible
+    - screenshot-visible
+    - dom-visible
+    - console-evidence-visible-where-supported
+    - no-nosuchkey-error
+    - no-custom-external-hosting-dependency
+  honestyRule: >
+    If a live Azure DevOps run cannot be performed, the release report MUST
+    state verbatim: "Allure pipeline configuration validated; live Azure
+    DevOps report rendering not yet validated." Do not silently upgrade a
+    static/template validation into an end-to-end validation claim.
+
+# ---------------------------------------------------------------------------
+# Maven repository publishing -- required release target, not a passive step
+# ---------------------------------------------------------------------------
+mavenRepositoryPublishing:
+  required:
+    - sdk-artifact-built
+    - artifact-version-verified
+    - maven-repository-updated
+    - expected-artifact-structure-validated
+    - maven-repository-commit-prepared
+  rule: >
+    The internal Git-based Maven repository is a release target with the same
+    weight as the SDK repo and the three templates -- it is not an optional
+    or passive reminder step.
+
+# ---------------------------------------------------------------------------
+# Validation requirements
+# ---------------------------------------------------------------------------
+validation:
+  sdk:
+    command: "mvn test"
+    requirement: >
+      Zero failures, zero errors, no unexplained decrease in test count
+      versus the previous release's recorded count. Do not hardcode a
+      specific test count as a permanent expected value in this file or in
+      release.ps1 -- compare against the prior release's recorded count
+      instead.
+  templates:
+    command: "mvn compile test-compile"
+    appliesTo: [web-consumer-template, api-consumer-template, mobile-consumer-template]
+    plus: "available smoke/runtime validation per template"
+    rule: >
+      Do not claim Mobile end-to-end validation without an actual
+      Appium/device execution having been run. Compile-only validation must
+      be reported as compile-only, not as functional validation.
+
+# ---------------------------------------------------------------------------
+# Push policy -- unchanged from standing SDK policy
+# ---------------------------------------------------------------------------
+pushPolicy: >
+  The release workflow may prepare commits, prepare Maven repository updates,
+  validate repositories, and prepare tags -- but must never push, tag, or
+  publish to any remote unless the user has given explicit, per-instance
+  authorization. Local commits/prepared state are fine; remote operations
+  are not automatic.
+
+# ---------------------------------------------------------------------------
+# Final release matrix (report exactly this shape at the end of a release)
+# ---------------------------------------------------------------------------
+finalReleaseMatrix:
+  columns: [Component, Version, Docs, Validation, Commit, Push]
+  rows:
+    - SDK
+    - Web Template
+    - API Template
+    - Mobile Template
+    - Maven Repository
+
+completionRule: >
+  A new SDK version is not considered fully released until the SDK, Maven
+  repository, all official consumer templates, configuration, and active
+  documentation are synchronized and validated. If any synchronization gate
+  fails, the release report must state: "RELEASE STATUS: INCOMPLETE".
+
+workflow:
+  - run scripts/release.ps1 and capture its mechanicalChecks results (version sync,
+    legacy Allure pattern scan, PublishAllureReport@2 presence, Maven artifact checks,
+    final verification matrix)
+  - walk semanticReviewChecklist against the actual diff for this release; for each
+    item, decide yes/no explicitly rather than skipping it
+  - verify documentationSync scope is fully reviewed (not just version-bumped)
+  - verify versionSyncGate holds across all five components
+  - verify allurePublishing.templateSyncCheck and run allureReleaseValidation.required;
+    if Azure DevOps infrastructure is available, additionally run the
+    whenAzureDevOpsInfrastructureAvailable checks -- otherwise apply allureReleaseValidation.honestyRule
+  - verify mavenRepositoryPublishing.required steps are complete
+  - run validation.sdk and validation.templates commands and record results
+  - apply pushPolicy (never push/tag/publish without explicit per-instance authorization)
+  - produce the finalReleaseMatrix and apply completionRule to determine RELEASE STATUS
+
+outputs:
+  - releaseMatrix        # finalReleaseMatrix rows filled in with actual results
+  - releaseStatus         # "RELEASE STATUS: COMPLETE" or "RELEASE STATUS: INCOMPLETE"
+  - remainingLimitations  # e.g. live Azure DevOps validation, live mobile/device validation

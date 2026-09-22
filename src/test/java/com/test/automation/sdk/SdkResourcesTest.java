@@ -115,6 +115,7 @@ class SdkResourcesTest {
         "ai/README.md",
         "ai/prompts/element-discovery/analyze-locator-candidates.md",
         "ai/skills/element-discovery/element-discovery.skill.yaml",
+        "ai/skills/release/release.skill.yaml",
         "ai/schemas/discovery-result-v1.schema.json",
         "ai/schemas/locator-recommendation-v1.schema.json"
     })

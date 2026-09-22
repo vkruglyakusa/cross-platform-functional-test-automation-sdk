@@ -2,6 +2,8 @@
 /allure-results/
 /allure-report/
 /test-output/
+# Canonical Allure directories now live under target/ (already ignored above);
+# these legacy root-level entries are kept only for older working trees.
 /.idea/
 *.iml
 .classpath

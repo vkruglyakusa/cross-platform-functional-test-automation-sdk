@@ -270,19 +270,44 @@ public final class ConfigurationManager {
             return resolveBoolean("reporting.allure.openAfterGeneration", false);
         }
 
-        /** Directory Allure result files are written to during the run. */
+        /**
+         * Directory Allure result files are written to during the run. This
+         * is the SDK's own canonical default ({@code target/allure-results})
+         * and must match: (a) the {@code allure.results.directory} system
+         * property configured in the consumer's {@code pom.xml} surefire
+         * plugin (Allure's own writer resolves that property/{@code
+         * allure.properties}, independently of this SDK config key), and
+         * (b) the {@code testResultsDir} input of the pipeline's {@code
+         * PublishAllureReport@2} task. Standardizing all three on {@code
+         * target/allure-results} is what the standard Azure DevOps Allure
+         * Report publishing model (see SDK-USER-GUIDE.md, "Allure
+         * Reporting") requires -- there is exactly one canonical results
+         * directory, never a per-template/ per-pipeline variant.
+         */
         public String resultsDirectory() {
-            return resolve("reporting.allure.resultsDirectory", "allure-results");
+            return resolve("reporting.allure.resultsDirectory", "target/allure-results");
         }
 
-        /** Destination directory for the generated static HTML report. */
+        /** Destination directory for the generated static HTML report (local/optional convenience only -- see {@link #generateAfterExecution()}). */
         public String reportDirectory() {
-            return resolve("reporting.allure.reportDirectory", "allure-report");
+            return resolve("reporting.allure.reportDirectory", "target/allure-report");
         }
 
         /** Maximum time to wait for {@code allure generate} to finish. */
         public int generationTimeoutSeconds() {
             return resolveInt("reporting.allure.generationTimeoutSeconds", 120);
+        }
+
+        /**
+         * Legacy/local-only setting, retained only for consumers who still
+         * run a custom external report-hosting step of their own. The
+         * standard CI publishing path is Azure DevOps' {@code
+         * PublishAllureReport@2} task, which has its own success/failure
+         * semantics and is never driven by this value. This setting never
+         * affects the underlying functional test result either way.
+         */
+        public String publishFailureMode() {
+            return resolve("reporting.allure.publishFailureMode", "warn");
         }
     }
 

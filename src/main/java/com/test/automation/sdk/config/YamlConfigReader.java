@@ -206,8 +206,8 @@ public final class YamlConfigReader {
         flatMap.put("reporting.allure.generateAfterExecution", "true");
         // Never default to opening a browser automatically -- must stay opt-in.
         flatMap.put("reporting.allure.openAfterGeneration", "false");
-        flatMap.put("reporting.allure.resultsDirectory", "allure-results");
-        flatMap.put("reporting.allure.reportDirectory", "allure-report");
+        flatMap.put("reporting.allure.resultsDirectory", "target/allure-results");
+        flatMap.put("reporting.allure.reportDirectory", "target/allure-report");
         flatMap.put("reporting.allure.generationTimeoutSeconds", "120");
     }
 

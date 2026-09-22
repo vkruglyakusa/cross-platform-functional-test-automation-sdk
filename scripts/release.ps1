@@ -1,4 +1,12 @@
 ﻿# SDK Release Script (Windows PowerShell)
+#
+# Mechanical/automated counterpart to the semantic release process described in
+# src/main/resources/ai/skills/release/release.skill.yaml. That skill file owns
+# the human/semantic judgment calls this script cannot make on its own (does
+# documentation actually describe the new behavior, does MASTER-SOLUTION-GUIDE.md
+# or the Executive Summary need updating, did known limitations change) -- keep
+# both in sync when the release process changes.
+#
 # Usage: scripts\release.ps1 [-ProxyHost bcpxy.nycnet] [-ProxyPort 8080] [-AssumeYes]
 #          [-WebTemplatePath <dir>] [-ApiTemplatePath <dir>] [-MobileTemplatePath <dir>]
 #          [-MavenRepoPath <dir>] [-SkipTemplates] [-SkipMavenRepo]
@@ -561,6 +569,40 @@ if ($SkipTemplates) {
         }
         Write-Host "      $tplName template compiles cleanly against SDK $version -- OK"
 
+        # --- Validate the template uses the standard Allure publishing pattern ---
+        # (PublishAllureReport@2, target/allure-results canonical directory) and no
+        # legacy custom external report-hosting mechanism (S3Upload@1, hand-built
+        # "automation-test-results/..." keys). A template still on the legacy path
+        # aborts the release -- Allure publishing must stay in sync across all three
+        # consumer templates (see MASTER-SOLUTION-GUIDE.md Section 27).
+        $tplPipelineFiles = Get-ChildItem -Path $TemplatePath -Recurse -Include "azure-pipelines*.yml*", "run-suite.yml" -ErrorAction SilentlyContinue
+        $legacyPatternFound = $false
+        $publishTaskFound = $false
+        foreach ($pf in $tplPipelineFiles) {
+            $pfContent = Get-Content $pf.FullName -Raw
+            if ($pfContent -match "S3Upload@1|AllureReportPathBuilder|automation-test-results/") {
+                Write-Host "      ERROR: legacy custom Allure publishing pattern found in $($pf.FullName)"
+                $legacyPatternFound = $true
+            }
+            if ($pfContent -match "PublishAllureReport@2") {
+                $publishTaskFound = $true
+            }
+        }
+        if ($legacyPatternFound) {
+            Write-Host ""
+            Write-Host "============================================"
+            Write-Host "  ERROR: $tplName template still uses the legacy Allure publishing mechanism."
+            Write-Host "  RELEASE ABORTED -- migrate to PublishAllureReport@2 and re-run."
+            Write-Host "============================================"
+            Set-Location $root
+            exit 1
+        }
+        if (-not $publishTaskFound -and $tplPipelineFiles) {
+            Write-Host "      WARNING: no PublishAllureReport@2 task found in $tplName template pipeline file(s)."
+        } else {
+            Write-Host "      $tplName template Allure publishing pattern -- OK (PublishAllureReport@2, no legacy S3/path-builder mechanism)"
+        }
+
         # --- Git commit template changes ---
         git add pom.xml README.md SDK-USER-GUIDE.md GETTING-STARTED.md CHANGELOG.md docs\sdk configuration .github 2>$null
         $tplStatus = git status --porcelain pom.xml README.md SDK-USER-GUIDE.md GETTING-STARTED.md CHANGELOG.md docs\sdk configuration .github 2>$null
@@ -590,6 +632,11 @@ function Add-Check([string]$Name, [bool]$Passed, [string]$Detail = "") {
 
 Add-Check "SDK pom.xml version" ($version -match '^\d+\.\d+\.\d+$') "$version"
 
+$sdkPipelineTemplate = "$root\src\main\resources\sdk-defaults\azure-pipelines.yml.template"
+$sdkPipelineContent = if (Test-Path $sdkPipelineTemplate) { Get-Content $sdkPipelineTemplate -Raw } else { "" }
+Add-Check "SDK azure-pipelines.yml.template uses PublishAllureReport@2" ($sdkPipelineContent -match "PublishAllureReport@2")
+Add-Check "SDK azure-pipelines.yml.template has no legacy Allure S3/path-builder mechanism" ($sdkPipelineContent -notmatch "S3Upload@1|AllureReportPathBuilder|automation-test-results/")
+
 $changelogFinal = Get-Content "$root\CHANGELOG.md" -Raw
 Add-Check "SDK CHANGELOG has [$version] heading" ($changelogFinal -match [regex]::Escape("## [$version]"))
 
@@ -617,9 +664,20 @@ if ($SkipTemplates) {
 } else {
     foreach ($tr in $templateResults) {
         if ($tr.Applicable) {
-            $tplPomFinal = Get-Content "$($templateDefs | Where-Object { $_.Name -eq $tr.Name } | Select-Object -First 1 -ExpandProperty Path)\pom.xml" -Raw
+            $tplPathFinal = $templateDefs | Where-Object { $_.Name -eq $tr.Name } | Select-Object -First 1 -ExpandProperty Path
+            $tplPomFinal = Get-Content "$tplPathFinal\pom.xml" -Raw
             $versionMatches = $tplPomFinal -match "<artifactId>$artifactIdEsc</artifactId>\s*<version>$([regex]::Escape($version))</version>"
             Add-Check "$($tr.Name) template pom.xml == v$version" $versionMatches
+
+            $tplPipelineFilesFinal = Get-ChildItem -Path $tplPathFinal -Recurse -Include "azure-pipelines*.yml*", "run-suite.yml" -ErrorAction SilentlyContinue
+            $tplLegacyFound = $false
+            $tplPublishFound = $false
+            foreach ($pf in $tplPipelineFilesFinal) {
+                $pfContent = Get-Content $pf.FullName -Raw
+                if ($pfContent -match "S3Upload@1|AllureReportPathBuilder|automation-test-results/") { $tplLegacyFound = $true }
+                if ($pfContent -match "PublishAllureReport@2") { $tplPublishFound = $true }
+            }
+            Add-Check "$($tr.Name) template uses PublishAllureReport@2, no legacy Allure mechanism" ($tplPublishFound -and -not $tplLegacyFound)
         } else {
             Add-Check "$($tr.Name) template applicable" $true "not a dependent of $artifactId -- skipped"
         }

@@ -74,8 +74,8 @@ class AllureReportGeneratorTest {
         assertTrue(config.enabled());
         assertTrue(config.generateAfterExecution());
         assertFalse(config.openAfterGeneration(), "openAfterGeneration must default to false");
-        assertEquals("allure-results", config.resultsDirectory());
-        assertEquals("allure-report", config.reportDirectory());
+        assertEquals("target/allure-results", config.resultsDirectory());
+        assertEquals("target/allure-report", config.reportDirectory());
         assertEquals(120, config.generationTimeoutSeconds());
     }
 

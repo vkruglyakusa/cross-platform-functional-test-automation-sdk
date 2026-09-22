@@ -735,6 +735,23 @@ steps:
       jdkVersionOption: '1.21'
     continueOnError: true             # allow publish steps to run even if tests fail
 
+  # 3b. Validate Allure results were produced (target/allure-results is the
+  #     one canonical directory across SDK, templates, and pipeline YAML)
+  - task: PowerShell@2
+    displayName: 'Validate Allure results directory'
+    condition: always()
+    inputs:
+      targetType: inline
+      script: |
+        $allureResults = "target/allure-results"
+        if (-not (Test-Path $allureResults)) {
+          Write-Warning "Allure results directory was not generated."
+        } else {
+          $results = Get-ChildItem $allureResults -Filter "*-result.json" -ErrorAction SilentlyContinue
+          if (-not $results) { Write-Warning "No Allure result JSON files were generated." }
+          else { Write-Host "Allure results verified: $($results.Count) result file(s)." }
+        }
+
   # 4. Filter TestNG results — remove runMode=N skips before publishing to ADO.
   #    Without this step ADO counts SKIPs as "Others" and reports ~79% pass rate
   #    even when every executed test passed (0 failures). This step removes SKIP
@@ -805,13 +822,24 @@ steps:
       failTaskOnFailedTests: true
       testRunTitle: 'Regression Suite — $(Build.BuildNumber)'
 
-  # 6. Publish all test artifacts (screenshots, DOM dumps, logs, Allure, accessibility)
+  # 6. Publish all test artifacts (screenshots, DOM dumps, logs, accessibility)
   - task: PublishBuildArtifacts@1
     displayName: 'Publish test artifacts'
     condition: always()
     inputs:
       PathtoPublish: 'test-output'
       ArtifactName: 'test-output'
+
+  # 7. Publish the Allure report to the Azure DevOps Allure tab. Requires the
+  #    "Allure Report" Azure DevOps extension installed at the org level.
+  #    condition: always() -- a failed test must never block report publishing.
+  - task: PublishAllureReport@2
+    displayName: 'Publish Allure Report'
+    condition: always()
+    inputs:
+      testResultsDir: 'target/allure-results'
+      allureVersion: '2.36.0'
+      reportName: 'Allure Report'
 ```
 
 ### Comparison: when to use which option
@@ -1021,8 +1049,8 @@ path, but it is deprecated and should not be the primary setup path for new work
 | `reporting.allure.enabled` | `true` | Master switch for automatic Allure HTML report generation. |
 | `reporting.allure.generateAfterExecution` | `true` | Runs `allure generate` after execution completes. |
 | `reporting.allure.openAfterGeneration` | `false` | Opens the generated report locally after success. Keep `false` on CI/service hosts. |
-| `reporting.allure.resultsDirectory` | `allure-results` | Directory where `allure-testng` writes raw results. |
-| `reporting.allure.reportDirectory` | `allure-report` | Directory where generated static HTML is written. |
+| `reporting.allure.resultsDirectory` | `target/allure-results` | Directory where `allure-testng` writes raw results. |
+| `reporting.allure.reportDirectory` | `target/allure-report` | Directory where generated static HTML is written (local convenience only). |
 | `reporting.allure.generationTimeoutSeconds` | `120` | Max time to wait for `allure generate`. |
 
 #### `reporting.analytics`
@@ -2075,8 +2103,8 @@ artifact type is configured from the unified `reporting:` section in
 | `reporting.allure.enabled` | `true` | `-Dreporting.allure.enabled` | Master on/off switch for automatic Allure report generation |
 | `reporting.allure.generateAfterExecution` | `true` | `-Dreporting.allure.generateAfterExecution` | Runs `allure generate` once the whole test execution finishes |
 | `reporting.allure.openAfterGeneration` | `false` | `-Dreporting.allure.openAfterGeneration` | Opens the generated report locally after a successful generation |
-| `reporting.allure.resultsDirectory` | `allure-results` | `-Dreporting.allure.resultsDirectory` | Where `allure-testng` writes raw result files during the run |
-| `reporting.allure.reportDirectory` | `allure-report` | `-Dreporting.allure.reportDirectory` | Destination directory for the generated static HTML report |
+| `reporting.allure.resultsDirectory` | `target/allure-results` | `-Dreporting.allure.resultsDirectory` | Canonical directory `allure-testng` writes raw result files to, and the same directory the pipeline's `PublishAllureReport@2` task reads |
+| `reporting.allure.reportDirectory` | `target/allure-report` | `-Dreporting.allure.reportDirectory` | Local-only destination for the generated static HTML report (not used in CI publishing) |
 | `reporting.allure.generationTimeoutSeconds` | `120` | `-Dreporting.allure.generationTimeoutSeconds` | Max time to wait for `allure generate` before giving up |
 
 Backward-compatible aliases remain supported for older projects: `screenshots.outputDir`, `screenshots.domDumpDir`, `crawler.pageObject.reportDir`, and `sdk.gapOutputDir`.
@@ -2100,36 +2128,86 @@ The SDK generates two report types automatically -- no configuration required.
 
 ### Allure Report
 
-**Prerequisite:** the [Allure commandline](https://allurereport.org/docs/install/)
-must be installed and on `PATH` (e.g. `npm install -g allure-commandline`,
-Scoop, Homebrew, or the manual zip install). This is an external tool
-requirement, not something the SDK ships -- the SDK only automates *invoking*
-it.
+**Standard CI model (Azure DevOps).** The SDK's job ends at writing raw
+Allure result files to the one canonical directory, `target/allure-results`
+(via `allure-testng`, during the test run itself). Your pipeline then
+publishes them directly with Azure DevOps' `PublishAllureReport@2` task --
+there is no `allure generate`/HTML step, no external upload/object-storage
+hosting, and **no Allure CLI install required on the build agent** for this
+path:
 
-By default, once the whole test execution finishes (all suites/threads done),
-the SDK automatically runs the equivalent of:
-
-```bash
-allure generate ./allure-results --clean -o ./allure-report
+```text
+Test Execution -> target/allure-results -> PublishAllureReport@2 -> Allure tab
 ```
 
-so a consumer running a plain `mvn test` gets a ready-to-view
-`allure-report/index.html` with no extra script, listener, or manual step of
-their own. This is implemented by the internal `AllureReportGenerator`
-service and wired into the existing `Listener.onFinish(ISuite)` lifecycle
-hook (see `com.test.automation.sdk.reporting.AllureReportGenerator`) -- it
-runs exactly once per execution even with multiple `<suite>` blocks or
-parallel test threads.
+```yaml
+- task: PublishAllureReport@2
+  displayName: 'Publish Allure Report'
+  condition: always()
+  inputs:
+    testResultsDir: 'target/allure-results'
+    allureVersion: '2.36.0'
+    reportName: 'Allure Report'
+```
+
+**Prerequisite:** the organization's Azure DevOps instance must have the
+"Allure Report" Marketplace extension installed once, at the org level, so
+`PublishAllureReport@2` is available to every pipeline. This is a one-time
+platform setup step, documented in `MASTER-SOLUTION-GUIDE.md`, not something
+each consumer project configures per-run.
+
+`condition: always()` is required -- a failed functional test must never
+prevent Allure publishing; the report (and its failed-test evidence) is
+often most valuable exactly when tests fail.
+
+A lightweight validation step before publishing is recommended so a missing
+results directory is a clear, actionable warning instead of a silent gap:
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Validate Allure results directory'
+  condition: always()
+  inputs:
+    targetType: inline
+    script: |
+      $allureResults = "target/allure-results"
+      if (-not (Test-Path $allureResults)) {
+        Write-Warning "Allure results directory was not generated."
+      } else {
+        $results = Get-ChildItem $allureResults -Filter "*-result.json" -ErrorAction SilentlyContinue
+        if (-not $results) { Write-Warning "No Allure result JSON files were generated." }
+        else { Write-Host "Allure results verified: $($results.Count) result file(s)." }
+      }
+```
+
+**Local/optional convenience only.** Independently of the CI model above, if
+the [Allure commandline](https://allurereport.org/docs/install/) is installed
+and on `PATH` (e.g. `npm install -g allure-commandline`), the SDK also
+automatically runs the equivalent of `allure generate ./target/allure-results
+--clean -o ./target/allure-report` once the whole test execution finishes, so
+a developer running a plain `mvn test` on their own machine gets a
+ready-to-view `target/allure-report/index.html` for free -- with no extra
+script, listener, or manual step. This is implemented by the internal
+`AllureReportGenerator` service and wired into the existing
+`Listener.onFinish(ISuite)` lifecycle hook (see
+`com.test.automation.sdk.reporting.AllureReportGenerator`) -- it runs exactly
+once per execution even with multiple `<suite>` blocks or parallel test
+threads. **This local convenience is never part of the CI publishing path**
+-- the pipeline reads `target/allure-results` directly via
+`PublishAllureReport@2` and never depends on `AllureReportGenerator` having
+run.
 
 Behavior:
 - If `reporting.allure.enabled` or `reporting.allure.generateAfterExecution`
-  is `false`, generation is skipped entirely (no process is launched).
-- If the Allure commandline isn't found on the machine, generation is skipped
-  with a clear log line explaining why -- **test execution itself always
-  passes/fails purely on its own TestNG result**, independent of whether the
-  HTML report could be generated afterward.
+  is `false`, local generation is skipped entirely (no process is launched);
+  this has zero effect on CI publishing, which reads raw results directly.
+- If the Allure commandline isn't found on the machine, local generation is
+  skipped with a clear log line explaining why -- **test execution itself
+  always passes/fails purely on its own TestNG result**, independent of
+  whether the local HTML report could be generated afterward.
 - `--clean` only ever applies to the generated **report** directory; your
-  `allure-results` (the raw execution evidence) is never deleted or modified.
+  `target/allure-results` (the raw execution evidence) is never deleted or
+  modified.
 - `reporting.allure.openAfterGeneration` **defaults to `false`** and must stay
   that way for CI/service/headless execution (Azure DevOps agents, Windows
   services, etc.) -- opening a browser automatically is never appropriate
@@ -2152,6 +2230,15 @@ mvn allure:serve
 
 SDK business steps recorded via `step("...", () -> { ... })` are visible in the
 Allure timeline and reuse the same logical story in Extent and SDK logs.
+
+**Removed legacy path.** Earlier revisions of the Web consumer template's
+pipeline uploaded a generated `allure-report/index.html` directory to an S3
+bucket under a hand-built key
+(`automation-test-results/<definition>/<build>/<suite>/`) to feed a custom
+"Allure tab" integration. That mechanism has been removed -- it was the root
+cause of `NoSuchKey` failures when the upload key and the read key drifted.
+`PublishAllureReport@2` replaces it entirely; no project should still be
+building custom object-storage keys for Allure hosting.
 
 ### Suite identity source
 

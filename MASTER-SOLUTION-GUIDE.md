@@ -185,8 +185,8 @@ flowchart TB
 - **Page objects:** `WikipediaSearchPage`, `ExamplePage`.
 - **Test data:** `POLETOP_STG_TestData.xlsx` under `src/test/resources/testData/` (naming is a carry-over sample; replace per project).
 - **Configuration:** `configuration/config.properties`, `configuration/sdk-config.yaml`, `configuration/log4j.properties`, `configuration/log4j2.properties`, `configuration/log4j2.xml`.
-- **Pipeline files:** `azure-pipelines.yml.template` (step-based, `trunk` trigger, `ubuntu-latest`), `.azdo/steps/run-suite.yml` (reusable step that also generates/publishes an Allure report).
-- **Reporting:** Allure (`allure-results/`), Extent (`test-output/reports/`), analytics (`test-output/analytics/`).
+- **Pipeline files:** `azure-pipelines.yml.template` (step-based, `trunk` trigger, `ubuntu-latest`), `.azdo/steps/run-suite.yml` (reusable step that validates Allure results and publishes them via `PublishAllureReport@2`).
+- **Reporting:** Allure (`target/allure-results/`), Extent (`test-output/reports/`), analytics (`test-output/analytics/`).
 - **Local execution:** `mvn test -Denvironment=stg -DbrowserName=chrome` (see Section 26).
 
 ### API Consumer Template — `api-functional-automation-consumer-template`
@@ -749,7 +749,7 @@ mvn exec:java -Dexec.mainClass="com.test.automation.sdk.utility.InstructionExtra
    ```bash
    mvn test -Denvironment=stg -DbrowserName=chrome
    ```
-8. **Verify report:** check `allure-results/` and `test-output/reports/` (Extent).
+8. **Verify report:** check `target/allure-results/` and `test-output/reports/` (Extent).
 9. **Verify evidence:** on an intentional failure, confirm `test-output/screenshots/` (PNG + DOM) and, if enabled, browser console/network artifacts are produced.
 10. **Configure CI:** adapt `azure-pipelines.yml.template` into a real pipeline (rename, set the correct Azure Artifacts feed and agent pool).
 
@@ -835,15 +835,24 @@ Common local-only flags: `-DbrowserName=chrome|edge|firefox`, `-Denvironment=stg
 - API template: root `azure-pipelines.yml.template`
 - Mobile template: root `azure-pipelines.yml.template`
 
-**Asymmetry — resolved:** the API and Mobile pipeline templates now include an `allure generate` step (Step 3b, immediately after the Maven test run) and a dedicated `PublishBuildArtifacts@1` step that publishes `target/allure-report` as an `allure-report` artifact, bringing them to parity with the Web template's report-generation behavior. The Web template's pipeline remains the most complete overall, since its reusable `.azdo/steps/run-suite.yml` additionally cleans prior Allure results, stamps the report name with project/environment, and uploads the generated report to S3 for persistent hosting (`S3Upload@1`) — that S3-hosting step depends on an AWS service connection variable (`aws-service-connection`) that is Web-project-specific and was intentionally not templated into the generic API/Mobile pipelines.
+**Standard Allure publishing model (all three templates, no asymmetry):** SDK/`allure-testng` writes raw
+results to `target/allure-results` during the run -> the pipeline validates that directory is non-empty
+-> Azure DevOps' `PublishAllureReport@2` task publishes the Allure tab directly from those raw results.
+There is no `allure generate`/HTML step, no external upload, and no per-agent Allure CLI install required.
+
+**Removed legacy mechanism:** the Web template's `.azdo/steps/run-suite.yml` previously ran `allure
+generate`, stamped the generated HTML's report name, and uploaded it to S3 via `S3Upload@1` under a
+hand-built key (`automation-test-results/<definition>/<build>/<suite>/`) to feed a custom "Allure tab"
+integration. That mechanism (and its Java-side counterpart, `AllureReportPathBuilder`, plus
+`Publish-AllureReport.ps1`) has been removed — it was the root cause of `NoSuchKey` failures when the
+upload key and the read key drifted. No AWS service connection / S3 bucket is needed anymore.
 
 **Adapting a template pipeline:**
 1. Rename `azure-pipelines.yml.template` → `azure-pipelines.yml`.
 2. Set the Maven repository/feed reference to the project's actual Azure Artifacts feed (or the local `maven-repository` fallback, for teams not yet using Azure Artifacts).
 3. Set the correct agent pool (see Section 28).
-4. Ensure the Allure commandline tool is available on the build agent (e.g., `npm install -g allure-commandline` as a prior step, or a preinstalled self-hosted agent image) so the `allure generate` step succeeds; it is `continueOnError: true` so the pipeline stays green if the CLI is not yet provisioned.
+4. Ensure the organization's Azure DevOps instance has the "Allure Report" Marketplace extension installed once (org-level, not per-project) so `PublishAllureReport@2` is available.
 5. For Mobile, add BrowserStack App Automate steps/credentials (self-hosted agents cannot run emulators/devices reliably in most Azure DevOps hosted pools).
-6. If persistent, browsable report hosting (e.g., S3) is desired for API/Mobile projects, add a project-specific upload step following the Web template's `S3Upload@1` example.
 
 ---
 
@@ -943,7 +952,7 @@ The workspace history includes a real cross-platform migration exemplar: the `31
 | `test-output/visual/` | Actual/diff visual-regression images | No |
 | `src/test/resources/visual-baselines/` | Approved visual baselines | **Yes** |
 | `test-output/impact/impact_suite.xml` | Generated Test-Impact-Analysis suite | No |
-| `allure-results/` | Raw Allure result files | No |
+| `target/allure-results/` | Raw Allure result files | No |
 | `test-output/reports/` | Extent HTML reports | No |
 | `docs/test-case-gaps/` | Gap/blocker reports for non-automatable ADO test cases | Yes |
 | `.github/instructions/`, `.github/copilot-instructions.md`, `.github/prompts/` | SDK-managed, extracted Copilot resources | Typically gitignored (regenerated per extraction) |
@@ -1035,7 +1044,7 @@ The workspace history includes a real cross-platform migration exemplar: the `31
 | 7 | Visual regression not documented as validated on Mobile | Documented gap | No evidence of a validated mobile visual-regression run found in source |
 | 8 | Azure Artifacts feed deployment not performed | Deferred, not a defect | Local git-backed `maven-repository` used as interim publishing mechanism |
 | 9 | ~~No standalone RCA JSON schema fixture~~ | **Resolved** | Added `src/main/resources/ai/schemas/rca-bundle-v1.schema.json`, verified against `RcaBundleWriter.toJson(...)` — see Section 14 |
-| 10 | ~~API/Mobile CI pipeline templates lacked Allure report generation~~ | **Resolved** | Added an `allure generate` step and an Allure-report `PublishBuildArtifacts@1` step to both templates' `azure-pipelines.yml.template`; Web-only S3 upload remains Web-specific by design (depends on a Web-project `aws-service-connection` variable) — see Section 27 |
+| 10 | ~~API/Mobile CI pipeline templates lacked Allure report generation~~ | **Superseded** | The original fix (an `allure generate` + `PublishBuildArtifacts@1` step) has itself been replaced: all three templates (Web/API/Mobile) now standardize on `PublishAllureReport@2` reading `target/allure-results` directly, with no `allure generate` step and no Web-only S3 upload — see Section 27 |
 
 ---
 
@@ -1045,7 +1054,7 @@ The workspace history includes a real cross-platform migration exemplar: the `31
 - [ ] `pom.xml` version matches the intended release across SDK and all three templates.
 - [ ] README/GETTING-STARTED version references match `pom.xml` in every repository (previously found to drift — verify explicitly).
 - [ ] CHANGELOG documents all user-facing behavior changes and known limitations for the release.
-- [ ] No generated artifacts (`test-output/`, `allure-results/`, `target/`) staged for commit.
+- [ ] No generated artifacts (`test-output/`, `target/allure-results/`, `target/`) staged for commit.
 - [ ] No unrelated `.docx`/temp/IDE files staged for commit.
 - [ ] `git status` reviewed per repository before committing.
 - [ ] Tag does not already exist locally or remotely before creating it.

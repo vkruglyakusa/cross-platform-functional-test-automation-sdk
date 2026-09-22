@@ -67,6 +67,14 @@ result) for one capability. See `element-discovery/element-discovery.skill.yaml`
 for a worked example tied to `discovery.ElementDiscoveryService`
 (Structure Cleanup Phase 6).
 
+Not every skill is tied to a Java tool contract -- `release/release.skill.yaml`
+is a process/workflow skill describing the formal multi-repository SDK
+release process (SDK + Maven repository + Web/API/Mobile consumer templates),
+built around `scripts/release.ps1` as its "tool" plus a semantic review
+checklist that release.ps1 cannot perform mechanically. Use this pattern for
+other cross-repository process workflows that don't map to a single Java
+service.
+
 ## Schemas (`schemas/*.schema.json`)
 
 Plain JSON Schema (draft-07) files. Name format is `<name>-v<N>.schema.json`;

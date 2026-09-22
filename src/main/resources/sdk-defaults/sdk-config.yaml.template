@@ -129,22 +129,39 @@ reporting:
   gapOutputDir:   "docs/test-case-gaps"          # gap-report.md / blocker-report.md (-Dreporting.gapOutputDir)
 
   # ------------------------------------------------------------
-  # OBS-9: Automatic Allure HTML report generation after execution.
-  # Prerequisite: the Allure commandline must be installed and on PATH
-  # (https://allurereport.org/docs/install/). If it isn't found, generation
-  # is skipped with a clear log message -- test execution itself is never
-  # affected either way (report generation and test pass/fail are separate
-  # concerns). See SDK-USER-GUIDE.md, "Allure Reporting", for details.
+  # Allure reporting.
+  #
+  # STANDARD CI MODEL: the SDK's job ends at generating raw Allure result
+  # files under `target/allure-results` (via allure-testng, during the test
+  # run itself). The pipeline then publishes them directly with Azure
+  # DevOps' `PublishAllureReport@2` task -- no `allure generate` HTML step,
+  # no external hosting/upload, and no Allure CLI install is required on the
+  # agent for the standard path. `target/allure-results` is the ONE
+  # canonical results directory across the SDK, all consumer templates, and
+  # pipeline YAML -- do not let a project independently redefine it.
+  #
+  # `generateAfterExecution`/`openAfterGeneration` below remain a LOCAL-ONLY
+  # developer convenience (runs `allure generate`/`allure open` on your own
+  # machine if the Allure commandline is installed
+  # -- https://allurereport.org/docs/install/). Never required for CI, and
+  # if the CLI isn't found, generation is skipped with a log message --
+  # test execution itself is never affected either way. See
+  # SDK-USER-GUIDE.md, "Allure Reporting", for details.
   # ------------------------------------------------------------
   allure:
     enabled: true                    # master on/off switch                        (-Dreporting.allure.enabled)
-    generateAfterExecution: true     # run `allure generate` once execution ends   (-Dreporting.allure.generateAfterExecution)
+    generateAfterExecution: true     # LOCAL-ONLY: run `allure generate` once execution ends (-Dreporting.allure.generateAfterExecution)
     # NEVER default this to true -- opening a browser must always be opt-in,
     # especially on Azure DevOps agents / Windows services / headless hosts.
-    openAfterGeneration: false       # open the generated report locally after success (-Dreporting.allure.openAfterGeneration)
-    resultsDirectory: "allure-results"  # where allure-testng writes raw results   (-Dreporting.allure.resultsDirectory)
-    reportDirectory: "allure-report"    # where the generated static HTML site goes (-Dreporting.allure.reportDirectory)
+    openAfterGeneration: false       # LOCAL-ONLY: open the generated report after success (-Dreporting.allure.openAfterGeneration)
+    resultsDirectory: "target/allure-results"  # canonical raw-results dir -- must match pom.xml's -Dallure.results.directory and the pipeline's PublishAllureReport@2 testResultsDir (-Dreporting.allure.resultsDirectory)
+    reportDirectory: "target/allure-report"    # LOCAL-ONLY generated static HTML site (-Dreporting.allure.reportDirectory)
     generationTimeoutSeconds: 120    # max time to wait for `allure generate`      (-Dreporting.allure.generationTimeoutSeconds)
+
+    # Legacy/local-only setting. Only relevant if a consumer still runs its
+    # own custom external report-hosting step outside the standard
+    # PublishAllureReport@2 model; never affects the underlying test result.
+    publishFailureMode: "warn"
 
   # ------------------------------------------------------------
   # Cross-run analytics event store: every execution event (test outcomes,

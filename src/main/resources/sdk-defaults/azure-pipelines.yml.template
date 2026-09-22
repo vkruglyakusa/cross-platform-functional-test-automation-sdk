@@ -57,14 +57,29 @@ steps:
       jdkVersionOption: '1.21'
     continueOnError: true
 
-  # -- 3b. Generate Allure report -------------------------------------------
-  #    Requires the Allure commandline tool to be available on the agent
-  #    (e.g. via a prior `npm install -g allure-commandline` step or a
-  #    preinstalled self-hosted agent image). continueOnError keeps the
-  #    pipeline green if the Allure CLI is not yet provisioned.
-  - script: allure generate target/allure-results --clean -o target/allure-report
-    displayName: 'Generate Allure report'
-    continueOnError: true
+  # -- 3b. Validate Allure results were produced ----------------------------
+  #    Standard model: the SDK writes raw Allure results to target/allure-results
+  #    during the test run (allure-testng); no `allure generate`/HTML step and
+  #    no external upload is needed. This step only logs a diagnostic -- it
+  #    never fails the build -- so PublishAllureReport@2 below always runs.
+  - task: PowerShell@2
+    displayName: 'Validate Allure results directory'
+    condition: always()
+    inputs:
+      targetType: inline
+      script: |
+        $allureResults = "target/allure-results"
+        Write-Host "Allure results directory: $allureResults"
+        if (-not (Test-Path $allureResults)) {
+          Write-Warning "Allure results directory was not generated."
+        } else {
+          $results = Get-ChildItem $allureResults -Filter "*-result.json" -ErrorAction SilentlyContinue
+          if (-not $results) {
+            Write-Warning "No Allure result JSON files were generated."
+          } else {
+            Write-Host "Allure result file count: $($results.Count)"
+          }
+        }
 
   # -- 4. Filter TestNG results (remove runMode=N skips) -------------------
   #    Without this step ADO counts SKIPs as "Others" and reports ~79% pass
@@ -137,7 +152,9 @@ steps:
       testRunTitle: 'Regression Suite — $(Build.BuildNumber)'
 
   # -- 6. Publish all test artifacts ---------------------------------------
-  #    Covers screenshots, DOM dumps, logs, Allure JSON, accessibility reports.
+  #    Covers screenshots, DOM dumps, logs, accessibility reports. Allure
+  #    evidence lives in target/allure-results and is published by the
+  #    PublishAllureReport@2 task below, not as a generic build artifact.
   - task: PublishBuildArtifacts@1
     displayName: 'Publish test artifacts'
     condition: always()
@@ -145,11 +162,17 @@ steps:
       PathtoPublish: 'test-output'
       ArtifactName: 'test-output'
 
-  # -- 7. Publish Allure report artifact ------------------------------------
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish Allure report'
-    condition: succeededOrFailed()
-    continueOnError: true
+  # -- 7. Publish the Allure report to the Azure DevOps Allure tab ---------
+  #    Requires the "Allure Report" Azure DevOps extension to be installed
+  #    at the organization level (Marketplace: "Allure Report" by Qameta
+  #    Software) so PublishAllureReport@2 is available -- no per-agent Allure
+  #    CLI install is required for this standard path. Runs unconditionally
+  #    (always()) so the report -- and any failed-test evidence -- is
+  #    published even when tests fail or a prior step failed.
+  - task: PublishAllureReport@2
+    displayName: 'Publish Allure Report'
+    condition: always()
     inputs:
-      PathtoPublish: 'target/allure-report'
-      ArtifactName: 'allure-report'
+      testResultsDir: 'target/allure-results'
+      allureVersion: '2.36.0'
+      reportName: 'Allure Report'

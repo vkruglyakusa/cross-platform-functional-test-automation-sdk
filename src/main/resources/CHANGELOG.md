@@ -19,6 +19,28 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Changed
+- **Allure publishing standardized on Azure DevOps' `PublishAllureReport@2` task.** The canonical
+  Allure results directory is now `target/allure-results` everywhere (SDK, Web/API/Mobile consumer
+  templates, pipeline YAML, and documentation) -- previously the SDK's own default
+  (`reporting.allure.resultsDirectory=allure-results`, project-root-relative) silently disagreed with
+  the pipeline templates' `target/allure-results` references. `reporting.allure.resultsDirectory` and
+  `reporting.allure.reportDirectory` defaults changed accordingly
+  (`ConfigurationManager.AllureReportConfig`, `YamlConfigReader`, `sdk-config.yaml.template`).
+- `azure-pipelines.yml.template` no longer runs `allure generate`/uploads a generated HTML report as a
+  build artifact; it validates `target/allure-results` exists and non-emptily, then publishes with
+  `PublishAllureReport@2` (`condition: always()`, so publishing happens even when tests fail).
+
+### Removed
+- **`AllureReportPathBuilder` and `Publish-AllureReport.ps1`** -- the custom S3/object-storage report
+  hosting mechanism (sanitized `automation-test-results/<definition>/<build>/<suite>/index.html` key
+  building, upload, and remote-existence verification). This was the root cause of `NoSuchKey`
+  failures when the constructed key drifted from what was actually uploaded. Replaced by the standard
+  Azure DevOps Allure Report extension (`PublishAllureReport@2`), which needs no custom key-building,
+  no AWS credentials, and no per-agent Allure CLI install.
+
+See `SDK-USER-GUIDE.md`, "Allure Report", for the full standard model and the removed legacy path.
+
 ### Added
 - Accessibility enforcement modes: `accessibility.mode` (`report-only` default | `fail-test`) with
   `accessibility.failOnSeverity` (`minor` < `moderate` < `serious` < `critical`) threshold. Legacy
