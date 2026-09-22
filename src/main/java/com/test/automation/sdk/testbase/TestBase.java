@@ -62,9 +62,7 @@ import com.test.automation.sdk.utility.reports.ExtentTestManager;
 import com.test.automation.sdk.utility.mailinator.MailinatorEmailReader;
 import com.test.automation.sdk.accessibility.AccessibilityChecker;
 import com.test.automation.sdk.accessibility.A11ySessionManager;
-import com.test.automation.sdk.accessibility.report.AllureA11yReporter;
-import com.test.automation.sdk.accessibility.report.CompositeReporter;
-import com.test.automation.sdk.accessibility.report.Slf4jReporter;
+import com.test.automation.sdk.accessibility.report.A11yReporterFactory;
 
 /**
  *
@@ -3301,9 +3299,12 @@ public class TestBase {
 	/**
 	 * Initialises the global accessibility reporter once per test suite.
 	 *
-	 * <p>Composed of two reporters: SLF4J (always active, logged to the normal
-	 * test log) and Allure (active when Allure is on the classpath). Call this
-	 * from {@code @BeforeSuite} in the consumer test suite, or let the
+	 * <p>Composed via {@link A11yReporterFactory}, driven by
+	 * {@code accessibility.reporting.*} configuration: SLF4J is always active,
+	 * Allure and ExtentReports are each included when their respective
+	 * {@code accessibility.reporting.allure} / {@code accessibility.reporting.extent}
+	 * flag is {@code true} (the default for both). Call this from
+	 * {@code @BeforeSuite} in the consumer test suite, or let the
 	 * {@code A11yTestNGListener} call it automatically.
 	 *
 	 * <p>Subsequent calls are safe: they are no-ops if accessibility checking is
@@ -3314,9 +3315,10 @@ public class TestBase {
 				log.info("[A11Y] Accessibility checking disabled -- skipping initAccessibility()");
 				return;
 			}
-			AccessibilityChecker.setReporter(
-					new CompositeReporter(new Slf4jReporter(), new AllureA11yReporter()));
-			log.info("[A11Y] Accessibility reporter initialised (SLF4J + Allure)");
+			AccessibilityChecker.setReporter(A11yReporterFactory.buildDefault());
+			log.info("[A11Y] Accessibility reporter initialised (SLF4J{}{})",
+					A11yReporterFactory.isAllureEnabled() ? " + Allure" : "",
+					A11yReporterFactory.isExtentEnabled() ? " + Extent" : "");
 	}
 
 	/**

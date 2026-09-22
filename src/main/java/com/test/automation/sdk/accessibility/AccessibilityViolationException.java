@@ -2,8 +2,9 @@ package com.test.automation.sdk.accessibility;
 
 /**
  * Thrown when an accessibility scan finds violations and the library is configured
- * to fail (via {@code accessibility.fail.on.violation=true} or
- * {@link AccessibilityChecker#assertNoViolations}).
+ * to fail (via {@code accessibility.mode=fail-test} with a qualifying
+ * {@code accessibility.failOnSeverity}, the legacy {@code accessibility.fail.on.violation=true},
+ * or {@link AccessibilityChecker#assertNoViolations}).
  *
  * <p>This is an unchecked exception so it surfaces as a test failure in <b>both</b>
  * JUnit and TestNG without any framework-specific assertion dependency.</p>

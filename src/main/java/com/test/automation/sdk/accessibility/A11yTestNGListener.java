@@ -1,6 +1,7 @@
 package com.test.automation.sdk.accessibility;
 
 import com.test.automation.sdk.accessibility.config.A11yConfig;
+import com.test.automation.sdk.accessibility.report.A11yReporterFactory;
 import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,6 +100,11 @@ public class A11yTestNGListener implements ITestListener {
                     + "URL poller will start when the first driver is discovered.", pollMs);
         }
         log.info("[A11Y LISTENER] Accessibility auto-scan active for suite: {}", context.getName());
+
+        AccessibilityChecker.setReporter(A11yReporterFactory.buildDefault());
+        log.info("[A11Y LISTENER] Accessibility reporter initialised (SLF4J{}{})",
+                A11yReporterFactory.isAllureEnabled() ? " + Allure" : "",
+                A11yReporterFactory.isExtentEnabled() ? " + Extent" : "");
     }
 
     // ── After each test (both pass and fail) ──────────────────────────────────
@@ -129,9 +135,14 @@ public class A11yTestNGListener implements ITestListener {
         if (!A11ySessionManager.isEnabled()) return;
 
         try {
-            AccessibilityExcelReporter.generate();
-            Diag.print("Excel report written under '{}'", A11yConfig.outputDir().toAbsolutePath());
-            log.info("[A11Y LISTENER] Excel report generated");
+            if (A11yReporterFactory.isExcelEnabled()) {
+                AccessibilityExcelReporter.generate();
+                Diag.print("Excel report written under '{}'", A11yConfig.outputDir().toAbsolutePath());
+                log.info("[A11Y LISTENER] Excel report generated");
+            } else {
+                Diag.print("Excel report generation disabled (accessibility.reporting.excel=false)");
+                log.info("[A11Y LISTENER] Excel report generation disabled (accessibility.reporting.excel=false)");
+            }
         } catch (Exception e) {
             Diag.print("Could not generate Excel report: {}", e.getMessage());
             log.warn("[A11Y LISTENER] Could not generate Excel report: {}", e.getMessage());

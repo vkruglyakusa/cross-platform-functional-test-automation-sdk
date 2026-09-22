@@ -74,9 +74,14 @@ import java.util.stream.Collectors;
  * <h3>Configuration ({@link A11yConfig})</h3>
  * <pre>
  * accessibility.checking.enabled=true        # master on/off switch
- * accessibility.fail.on.violation=false      # throw on any violation, or log only
+ * accessibility.mode=report-only             # report-only (default) | fail-test
+ * accessibility.failOnSeverity=minor         # minor|moderate|serious|critical — threshold for fail-test
+ * accessibility.fail.on.violation=false      # legacy: honored as fail-test when accessibility.mode is unset
  * accessibility.wcag.tags=wcag2a,wcag2aa     # axe-core tag set
  * accessibility.output.dir=test-output/accessibility  # artifact root (optional)
+ * accessibility.reporting.allure=true        # live Allure steps (default true)
+ * accessibility.reporting.extent=true        # live ExtentReports steps (default true)
+ * accessibility.reporting.excel=true         # accessibility-report_&lt;timestamp&gt;.xlsx (default true)
  * </pre>
  *
  * <h3>Usage</h3>
@@ -199,6 +204,110 @@ public class AccessibilityChecker {
     /** Returns {@code true} when the scan should throw on any accessibility violation. */
     public static boolean isFailOnViolation() {
         return A11yConfig.getBoolean("accessibility.fail.on.violation", false);
+    }
+
+    // -----------------------------------------------------------------------
+    // Configurable enforcement (report-only vs. fail-test, severity threshold)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Accessibility test-enforcement mode. Findings are always detected, processed
+     * (allowlists/suppressions, severity filtering), and reported in both modes —
+     * only the effect on the functional test result differs.
+     */
+    public enum EnforcementMode {
+        /** Findings are reported but never change the functional test result. */
+        REPORT_ONLY,
+        /** The test fails when qualifying findings meet or exceed {@link #getFailOnSeverity()}. */
+        FAIL_TEST
+    }
+
+    /** Severity ranking used for threshold comparisons — higher is more severe. */
+    private static final Map<String, Integer> SEVERITY_RANK = createSeverityRank();
+
+    private static Map<String, Integer> createSeverityRank() {
+        Map<String, Integer> m = new java.util.HashMap<>();
+        m.put("minor", 1);
+        m.put("moderate", 2);
+        m.put("serious", 3);
+        m.put("critical", 4);
+        return Collections.unmodifiableMap(m);
+    }
+
+    /**
+     * Returns the configured accessibility enforcement mode.
+     * <pre>
+     * accessibility.mode=report-only   # default — findings never fail the test
+     * accessibility.mode=fail-test     # fail when findings meet accessibility.failOnSeverity
+     * </pre>
+     * <p>Backward compatibility: when {@code accessibility.mode} is unset, the legacy
+     * {@code accessibility.fail.on.violation=true} flag is honored as {@link EnforcementMode#FAIL_TEST}
+     * (with the default {@code minor} threshold — i.e. fail on any violation, matching the
+     * old "fail on any violation" semantics).</p>
+     */
+    public static EnforcementMode getEnforcementMode() {
+        String raw = A11yConfig.get("accessibility.mode");
+        if (raw != null && !raw.trim().isEmpty()) {
+            String v = raw.trim().toLowerCase(java.util.Locale.ROOT).replace('_', '-');
+            if (v.equals("fail-test") || v.equals("fail")) {
+                return EnforcementMode.FAIL_TEST;
+            }
+            if (v.equals("report-only") || v.equals("report")) {
+                return EnforcementMode.REPORT_ONLY;
+            }
+            logger.warn("[A11Y CONFIG] Unrecognized accessibility.mode='{}' — defaulting to report-only", raw);
+            return EnforcementMode.REPORT_ONLY;
+        }
+        return isFailOnViolation() ? EnforcementMode.FAIL_TEST : EnforcementMode.REPORT_ONLY;
+    }
+
+    /**
+     * Returns the configured minimum severity ({@code minor|moderate|serious|critical}) at
+     * which a finding qualifies to fail the test when {@link #getEnforcementMode()} is
+     * {@link EnforcementMode#FAIL_TEST}. Defaults to {@code minor} (i.e. any qualifying
+     * violation fails the test), matching the legacy "fail on any violation" behavior.
+     */
+    public static String getFailOnSeverity() {
+        String v = A11yConfig.get("accessibility.failOnSeverity", "minor");
+        return v.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** Returns the numeric rank of {@code severity}, or {@code 0} for {@code null}/unrecognized values. */
+    private static int severityRank(String severity) {
+        if (severity == null) return 0;
+        Integer r = SEVERITY_RANK.get(severity.trim().toLowerCase(java.util.Locale.ROOT));
+        return r != null ? r : 0;
+    }
+
+    /**
+     * Returns {@code true} when a finding at {@code severity} meets or exceeds the configured
+     * {@link #getFailOnSeverity()} threshold <b>and</b> the enforcement mode is
+     * {@link EnforcementMode#FAIL_TEST}. Unrecognized/{@code null} severities never qualify.
+     */
+    static boolean meetsFailureThreshold(String severity) {
+        if (getEnforcementMode() != EnforcementMode.FAIL_TEST) return false;
+        int rank = severityRank(severity);
+        return rank > 0 && rank >= severityRank(getFailOnSeverity());
+    }
+
+    /** {@code true} when any axe-core violation's impact meets the configured failure threshold. */
+    private static boolean shouldFailForViolations(List<Rule> violations) {
+        for (Rule v : violations) {
+            if (meetsFailureThreshold(v.getImpact())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@code true} when any interaction-layer issue's impact meets the configured failure threshold. */
+    private static boolean shouldFailForIssues(List<InteractionIssue> issues) {
+        for (InteractionIssue i : issues) {
+            if (meetsFailureThreshold(i.impact)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Returns the configured WCAG tag array; defaults to {@code wcag2a,wcag2aa}. */
@@ -376,7 +485,7 @@ public class AccessibilityChecker {
             writeScanArtifact(pageName, pageUrl, tags, violations, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
             recordFindings(violations, incomplete, pageUrl, results);
 
-            if (!violations.isEmpty() && isFailOnViolation()) {
+            if (!violations.isEmpty() && shouldFailForViolations(violations)) {
                 throw new AccessibilityViolationException(buildFailureSummary(pageName, violations));
             }
             return violations.size();
@@ -748,6 +857,8 @@ public class AccessibilityChecker {
             root.put("outcome", outcome);
             root.put("enabled", isEnabled());
             root.put("failOnViolation", isFailOnViolation());
+            root.put("enforcementMode", getEnforcementMode().name());
+            root.put("failOnSeverity", getFailOnSeverity());
             root.put("violationCount", violations.size());
             root.put("threadId", Thread.currentThread().getId());
 
@@ -1288,7 +1399,22 @@ public class AccessibilityChecker {
             }
         }
         writeInteractionArtifact(checkId, pageName, issues);
+        if (!issues.isEmpty() && shouldFailForIssues(issues)) {
+            throw new AccessibilityViolationException(buildInteractionFailureSummary(checkId, pageName, issues));
+        }
         return issues.size();
+    }
+
+    private static String buildInteractionFailureSummary(String checkId, String pageName, List<InteractionIssue> issues) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Accessibility violations found on '").append(pageName)
+                .append("' (").append(checkId).append("):\n");
+        for (InteractionIssue i : issues) {
+            sb.append("  [").append(i.impact != null ? i.impact.toUpperCase() : "?").append("] ")
+                    .append(i.ruleId).append(": ").append(i.description)
+                    .append(" -> ").append(i.helpUrl).append("\n");
+        }
+        return sb.toString();
     }
 
     private static void writeInteractionArtifact(String checkId, String pageName, List<InteractionIssue> issues) {

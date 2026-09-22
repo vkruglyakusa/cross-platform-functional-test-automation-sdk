@@ -296,10 +296,26 @@ impact:
 # ------------------------------------------------------------
 accessibility:
   checking.enabled: false           # master on/off switch — false by default (opt-in)
-  fail.on.violation: false          # throw AccessibilityViolationException on any violation
+  fail.on.violation: false          # legacy: throw on any violation when accessibility.mode is unset
+  mode: report-only                 # report-only | fail-test — see "Test Enforcement" below
+  failOnSeverity: minor             # minor | moderate | serious | critical — used when mode: fail-test
   wcag.tags: "wcag2a,wcag2aa"       # axe-core tag set to evaluate
   debug: false                      # print [A11Y DEBUG] lines to stdout for troubleshooting
                                     # output directory is controlled by reporting.accessibilityDir above
+
+  # -- Test enforcement ---------------------------------------
+  # report-only (default): findings are scanned, suppressed/allowlisted, and
+  #   reported (Allure/Extent/Excel/HTML/VPAT) but never change the functional
+  #   test result.
+  # fail-test: the test fails when a finding's severity meets or exceeds
+  #   failOnSeverity (minor fails on ANY qualifying finding — the strictest
+  #   setting and the legacy fail.on.violation=true behavior).
+  #
+  # -- Reporting outputs (all default true whenever checking.enabled: true) ---
+  reporting:
+    allure: true                    # live Allure steps via AllureA11yReporter
+    extent: true                    # live ExtentReports steps via ExtentA11yReporter
+    excel: true                     # accessibility-report.xlsx (+ suppression/VPAT sheets)
 
   # -- Noise reduction & de-duplication ----------------------
   session.noise.threshold: MINOR    # MINOR | MODERATE | SERIOUS | CRITICAL

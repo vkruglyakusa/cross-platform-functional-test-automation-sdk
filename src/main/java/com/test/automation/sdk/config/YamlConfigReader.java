@@ -172,6 +172,11 @@ public final class YamlConfigReader {
         // Accessibility defaults
         flatMap.put("accessibility.checking.enabled",          "false");
         flatMap.put("accessibility.fail.on.violation",         "false");
+        flatMap.put("accessibility.mode",                      "report-only");
+        flatMap.put("accessibility.failOnSeverity",            "minor");
+        flatMap.put("accessibility.reporting.allure",          "true");
+        flatMap.put("accessibility.reporting.extent",          "true");
+        flatMap.put("accessibility.reporting.excel",           "true");
         flatMap.put("accessibility.wcag.tags",                 "wcag2a,wcag2aa");
         flatMap.put("accessibility.output.dir",                "test-output/accessibility");
         flatMap.put("accessibility.debug",                     "false");
