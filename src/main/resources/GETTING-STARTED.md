@@ -1,6 +1,6 @@
 # Getting Started -- Cross-Platform Functional Test Automation SDK
 
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.3`
 
 This is the single first-day setup guide for a brand-new consumer project.
 Follow the shared steps first, then continue with the track(s) you need:
@@ -55,7 +55,7 @@ mvn clean install -DskipTests
 ```
 
 This places the jar in:
-`~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.5.2/`
+`~/.m2/repository/com/test/automation/cross-platform-functional-test-automation-sdk/1.5.3/`
 
 ---
 
@@ -67,7 +67,7 @@ This places the jar in:
 <dependency>
     <groupId>com.test.automation</groupId>
     <artifactId>cross-platform-functional-test-automation-sdk</artifactId>
-    <version>1.5.2</version>
+    <version>1.5.3</version>
 </dependency>
 ```
 
@@ -350,7 +350,7 @@ for the clone commands.
 | | Web | API | Mobile |
 |---|---|---|---|
 | **Canonical template** | `functional-automation-consumer-template` | `api-functional-automation-consumer-template` | `mobile-functional-automation-consumer-template` |
-| **Required SDK version** | `1.5.2` or newer | `1.5.2` or newer | `1.5.2` or newer |
+| **Required SDK version** | `1.5.3` or newer | `1.5.3` or newer | `1.5.3` or newer |
 | **Config files** | `sdk-config.yaml`, `log4j2.xml`, `config.properties` | `sdk-config.yaml`, `log4j2.xml`, `config.properties` (for `extReportDir` only) | `sdk-config.yaml` (`appium:`/`android:`/`ios:` sections), `log4j2.xml`, `browserstack.yml` (BrowserStack only) |
 | **First local execution** | `mvn test -Dtest=Test_WebSmoke -Denvironment=stg -DbrowserName=chrome` (Step 7A/8) | `mvn test -Dtest=Test_ApiSmoke -Denvironment=stg` (Step 7D/8) | `mvn test -Dtest=Test_MobileSmoke -DmobileOS=android` against a running emulator/device + Appium server (Step 7B/8) |
 | **CI starting point** | `azure-pipelines.yml.template` in the template repo -- rename to `azure-pipelines.yml` and wire up the pipeline | Same `azure-pipelines.yml.template` pattern | Same `azure-pipelines.yml.template` pattern; requires a device/emulator farm or BrowserStack App Automate in the pipeline agent |
