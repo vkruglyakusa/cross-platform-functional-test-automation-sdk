@@ -1,7 +1,7 @@
 # Framework Automation SDK -- User Guide
 
-**Version:** 1.5.2
-**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`
+**Version:** 1.5.3
+**Artifact:** `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.3`
 **Repository:** `OTI QA Automation / cross-platform-functional-test-automation-sdk`
 
 This guide is the primary installation, configuration, and usage reference for the
@@ -559,7 +559,7 @@ If the file does not exist, create it. If it already exists, add the `<server>` 
 ### Step 3 — Verify
 
 ```bash
-mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2
+mvn dependency:resolve -Dartifact=com.test.automation:cross-platform-functional-test-automation-sdk:1.5.3
 ```
 
 Expected output: `BUILD SUCCESS` with `cross-platform-functional-test-automation-sdk-1.5.2.jar` downloaded.
@@ -3701,6 +3701,6 @@ means:
 
 ---
 
-*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.2`*  
+*Framework Automation SDK -- `com.test.automation:cross-platform-functional-test-automation-sdk:1.5.3`*  
 *Maintained by OTI QA Automation Team*
 

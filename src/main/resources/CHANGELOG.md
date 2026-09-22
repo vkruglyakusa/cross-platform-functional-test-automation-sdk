@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.5.3] — 2026-09-22
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Changed
 - **Allure publishing standardized on Azure DevOps' `PublishAllureReport@2` task.** The canonical
   Allure results directory is now `target/allure-results` everywhere (SDK, Web/API/Mobile consumer
