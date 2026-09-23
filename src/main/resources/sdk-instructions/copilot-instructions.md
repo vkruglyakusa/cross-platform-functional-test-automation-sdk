@@ -45,6 +45,33 @@ It will ask what you want to do and collect everything needed before starting wo
 | `#ado-sync-test` | Align test script with an updated ADO test case |
 | `#report-test-gap` | Document a test case that cannot be automated |
 
+### Implementation Plan Review (Optional)
+
+`#create-test` and `#modify-test` (for significant changes) always ask whether
+you want to review the proposed implementation steps before any code is
+generated -- a human-in-the-loop planning gate that lets a Test Engineer
+validate the automation approach (objective, test flow, reused vs. new
+components, test data, assertions, evidence, cleanup, expected files) before
+code is produced:
+
+```text
+Would you like to review the proposed test implementation steps
+before I create the test script?
+```
+
+- **No** -- proceeds with the normal workflow immediately (the default; no
+  extra friction for routine test creation).
+- **Yes** -- presents a `Proposed Test Implementation Plan` and waits for an
+  explicit `Approve` / `Request Changes` / `Cancel` decision before writing any
+  code. `Request Changes` produces a revised plan and asks again; only clear
+  approval intent (e.g. "Approve", "Go ahead") is accepted. If implementation
+  later discovers a material deviation from an approved plan, it stops and asks
+  for renewed approval before continuing.
+
+This gate does not change the standing release policy below -- approving an
+implementation plan authorizes creating/modifying test code only, never
+git commit/push/tag/release.
+
 ---
 
 ## Core Rules -- Always Follow

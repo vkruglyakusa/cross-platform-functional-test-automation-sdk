@@ -216,6 +216,13 @@ Findings support configurable enforcement (`accessibility.mode=report-only|fail-
 with `accessibility.failOnSeverity`) and multi-format reporting (Allure/Extent/Excel,
 all default `true`) — see [SDK-USER-GUIDE.md §14.1a](SDK-USER-GUIDE.md#141a-enforcement-modes-and-reporting-outputs).
 
+The HTML and Excel reports both offer two independent, **report-only filters**:
+an Engine Filter (`axe-core` / `Interaction`) and a Finding Type Filter
+(`Violation` / `Needs Review`), plus a native Excel AutoFilter and independent
+`Engine`/`Finding Type` columns — for reducing noise without altering
+suppression or enforcement results — see
+[SDK-USER-GUIDE.md §14.6a](SDK-USER-GUIDE.md#146a-accessibility-report-filters).
+
 ---
 
 ## What the Crawler Can Do

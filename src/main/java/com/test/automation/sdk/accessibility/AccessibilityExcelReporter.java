@@ -6,6 +6,7 @@ import com.test.automation.sdk.accessibility.config.A11yConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.*;
 
 import java.io.IOException;
@@ -45,11 +46,14 @@ import java.util.stream.StreamSupport;
  * </ol>
  *
  * <h3>Relationship to {@link AccessibilityChecker#writeExcelReport()}</h3>
- * <p>{@code AccessibilityChecker.writeExcelReport()} produces a live-updating
+ * <p>{@code AccessibilityChecker.writeExcelReport()} produces a live-updating, internal
  * {@code accessibility-report.xlsx} (2-sheet format) that is rewritten after every
- * individual scan. This reporter produces a definitive timestamped file at suite-end
- * with a richer 3-sheet format covering all engines. Both files land in the same
- * output directory.</p>
+ * individual scan and lives in the accessibility working directory
+ * ({@link A11yConfig#workingDir()}) — never published. This reporter produces the
+ * definitive, published, timestamped {@code accessibility-report_<timestamp>.xlsx} at
+ * suite-end with a richer 3-sheet format covering all engines, reading its raw scan
+ * data from {@link A11yConfig#workingDir()} and writing the final report to
+ * {@link A11yConfig#outputDir()}.</p>
  */
 public final class AccessibilityExcelReporter {
 
@@ -58,9 +62,21 @@ public final class AccessibilityExcelReporter {
     private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter DISPLAY_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    /** Returns the configured report directory fresh on every call — never frozen. */
+    /**
+     * Published report directory (fresh on every call, never frozen) — the final,
+     * timestamped {@code accessibility-report_<timestamp>.xlsx} is written here.
+     */
     private static Path reportDir() {
         return A11yConfig.outputDir();
+    }
+
+    /**
+     * Internal working directory (fresh on every call) — raw {@code *_a11y.json} /
+     * {@code *_interaction_*.json} scan artifacts are read from here, never from
+     * {@link #reportDir()}.
+     */
+    private static Path workingDir() {
+        return A11yConfig.workingDir();
     }
 
     private AccessibilityExcelReporter() {
@@ -103,7 +119,7 @@ public final class AccessibilityExcelReporter {
     }
 
     private static List<ScanRecord> loadScanRecords() throws IOException {
-        if (!Files.exists(reportDir())) {
+        if (!Files.exists(workingDir())) {
             return Collections.emptyList();
         }
 
@@ -112,7 +128,7 @@ public final class AccessibilityExcelReporter {
         // represented in the final report.  Previously only _a11y.json files were read,
         // which caused silent data-loss of Layers 2-5 findings.
         List<Path> files;
-        try (Stream<Path> stream = Files.list(reportDir())) {
+        try (Stream<Path> stream = Files.list(workingDir())) {
             files = stream
                     .filter(Files::isRegularFile)
                     .filter(p -> {
@@ -204,6 +220,27 @@ public final class AccessibilityExcelReporter {
                 vr.helpUrl = v.path("helpUrl").asText("");
                 vr.wcagCriterion = v.path("wcagCriterion").asText("");
                 vr.confidence    = v.path("confidence").asText("");
+                vr.findingType   = "VIOLATION";
+                JsonNode elements  = v.path("affectedElements");
+                vr.affectedElementCount = elements.isArray() ? elements.size() : 0;
+                if (elements.isArray() && elements.size() > 0) {
+                    vr.firstAffectedElement = elements.get(0).asText("(element)");
+                }
+                record.violations.add(vr);
+            }
+            // axe-core "incomplete" rules require human confirmation — mapped to
+            // findingType=NEEDS_REVIEW, never merged into violationCount/outcome, and
+            // never overwritten into impact (real severity metadata is preserved).
+            for (JsonNode v : root.path("incomplete")) {
+                ViolationRecord vr = new ViolationRecord();
+                vr.ruleId  = v.path("id").asText("");
+                vr.impact  = v.path("impact").asText("UNKNOWN").toUpperCase(Locale.ROOT);
+                vr.description     = v.path("description").asText("");
+                vr.help    = v.path("help").asText("");
+                vr.helpUrl = v.path("helpUrl").asText("");
+                vr.wcagCriterion = v.path("wcagCriterion").asText("");
+                vr.confidence    = v.path("confidence").asText("");
+                vr.findingType   = "NEEDS_REVIEW";
                 JsonNode elements  = v.path("affectedElements");
                 vr.affectedElementCount = elements.isArray() ? elements.size() : 0;
                 if (elements.isArray() && elements.size() > 0) {
@@ -249,10 +286,9 @@ public final class AccessibilityExcelReporter {
                 vr.confidence    = issue.path("confidence").asText("");
                 vr.firstAffectedElement = issue.path("element").asText("(element)");
                 vr.affectedElementCount = 1;
+                // Independent findingType dimension — never overwrites the real impact/severity value.
                 boolean needsReview = issue.path("needsReview").asBoolean(false);
-                if (needsReview) {
-                    vr.impact = "NEEDS_REVIEW";
-                }
+                vr.findingType = needsReview ? "NEEDS_REVIEW" : "VIOLATION";
                 record.violations.add(vr);
             }
             return record;
@@ -272,7 +308,7 @@ public final class AccessibilityExcelReporter {
 
         row = writeTitle(sheet, sk, row, "Accessibility Test Run Summary",
                 "Generated: " + LocalDateTime.now().format(DISPLAY_TS)
-                        + "   |   Source: " + reportDir()
+                        + "   |   Source: " + workingDir()
                         + "   |   SDK v" + A11yLibraryVersion.get());
         row++;
 
@@ -376,6 +412,7 @@ public final class AccessibilityExcelReporter {
 
         row = writeTableHeader(sheet, sk, row,
                 "Timestamp", "Page Name", "Outcome", "Violations", "WCAG Tags", "Error");
+        int scanHistoryHeaderRow = row - 1;
 
         List<ScanRecord> sorted = scans.stream()
                 .sorted(Comparator.comparing((ScanRecord s) -> s.timestamp).reversed())
@@ -398,6 +435,11 @@ public final class AccessibilityExcelReporter {
         if (sorted.isEmpty()) {
             Row r = sheet.createRow(row);
             r.createCell(0).setCellValue("No accessibility scan artifacts found for this run.");
+        } else {
+            // Native Excel column-filter dropdowns on the header row — lets users filter
+            // by Outcome/Page/etc. without restructuring the workbook (report-only; does
+            // not affect the JSON artifacts or any other sheet).
+            sheet.setAutoFilter(new CellRangeAddress(scanHistoryHeaderRow, scanHistoryHeaderRow, 0, 5));
         }
     }
 
@@ -416,6 +458,8 @@ public final class AccessibilityExcelReporter {
         sheet.setColumnWidth(9, 80 * 256);
         sheet.setColumnWidth(10, 14 * 256);
         sheet.setColumnWidth(11, 16 * 256);
+        sheet.setColumnWidth(12, 20 * 256);
+        sheet.setColumnWidth(13, 16 * 256);
 
         int row = 0;
         row = writeTitle(sheet, sk, row, "Violations Detail", null);
@@ -425,7 +469,8 @@ public final class AccessibilityExcelReporter {
                 "Timestamp", "Page Name", "Outcome",
                 "Rule ID", "Impact", "Description", "Help",
                 "Help URL", "Affected Elements", "First Element (HTML)",
-                "WCAG SC", "Confidence");
+                "WCAG SC", "Confidence", "Engine", "Finding Type");
+        int violationsDetailHeaderRow = row - 1;
 
         boolean alt = false;
         for (ScanRecord scan : scans) {
@@ -446,6 +491,10 @@ public final class AccessibilityExcelReporter {
                         vr.firstAffectedElement != null ? vr.firstAffectedElement : "");
                 applyDataStyle(r.createCell(10), sk, alt).setCellValue(vr.wcagCriterion);
                 applyDataStyle(r.createCell(11), sk, alt).setCellValue(vr.confidence);
+                applyDataStyle(r.createCell(12), sk, alt).setCellValue(
+                        scan.engine != null && !scan.engine.trim().isEmpty() ? scan.engine : "axe-core");
+                applyDataStyle(r.createCell(13), sk, alt).setCellValue(
+                        vr.findingType != null && !vr.findingType.trim().isEmpty() ? vr.findingType : "VIOLATION");
                 alt = !alt;
             }
         }
@@ -453,6 +502,12 @@ public final class AccessibilityExcelReporter {
         if (scans.stream().allMatch(s -> s.violations.isEmpty())) {
             Row r = sheet.createRow(row);
             r.createCell(0).setCellValue("No violations found in any scan.");
+        } else {
+            // Native Excel column-filter dropdowns — lets users filter by Impact/Engine/
+            // Finding Type/Rule ID/etc. independently, without restructuring the workbook
+            // (report-only; does not affect the JSON artifacts, counted totals, or
+            // enforcement outcome).
+            sheet.setAutoFilter(new CellRangeAddress(violationsDetailHeaderRow, violationsDetailHeaderRow, 0, 13));
         }
     }
 
@@ -738,6 +793,14 @@ public final class AccessibilityExcelReporter {
         String wcagCriterion = "";
         /** "violation" | "manual_review", or "" for artifacts written before this field existed. */
         String confidence = "";
+        /**
+         * Independent classification dimension: {@code "VIOLATION"} (confirmed) or
+         * {@code "NEEDS_REVIEW"} (requires human confirmation — axe-core {@code incomplete}
+         * rules, or an interaction-layer finding with {@code needsReview=true}). Deliberately
+         * separate from {@link #impact} (severity), which always retains its real value —
+         * "Needs Review" is never encoded into impact.
+         */
+        String findingType = "VIOLATION";
     }
 }
 

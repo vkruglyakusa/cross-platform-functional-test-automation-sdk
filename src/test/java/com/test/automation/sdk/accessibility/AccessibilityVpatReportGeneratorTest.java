@@ -27,11 +27,13 @@ class AccessibilityVpatReportGeneratorTest {
     void setUp() throws IOException {
         outputDir = Files.createTempDirectory("a11y-vpat-test");
         System.setProperty("reporting.accessibilityDir", outputDir.toString());
+        System.setProperty("reporting.accessibilityWorkingDir", outputDir.toString());
     }
 
     @AfterEach
     void tearDown() {
         System.clearProperty("reporting.accessibilityDir");
+        System.clearProperty("reporting.accessibilityWorkingDir");
     }
 
     @Test

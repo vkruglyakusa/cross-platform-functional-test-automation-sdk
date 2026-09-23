@@ -30,11 +30,13 @@ class AccessibilitySuppressionReportingTest {
     void setUp() throws IOException {
         outputDir = Files.createTempDirectory("a11y-suppression-test");
         System.setProperty("reporting.accessibilityDir", outputDir.toString());
+        System.setProperty("reporting.accessibilityWorkingDir", outputDir.toString());
     }
 
     @AfterEach
     void tearDown() {
         System.clearProperty("reporting.accessibilityDir");
+        System.clearProperty("reporting.accessibilityWorkingDir");
         System.clearProperty("accessibility.suppression.rules");
         System.clearProperty("accessibility.suppression.color-contrast.reason");
         System.clearProperty("accessibility.suppression.color-contrast.verified");

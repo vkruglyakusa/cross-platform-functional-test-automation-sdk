@@ -49,9 +49,9 @@ import java.util.stream.Stream;
  * </ul>
  * <p>"Evaluated" (the first two buckets) is derived empirically: a criterion is only
  * considered covered if at least one violation carrying that {@code wcagCriterion} tag
- * has ever been observed across the artifacts in this run's output directory -- i.e. we
- * only ever claim coverage for criteria our engines are demonstrably capable of flagging,
- * never by static assumption.</p>
+ * has ever been observed across the raw scan artifacts in this run's internal working
+ * directory ({@link A11yConfig#workingDir()}) -- i.e. we only ever claim coverage for
+ * criteria our engines are demonstrably capable of flagging, never by static assumption.</p>
  *
  * <p>Like {@link AccessibilitySummaryReportGenerator}, this respects
  * {@link A11ySuppressionRegistry}: a verified false positive is excluded from the
@@ -127,8 +127,14 @@ public final class AccessibilityVpatReportGenerator {
             {"4.1.3", "Status Messages", "AA"},
     };
 
+    /** Published report directory (fresh on every call) — the final VPAT draft is written here. */
     private static Path reportDir() {
         return A11yConfig.outputDir();
+    }
+
+    /** Internal working directory (fresh on every call) — raw scan artifacts are read from here. */
+    private static Path workingDir() {
+        return A11yConfig.workingDir();
     }
 
     private AccessibilityVpatReportGenerator() {
@@ -160,12 +166,12 @@ public final class AccessibilityVpatReportGenerator {
 
     private static List<Finding> loadFindings() throws IOException {
         List<Finding> findings = new ArrayList<>();
-        if (!Files.exists(reportDir())) {
+        if (!Files.exists(workingDir())) {
             return findings;
         }
 
         List<Path> files;
-        try (Stream<Path> stream = Files.list(reportDir())) {
+        try (Stream<Path> stream = Files.list(workingDir())) {
             files = stream
                     .filter(Files::isRegularFile)
                     .filter(p -> {
@@ -248,7 +254,7 @@ public final class AccessibilityVpatReportGenerator {
             .append("<h1>Accessibility Conformance Report (WCAG 2.1 A/AA) -- DRAFT</h1>")
             .append("<div class='meta'>Generated: ").append(escapeHtml(generatedAt))
             .append(" &nbsp;|&nbsp; SDK v").append(escapeHtml(A11yLibraryVersion.get()))
-            .append(" &nbsp;|&nbsp; Source: ").append(escapeHtml(reportDir().toString())).append("</div>");
+            .append(" &nbsp;|&nbsp; Source: ").append(escapeHtml(workingDir().toString())).append("</div>");
 
         html.append("<div class='disclaimer'>")
             .append("<b class='title'>&#9888; DRAFT -- Automated Evidence Only, Not an Official VPAT&reg;</b>")

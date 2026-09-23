@@ -19,6 +19,164 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+### Added
+- **Accessibility Report Filters**, ported from the `AccessibilityTestAutomation` reference
+  framework and adapted to this SDK's existing finding taxonomy:
+  - HTML summary report (`AccessibilitySummaryReportGenerator`) gains a client-side, report-only
+    **Engine Filter** (`axe-core` / `Interaction` chips) and an independent **Finding Type Filter**
+    (`Violation` / `Needs Review` chips). Filtering only changes what is displayed
+    (KPI cards -- including a new "Needs Review" KPI -- Impact Distribution, Cross-Page/Top
+    Rules/Top Pages tables, per-scan PASS/FAIL badges recompute live); it never mutates the
+    underlying report data, suppression state, or the
+    `accessibility.mode`/`accessibility.failOnSeverity` enforcement decision.
+  - Excel report (`AccessibilityExcelReporter`) gains new **Engine** and **Finding Type** columns
+    on the *Violations Detail* sheet and a native Excel `AutoFilter` on the *Scan History* and
+    *Violations Detail* header rows -- an SDK enhancement beyond the reference implementation,
+    which has no Excel column filtering at all.
+  - **Corrected model:** Engine, Finding Type, and Impact are three independent classification
+    dimensions (`engine` = `axe-core`/`Interaction:<checkId>`; `findingType` = `VIOLATION`/
+    `NEEDS_REVIEW`; `impact` = `CRITICAL`/`SERIOUS`/`MODERATE`/`MINOR`/`UNKNOWN`). axe-core
+    `incomplete` rules map to `findingType = NEEDS_REVIEW` (newly persisted as a parallel
+    `"incomplete"` array in the `_a11y.json` artifact via `AccessibilityChecker`); real impact
+    metadata is always preserved independently and is never overwritten with the string
+    `NEEDS_REVIEW`. Unlike the reference framework's 3-way engine bucketing (`axe-core` /
+    `Interaction` / `NeedsReview`), this SDK keeps only 2 engine chips and represents "needs
+    review" exclusively through the Finding Type dimension, avoiding two sources of truth for
+    the same fact.
+  - *(Correction, superseding an earlier revision of this entry)* An initial implementation
+    encoded "needs review" as `impact = "NEEDS_REVIEW"`. That conflated two independent facts
+    (severity vs. "requires human confirmation") and silently made needs-review findings
+    invisible in the hardcoded 5-bucket Impact Distribution/drilldown (which only renders
+    `CRITICAL`/`SERIOUS`/`MODERATE`/`MINOR`/`UNKNOWN`). The model now uses an independent
+    `findingType` field instead; see `AccessibilityFindingModelTest` for regression coverage.
+
+### Fixed
+- **HTML summary report was silently dropping Layer 2-5 (interaction) accessibility findings.**
+  `AccessibilitySummaryReportGenerator.loadScanRecords()` previously read only `*_a11y.json`
+  artifacts; it now also merges `*_interaction_<checkId>.json` artifacts (mirroring the parsing
+  already used by `AccessibilityExcelReporter`), so interaction-layer violations/issues that were
+  always present in the `.xlsx` report now also appear in the `.html` summary report.
+- **Needs-review findings were invisible in the Impact Distribution/Violations Drilldown.**
+  Because `impact` previously held the literal string `"NEEDS_REVIEW"`, those findings landed in
+  an unrendered 6th impact bucket (the drilldown only iterates the 5 real impact buckets).
+  Real impact metadata is now preserved on every finding, so needs-review findings render under
+  their actual severity bucket, tagged separately via `findingType`/`data-finding-type`.
+- **Legacy `AccessibilityChecker.writeExcelReport()`/`deriveIssueType()` leaked "NeedsReview" as
+  an `engine` value.** `writeInteractionArtifact()` previously set a local `engine` variable to
+  the literal string `"NeedsReview"` for interaction findings requiring human confirmation, and
+  reused that corrupted value for the legacy `accessibility-report.xlsx` "All Issues" sheet's
+  Engine column, for `deriveIssueType(impact, engine)`, *and* for
+  `AccessibilityFinding.fromInteractionIssue(issue, engine, ...)` — meaning the bug also leaked
+  into the normalized `AccessibilityFinding.engine` facade field, not just the legacy workbook.
+  `engine` is now always the real originating layer (`"axe-core"` / `"Interaction"`);
+  `deriveIssueType()` is refactored to a single-parameter, `findingType`-driven method returning
+  only `"Violation"` / `"Needs Review"` (the previous 4-category `Violation`/`Best Practice`/
+  `Interaction Check`/`Needs Review` model is retired in favor of the same 2-category
+  `findingType` model used by the modern HTML/XLSX reports). This is a purely internal SDK
+  reporting-class fix with no public API/configuration change; see
+  `AccessibilityLegacyExcelReportTest` for regression coverage. Note: axe-core `incomplete`
+  (needs-review) findings still do not appear on this particular legacy live-updating sheet at
+  all (a separate, pre-existing completeness gap, unrelated to the engine-value bug) — they are
+  fully represented in the modern `AccessibilitySummaryReportGenerator`/`AccessibilityExcelReporter`
+  reports.
+- **Legacy `accessibility-report.xlsx` was advertised to users as "the" Excel Report via
+  Allure/ExtentReports, while the complete, authoritative modern report was never mentioned in
+  either sink.** `AccessibilityChecker.writeExcelReport()` called
+  `reporter.info("Excel Report: <a href='accessibility/accessibility-report.xlsx'>...")` after
+  *every* scan — by default this reached both `AllureA11yReporter` and `ExtentA11yReporter`
+  (`accessibility.reporting.allure`/`.extent` both default `true`), embedding a clickable link to
+  the legacy, incomplete (no axe `incomplete`/Needs Review findings) workbook directly into the
+  live ExtentReports test node on every single scan. Meanwhile
+  `accessibility_report_<timestamp>.xlsx`/`accessibility_summary_<timestamp>.html` (the complete,
+  authoritative reports) are only announced via console/log output at suite end (see
+  `A11yTestNGListener`/`A11yExtension` `onFinish()`) — never via the rich Allure/ExtentReports
+  sinks. This advertisement is now removed; the legacy workbook is a working/internal artifact
+  only and is never surfaced through any live reporting sink. No CI pipeline/consumer-template
+  publish step independently referenced this file either (all three templates rely on the
+  existing, unchanged `PublishBuildArtifacts@1` → `test-output` directory-level publish, which is
+  intentionally broad to preserve mandatory screenshot/DOM-dump/log RCA evidence — see
+  `SDK-USER-GUIDE.md` §14.6). Also corrected a stale `sdk-config.yaml.template` comment that
+  misnamed `accessibility.reporting.excel` as controlling `accessibility-report.xlsx` (it
+  actually controls only the modern, timestamped report — the legacy workbook always runs
+  unconditionally regardless of this flag, a pre-existing, unrelated, documented limitation).
+
+### Changed — Accessibility Report Output Boundary Cleanup
+- **Accessibility artifacts now live in two physically separate directories** so that Azure
+  DevOps' `PublishBuildArtifacts@1` step (which publishes the entire `test-output` tree wholesale
+  and is intentionally NOT narrowed, to preserve screenshot/DOM-dump/log/RCA evidence) never
+  surfaces internal/intermediate accessibility artifacts:
+  - **New internal working directory** — `A11yConfig.workingDir()`, default
+    `target/accessibility-work` (keys: `reporting.accessibilityWorkingDir` / legacy
+    `accessibility.working.dir`). Holds raw `*_a11y.json`, `*_interaction_*.json`,
+    `accessibility-summary.jsonl`, and the legacy `accessibility-report.xlsx` workbook. Lives
+    outside `test-output` and is never published.
+  - **Published directory unchanged** — `A11yConfig.outputDir()`, default
+    `test-output/accessibility` (keys: `reporting.accessibilityDir` / legacy
+    `accessibility.output.dir`). Now contains ONLY the final, authoritative reports:
+    `accessibility-report_<timestamp>.xlsx`, `accessibility-summary.html`,
+    `accessibility-vpat-draft.html`.
+  - `AccessibilityChecker` (raw scan/interaction artifact writes, JSONL rollup, legacy workbook),
+    `PdfAccessibilityChecker` (raw interaction artifact writes), `AccessibilityExcelReporter`,
+    `AccessibilitySummaryReportGenerator`, and `AccessibilityVpatReportGenerator` (raw-artifact
+    reads) were all repointed to read from the new working directory and write final reports to
+    the unchanged published directory.
+- **Legacy `accessibility-report.xlsx` generation is now opt-in (default disabled).** New key
+  `accessibility.reporting.legacyExcel` (default `false`) gates
+  `AccessibilityChecker.writeExcelReport()`. Previously this internal, pre-Engine/Finding-Type-model
+  workbook was generated unconditionally after every scan regardless of any configuration; it is
+  now off by default and, even when explicitly re-enabled, is written only to the internal working
+  directory and never published or linked from any reporting sink.
+- `accessibility.reporting.excel=false` now correctly disables generation of the modern, published
+  Excel report only (it never affected, and still does not affect, the independently-gated legacy
+  workbook).
+- Added `AccessibilityOutputBoundaryTest`, exercising real filesystem output across two distinct
+  directories, to regression-test: raw axe/interaction JSON and the JSONL rollup land only in the
+  working directory; the legacy workbook is never published; the modern HTML/Excel/VPAT reports
+  land only in the published directory and are correctly sourced from the working directory; and
+  the published directory contains only the allow-listed final-report filename patterns (rejecting
+  the legacy workbook and any raw JSON/JSONL by construction).
+- Documentation (`SDK-USER-GUIDE.md` §14.6) corrected to describe the working/published directory
+  split and the real (previously misdocumented) report filenames — `accessibility-report_<timestamp>.xlsx`
+  (not underscore-prefixed), `accessibility-summary.html` (no timestamp), and the VPAT draft report.
+
+See `SDK-USER-GUIDE.md` §14.6/§14.6a for full behavior and the working-directory vs.
+published-directory vs. report-filter vs. suppression vs. enforcement distinctions.
+
+### Changed — Accessibility VPAT Draft Report Formally Classified as Published
+- Reviewed `AccessibilityVpatReportGenerator` (generator behavior, invocation site, disclaimer
+  copy, and lack of any Allure/Extent linkage) and confirmed `accessibility-vpat-draft.html` is
+  intentionally user-facing, not an internal/intermediate artifact -- it already carries a
+  prominent in-report "DRAFT -- Automated Evidence Only, Not an Official VPAT®" disclaimer and is
+  generated unconditionally alongside the HTML summary at suite end.
+- **Formally documented the published accessibility report contract as three files** under
+  `test-output/accessibility/`: the HTML summary, the Excel workbook, and the VPAT draft HTML.
+  `SDK-USER-GUIDE.md` §14.6 strengthened with an explicit "Published accessibility report
+  contract" callout and a clearer non-certification disclaimer for the VPAT draft.
+- Verified all three official consumer templates (`functional-automation-consumer-template`,
+  `api-functional-automation-consumer-template`, `mobile-functional-automation-consumer-template`)
+  have no accessibility-specific publishing logic -- each uses a single generic
+  `PublishBuildArtifacts@1` step publishing all of `test-output`, unmodified; no template changes
+  were required.
+
+### Added — Optional Implementation Plan Review Gate (Test Creation / Modification Prompts)
+- `create-test.prompt.md` and `modify-test.prompt.md` gain an optional, engineer-driven
+  human-in-the-loop planning step ("Step 0.5 -- Optional Implementation Plan Review"): before
+  writing any code, the agent asks whether the engineer wants to review a
+  **Proposed Test Implementation Plan** (objective, preconditions, numbered test flow, reused vs.
+  new Page Objects/components, test data, assertions, evidence/reporting, cleanup, expected
+  files) and requires an explicit **Approve** / **Request Changes** / **Cancel** decision before
+  proceeding, if the engineer opted in. Declining the review (**No**) continues the existing
+  workflow unchanged. Material deviations discovered after approval (missing API, missing Page
+  Object, changed auth architecture, etc.) require renewed approval; minor implementation details
+  do not. Plan content adapts to Web / API / Mobile / Accessibility test types. This does not
+  change the standing no-commit/no-push/no-tag/no-release policy.
+- `copilot-instructions.md` documents the new gate under "Available Prompts".
+- `AiInstructionContractTest` gains `createTestPromptOffersOptionalPlanReviewGate` and
+  `modifyTestPromptOffersOptionalPlanReviewGate`, asserting the exact review question, plan
+  section markers, the Approve/Request Changes/Cancel choices, no-implementation-while-waiting
+  language, rejection of ambiguous responses as approval, and the material-deviation
+  re-approval requirement.
+
 ---
 
 ## [1.5.3] — 2026-09-22

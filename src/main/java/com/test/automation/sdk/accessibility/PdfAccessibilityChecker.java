@@ -191,7 +191,7 @@ public final class PdfAccessibilityChecker {
 
     private static void writeInteractionArtifact(String label, List<AccessibilityFinding> findings) {
         try {
-            Path dir = A11yConfig.outputDir();
+            Path dir = A11yConfig.workingDir();
             Files.createDirectories(dir);
             String ts = LocalDateTime.now().format(TS_FORMAT);
             Path file = dir.resolve(ts + "_" + sanitizeFileName(label) + "_interaction_" + CHECK_ID + ".json");

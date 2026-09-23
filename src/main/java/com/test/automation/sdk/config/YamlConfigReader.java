@@ -156,6 +156,7 @@ public final class YamlConfigReader {
         flatMap.put("reporting.logsDir",           "test-output/logs");
         flatMap.put("reporting.crawlerDir",        "test-output/crawler");
         flatMap.put("reporting.accessibilityDir",  "test-output/accessibility");
+        flatMap.put("reporting.accessibilityWorkingDir", "target/accessibility-work");
         flatMap.put("reporting.gapOutputDir",      "docs/test-case-gaps");
         // Backward-compat aliases so existing code reading old keys still works
         flatMap.put("screenshots.outputDir",       "test-output/screenshots");
@@ -225,10 +226,12 @@ public final class YamlConfigReader {
     private void bridgeAccessibilityConfig() {
         for (Map.Entry<String, String> entry : flatMap.entrySet()) {
             String key = entry.getKey();
-            // Bridge all accessibility.* keys AND the unified reporting.accessibilityDir key
-            // so that A11yConfig.get() (which reads System.getProperty) can resolve them.
+            // Bridge all accessibility.* keys AND the unified reporting.accessibilityDir /
+            // reporting.accessibilityWorkingDir keys so that A11yConfig.get() (which reads
+            // System.getProperty) can resolve them.
             boolean isA11yKey = key.startsWith("accessibility.");
-            boolean isReportingA11yKey = key.equals("reporting.accessibilityDir");
+            boolean isReportingA11yKey = key.equals("reporting.accessibilityDir")
+                    || key.equals("reporting.accessibilityWorkingDir");
             if (isA11yKey || isReportingA11yKey) {
                 if (System.getProperty(key) == null) {
                     String value = entry.getValue();

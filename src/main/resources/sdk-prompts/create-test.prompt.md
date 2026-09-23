@@ -70,6 +70,111 @@ If **any check fails**, do NOT proceed to implementation.
 Create the gap report in ``\${reporting.gapOutputDir}` (default: docs/test-case-gaps/)` and stop.
 See `#report-test-gap` prompt and `test-case-gap.instructions.md`.
 
+### Step 0.5 -- Optional Implementation Plan Review
+
+This is a **human-in-the-loop planning gate**, independent from Autonomous Mode
+above. Autonomous Mode controls whether you're asked about *routine* implementation
+choices; this gate controls whether the Test Engineer wants to see the overall
+approach *once*, up front, before any code is generated. After understanding the
+requested test (and passing the Step 0 gate check), ask:
+
+> **Would you like to review the proposed test implementation steps before I create the test script?**
+
+Treat the response conceptually as **Yes** or **No**. Do not force the engineer to
+review the plan -- this question must always be asked, but a "No" answer is a
+first-class, equally valid outcome.
+
+**If No:** continue directly to Step 1. Still perform the same internal analysis
+(objective, required pages/screens/endpoints, reusable components, test data,
+assertions, cleanup, reporting/evidence) -- you simply don't present it for a
+separate approval interaction. Do not later force the engineer through the
+plan-approval workflow below unless a material ambiguity or genuine blocker
+requires clarification (see Step 6).
+
+**If Yes:** do NOT begin implementation (no crawler run, no file creation/edits)
+yet. Inspect the repository first -- do not invent Page Objects, components,
+`ApiClient`s, or test data builders before checking what already exists (see
+"Reuse before creation" below). Then present a **Proposed Test Implementation
+Plan**:
+
+```markdown
+## Proposed Test Implementation Plan
+
+### Test Objective
+<what behavior is being validated>
+
+### Preconditions
+<environment, test data, authentication, existing records, browser/device/API state>
+
+### Test Flow
+1. <numbered, implementation-level automation steps -- not vague business language>
+2. ...
+
+### Page Objects / Components
+- Existing: <PageObject/ApiClient/component names actually found in the repo>
+- New (required): <name + one-line reason, only if reuse is genuinely insufficient>
+
+### Test Data
+<required data, source, dynamic/generated data, cleanup requirements -- never
+include actual passwords/secrets, describe how they are resolved instead
+(e.g. "via existing SDK credential/secret-resolution flow")>
+
+### Assertions
+<every expected/intermediate result that will be asserted -- every plan must
+include meaningful validation, not just actions>
+
+### Reporting / Evidence
+<only the applicable SDK evidence: Allure, Extent, Screenshot, DOM, Console,
+Network, RCA, Accessibility>
+
+### Cleanup
+<postconditions if the test creates/modifies data; "None" if not applicable>
+
+### Expected Files
+<existing files expected to change, new files expected to be created -- based on
+repository inspection, not assumption>
+```
+
+Adapt the plan's content to the platform:
+- **Web**: Page Objects, locators (only from a fresh crawler run's `UNIQUE [x]` results, referenced not yet executed), browser interaction, wait strategy, navigation, screenshot/DOM/console evidence.
+- **API**: endpoint, HTTP method, request payload, authentication, response status/schema/business assertions, cleanup of created resources. Do not introduce browser steps.
+- **Mobile**: Appium screens/components, device/app state, gestures, platform (Android/iOS) differences, mobile test data.
+- **Accessibility**: when accessibility validation is part of the request, include applicable scanning/report expectations (see §14 in `SDK-USER-GUIDE.md`).
+
+After presenting the plan, ask for an explicit decision:
+
+> **Do you approve these implementation steps?**
+
+Offer **Approve**, **Request Changes**, or **Cancel** as the conceptual choices,
+and do not implement anything while waiting for this decision.
+
+- **Approve** -- the approved plan becomes the implementation contract. Proceed
+  with Step 1 onward following the approved scope, test flow, assertions, reuse
+  strategy, and files/components. Only accept clear approval intent (e.g.
+  "Approve", "Approved", "Yes, implement", "Looks good, proceed", "Go ahead").
+  Do **not** treat ambiguous responses ("maybe", "interesting", "looks close",
+  "continue explaining") as approval -- ask again if intent is unclear.
+- **Request Changes** -- do not start implementation. Incorporate the requested
+  changes, present the revised plan, and ask for approval again. Repeat until
+  **Approved** or **Cancelled**. A request for changes is never itself approval.
+- **Cancel** -- do not create or modify the test. Report that test creation was
+  cancelled by the engineer, and stop.
+
+**Material deviations after approval:** if implementation later discovers a
+meaningful difference from the approved plan (e.g. a required API/Page Object
+doesn't actually exist, a different authentication architecture is required,
+test data can't be created as planned, or a framework constraint changes the
+test flow/assertions/architecture), stop implementation, explain the deviation,
+and ask the engineer to approve the revised approach before continuing. Minor
+implementation details that don't change the agreed test behavior (e.g. exact
+wait timeout, internal helper method name) do not require another approval.
+
+**Reuse before creation:** whether or not the plan-review gate is used, prefer
+reusing existing Page Objects, components, utilities, `ApiClient`s, test data
+builders, SDK services, helper methods, fixtures, and suite configuration over
+proposing new ones. The plan (when presented) should make it clear whether any
+new framework code is actually required.
+
 ### Step 1 -- Run the Crawler
 Before writing any `@FindBy` locator, run the crawler on the target page.
 
@@ -190,6 +295,12 @@ After `mvn test` passes, output the following report:
 |  Source       : ${ADO-ID or file}                                |
 |  Environment  : ${environment}                                   |
 +==================================================================+
+|  IMPLEMENTATION PLAN                                              |
+|  Plan reviewed by engineer : Yes / No                            |
+|  Plan approved              : Yes / No / N/A (not reviewed)       |
+|  Implemented per approved plan : Yes / No + reason if No          |
+|  Deviations from approved plan : ${none or description}          |
++==================================================================+
 |  COVERAGE                                                        |
 |  Test case steps      : ${N}                                     |
 |  Steps automated      : ${N} / ${N}    (or X/N if blockers)     |
@@ -211,6 +322,10 @@ After `mvn test` passes, output the following report:
 |  README.md            : ? Updated                               |
 +==================================================================+
 ```
+
+Omit the `IMPLEMENTATION PLAN` block's individual lines only when the engineer
+never used the plan-review gate at all (Step 0.5 answered "No") -- in that case a
+single `Plan reviewed by engineer : No` line is sufficient.
 
 ---
 
@@ -264,6 +379,7 @@ Include in class JavaDoc:
 
 ## Output Checklist
 - [ ] Autonomous mode declared by user
+- [ ] Implementation plan review offered (Step 0.5); if accepted, plan presented and explicit approval obtained before any implementation began
 - [ ] Crawler ran and report reviewed
 - [ ] Page object created/updated with `UNIQUE [x]` locators only
 - [ ] Test class created following template
@@ -273,7 +389,7 @@ Include in class JavaDoc:
 - [ ] Excel column mapping documented
 - [ ] `mvn compile test-compile` passes
 - [ ] Tests executed and passed (or skipped intentionally via `runMode=N`)
-- [ ] Completion report produced
+- [ ] Completion report produced (including plan-review/approval outcome)
 - [ ] Blocker report created if any steps could not be automated
 - [ ] `CHANGELOG.md` updated with a one-line entry for this test class
 - [ ] `README.md` updated -- new row in Test Coverage table with diff summary shown

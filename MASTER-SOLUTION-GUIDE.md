@@ -652,6 +652,16 @@ assertVisualMatch(screenshot, "loginPage-desktop");
 - **Listener-based execution:** `A11yTestNGListener` hooks accessibility scanning into the TestNG lifecycle.
 - **Severity thresholds / allowlists:** configured through `A11yConfig`; the Web template additionally exposes `accessibility.checking.enabled` and `accessibility.fail.on.violation` (both default `false` — accessibility checking is **opt-in**, not run by default).
 - **Allure reporting:** `AllureA11yReporter` attaches accessibility findings to Allure.
+- **Report filters (HTML/Excel):** `AccessibilitySummaryReportGenerator` HTML report offers two
+  independent, client-side, report-only filters — an Engine Filter (`axe-core` / `Interaction`
+  chips) and a Finding Type Filter (`Violation` / `Needs Review` chips); `AccessibilityExcelReporter`
+  adds a native Excel AutoFilter (Scan History, Violations Detail) plus independent `Engine` and
+  `Finding Type` columns. Engine, Finding Type, and Impact are three independent classification
+  dimensions — `findingType` (`VIOLATION`/`NEEDS_REVIEW`) is never encoded into `impact`
+  (`CRITICAL`/`SERIOUS`/`MODERATE`/`MINOR`/`UNKNOWN`); axe-core `incomplete` rules map to
+  `findingType = NEEDS_REVIEW` with their real impact preserved. Filtering
+  is presentation-only and never changes suppression, severity classification, or the
+  `accessibility.mode`/`accessibility.failOnSeverity` enforcement decision — see `SDK-USER-GUIDE.md` §14.6a.
 - **Adoption guidance:** enable `accessibility.checking.enabled=true` per project once page objects and locators are stable; start with `accessibility.fail.on.violation=false` to observe findings before gating the build on them.
 - **This SDK does not provide or claim WCAG/ADA compliance certification** — it surfaces axe-core findings for engineering review only.
 

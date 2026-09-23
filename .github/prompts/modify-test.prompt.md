@@ -42,6 +42,37 @@ If the source is an ADO test case, run `#ado-sync-test` first to detect drift be
 
 ---
 
+## Optional Implementation Plan Review
+
+For a **significant** modification (new `@Test` method, new scenario, meaningful
+assertion/flow changes, locator strategy changes affecting multiple elements),
+ask, independently of Autonomous Mode above:
+
+> **Would you like to review the proposed implementation steps before I modify the test script?**
+
+- **No** -- proceed with the normal workflow below (Steps 1-7). Still internally
+  analyze what will change (objective, affected pages/components, test data,
+  assertions, cleanup, evidence) without a separate approval interaction.
+- **Yes** -- do not modify anything yet. Present a **Proposed Test Implementation
+  Plan** in the same format used by `#create-test` (Objective, Preconditions,
+  Test Flow, Page Objects/Components -- existing vs. new, Test Data, Assertions,
+  Reporting/Evidence, Cleanup, Expected Files), scoped to the requested change.
+  Then ask **"Do you approve these implementation steps?"** with **Approve**,
+  **Request Changes**, or **Cancel**. Do not implement while awaiting this
+  decision. Only clear approval intent (e.g. "Approve", "Yes, implement", "Go
+  ahead") counts -- ambiguous responses are not approval. **Request Changes**
+  triggers a revised plan and another approval request; **Cancel** stops the
+  modification entirely and must be reported as such. If a material deviation
+  from an approved plan is discovered mid-implementation, stop and get renewed
+  approval before continuing; minor implementation details do not require it.
+
+**Do not create unnecessary approval friction for trivial, mechanical fixes**
+(formatting, import corrections, a single locator swap already backed by a fresh
+crawler `UNIQUE [x]` result, renaming) -- follow the existing lightweight Steps
+1-7 workflow directly for those.
+
+---
+
 ## Execution Steps
 
 ### Step 1 -- Read the Existing Code
@@ -127,6 +158,10 @@ After `mvn test` passes, output:
 |  Target       : ${TargetClass}                                   |
 |  Change type  : ${modification type}                             |
 +==================================================================+
+|  Plan reviewed by engineer : Yes / No                            |
+|  Plan approved / N/A        : Yes / No / N/A                     |
+|  Implemented per approved plan : Yes / No + reason / N/A          |
++==================================================================+
 |  VALIDATION                                                      |
 |  Compile      : ? PASS                                          |
 |  Re-run result: ? PASS / ? SKIP (intentional) / ? FAIL        |
@@ -140,6 +175,7 @@ After `mvn test` passes, output:
 
 ## Output Checklist
 - [ ] Autonomous mode declared by user
+- [ ] Implementation plan review offered for significant changes; if accepted, plan approved before any modification began
 - [ ] Existing code read before any change was made
 - [ ] Crawler re-run if any locator was modified
 - [ ] Change applied following correct instruction file

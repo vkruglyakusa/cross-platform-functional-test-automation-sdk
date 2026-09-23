@@ -125,7 +125,8 @@ reporting:
   domDumpsDir:    "test-output/dom-dumps"        # DOM snapshots on failure        (-Dreporting.domDumpsDir)
   logsDir:        "test-output/logs"             # sdk / selenium / browser logs   (-Dreporting.logsDir)
   crawlerDir:     "test-output/crawler"          # locator discovery reports       (-Dreporting.crawlerDir)
-  accessibilityDir: "test-output/accessibility"  # a11y JSON / Excel / HTML        (-Dreporting.accessibilityDir)
+  accessibilityDir: "test-output/accessibility"  # PUBLISHED a11y reports only: modern HTML/Excel + VPAT draft (-Dreporting.accessibilityDir)
+  accessibilityWorkingDir: "target/accessibility-work" # INTERNAL a11y working files: raw axe/interaction JSON, JSONL rollup, legacy workbook (-Dreporting.accessibilityWorkingDir)
   gapOutputDir:   "docs/test-case-gaps"          # gap-report.md / blocker-report.md (-Dreporting.gapOutputDir)
 
   # ------------------------------------------------------------
@@ -309,7 +310,9 @@ impact:
 # every test via the TestNG listener, OR call
 # TestBase.runAccessibilityScan() / assertNoAccessibilityViolations()
 # directly in test methods.
-# Output files go to reporting.accessibilityDir above.
+# Published reports (final HTML/Excel/VPAT) go to reporting.accessibilityDir above.
+# Internal raw scan artifacts (JSON/JSONL) and the legacy workbook go to
+# reporting.accessibilityWorkingDir above — never published by the pipeline.
 # ------------------------------------------------------------
 accessibility:
   checking.enabled: false           # master on/off switch — false by default (opt-in)
@@ -318,7 +321,6 @@ accessibility:
   failOnSeverity: minor             # minor | moderate | serious | critical — used when mode: fail-test
   wcag.tags: "wcag2a,wcag2aa"       # axe-core tag set to evaluate
   debug: false                      # print [A11Y DEBUG] lines to stdout for troubleshooting
-                                    # output directory is controlled by reporting.accessibilityDir above
 
   # -- Test enforcement ---------------------------------------
   # report-only (default): findings are scanned, suppressed/allowlisted, and
@@ -332,7 +334,12 @@ accessibility:
   reporting:
     allure: true                    # live Allure steps via AllureA11yReporter
     extent: true                    # live ExtentReports steps via ExtentA11yReporter
-    excel: true                     # accessibility-report.xlsx (+ suppression/VPAT sheets)
+    excel: true                     # accessibility-report_<timestamp>.xlsx (authoritative, PUBLISHED report; VPAT
+                                     # data lives in a separate VPAT report -- see AccessibilityExcelReporter).
+    legacyExcel: false              # legacy, INTERNAL-ONLY accessibility-report.xlsx (undated filename).
+                                     # OFF by default -- has no proven runtime consumer, never published/
+                                     # advertised as a user-facing report, and (when enabled) always lives in
+                                     # reporting.accessibilityWorkingDir above -- see AccessibilityChecker.writeExcelReport().
 
   # -- Noise reduction & de-duplication ----------------------
   session.noise.threshold: MINOR    # MINOR | MODERATE | SERIOUS | CRITICAL

@@ -41,12 +41,28 @@ public final class A11yReporterFactory {
     }
 
     /**
-     * Returns {@code true} when the {@code accessibility-report.xlsx} artifact should be
-     * (re)generated at suite end (default {@code true}) — part of the default reporting
-     * configuration whenever accessibility scanning is enabled.
+     * Returns {@code true} when the modern, published {@code
+     * accessibility-report_<timestamp>.xlsx} artifact should be (re)generated at suite end
+     * (default {@code true}) — part of the default reporting configuration whenever
+     * accessibility scanning is enabled. See {@code com.test.automation.sdk.accessibility.AccessibilityExcelReporter}
+     * — the file this flag gates is the authoritative Excel deliverable, written under
+     * {@link A11yConfig#outputDir()}. This is unrelated to {@link #isLegacyExcelEnabled()}.
      */
     public static boolean isExcelEnabled() {
         return A11yConfig.getBoolean("accessibility.reporting.excel", true);
+    }
+
+    /**
+     * Returns {@code true} when the legacy, internal-only, live-updating {@code
+     * accessibility-report.xlsx} workbook (see {@code AccessibilityChecker#writeExcelReport()})
+     * should be regenerated after every scan (default {@code false} — opt-in only). This
+     * workbook is never a published report (it always lives in the accessibility working
+     * directory, {@link A11yConfig#workingDir()}) and has no proven runtime consumer, so it
+     * is disabled by default; enable it only for a consumer that still specifically depends
+     * on this legacy file.
+     */
+    public static boolean isLegacyExcelEnabled() {
+        return A11yConfig.getBoolean("accessibility.reporting.legacyExcel", false);
     }
 
     /** Builds the composite reporter honoring the current {@code accessibility.reporting.*} configuration. */

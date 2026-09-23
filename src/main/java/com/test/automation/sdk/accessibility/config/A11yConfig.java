@@ -85,8 +85,14 @@ public final class A11yConfig {
     }
 
     /**
-     * Root directory for all accessibility artifacts (JSON, JSONL, Excel, HTML).
-     * Resolution order:
+     * Published report directory — the ONLY accessibility location that Azure DevOps'
+     * {@code PublishBuildArtifacts@1} (which publishes the whole {@code test-output} tree
+     * wholesale) is expected to surface to consumers. Only final, authoritative,
+     * user-facing reports (the modern timestamped Excel/HTML reports and the VPAT draft)
+     * belong here — never raw scan artifacts or the legacy workbook. See {@link #workingDir()}
+     * for the internal counterpart.
+     *
+     * <p>Resolution order:</p>
      * <ol>
      *   <li>{@code -Dreporting.accessibilityDir} system property (set by YamlConfigReader bridge)</li>
      *   <li>{@code -Daccessibility.output.dir} system property (legacy override)</li>
@@ -102,6 +108,38 @@ public final class A11yConfig {
         }
         if (dir == null || dir.trim().isEmpty()) {
             return Paths.get("test-output", "accessibility");
+        }
+        return Paths.get(dir.trim());
+    }
+
+    /**
+     * Internal working directory for raw, in-progress accessibility artifacts — raw axe
+     * ({@code *_a11y.json}) and interaction ({@code *_interaction_*.json}) scan artifacts,
+     * the {@code accessibility-summary.jsonl} rollup, and the legacy, continuously-rewritten
+     * {@code accessibility-report.xlsx} workbook. None of these are part of the supported
+     * report contract, so this directory deliberately lives OUTSIDE {@code test-output} —
+     * Azure DevOps' {@code PublishBuildArtifacts@1} step publishes {@code test-output}
+     * wholesale, and these files must never appear in that published artifact.
+     *
+     * <p>Report generators ({@code AccessibilityExcelReporter}, {@code
+     * AccessibilitySummaryReportGenerator}, {@code AccessibilityVpatReportGenerator}) read
+     * their raw scan data from this directory and write their final, authoritative reports
+     * to {@link #outputDir()} instead.</p>
+     *
+     * <p>Resolution order:</p>
+     * <ol>
+     *   <li>{@code -Dreporting.accessibilityWorkingDir} system property (set by YamlConfigReader bridge)</li>
+     *   <li>{@code -Daccessibility.working.dir} system property (direct override)</li>
+     *   <li>Default: {@code target/accessibility-work}</li>
+     * </ol>
+     */
+    public static Path workingDir() {
+        String dir = get("reporting.accessibilityWorkingDir");
+        if (dir == null || dir.trim().isEmpty()) {
+            dir = get("accessibility.working.dir");
+        }
+        if (dir == null || dir.trim().isEmpty()) {
+            return Paths.get("target", "accessibility-work");
         }
         return Paths.get(dir.trim());
     }

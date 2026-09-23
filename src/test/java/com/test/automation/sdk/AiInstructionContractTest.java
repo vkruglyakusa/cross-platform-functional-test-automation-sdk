@@ -200,6 +200,47 @@ class AiInstructionContractTest {
                 "GETTING-STARTED auth example must not use a realistic GUID-like username placeholder");
     }
 
+    @Test
+    @DisplayName("create-test prompt offers an optional implementation plan review gate with a real approval loop")
+    void createTestPromptOffersOptionalPlanReviewGate() throws Exception {
+        String content = readUtf8(AUTHORITATIVE_CREATE);
+
+        assertTrue(content.contains("Would you like to review the proposed test implementation steps before I create the test script?"),
+                "create-test prompt must ask the exact optional plan-review question");
+        assertTrue(content.contains("**If No:** continue directly to Step 1"),
+                "create-test prompt must permit the engineer to skip plan review and proceed normally");
+        assertTrue(content.contains("Proposed Test Implementation Plan"),
+                "create-test prompt must define a Proposed Test Implementation Plan format");
+        assertTrue(content.contains("Do you approve these implementation steps?"),
+                "create-test prompt must ask for explicit plan approval");
+        assertTrue(content.contains("**Approve**") && content.contains("**Request Changes**") && content.contains("**Cancel**"),
+                "create-test prompt must offer Approve / Request Changes / Cancel outcomes");
+        assertTrue(content.contains("do not implement anything while waiting for this decision"),
+                "create-test prompt must not implement while awaiting the approval decision");
+        assertTrue(content.contains("Request Changes** -- do not start implementation"),
+                "create-test prompt's Request Changes path must re-present a revised plan and ask again, never implicitly approve");
+        assertTrue(content.contains("Cancel** -- do not create or modify the test"),
+                "create-test prompt's Cancel path must prevent test creation/modification");
+        assertTrue(content.contains("Do **not** treat ambiguous responses"),
+                "create-test prompt must reject ambiguous responses as approval");
+        assertTrue(content.contains("Material deviations after approval"),
+                "create-test prompt must require renewed approval after a material deviation from the approved plan");
+    }
+
+    @Test
+    @DisplayName("modify-test prompt offers the same optional plan review gate for significant changes")
+    void modifyTestPromptOffersOptionalPlanReviewGate() throws Exception {
+        Path authoritativeModify = Paths.get("src", "main", "resources", "sdk-prompts", "modify-test.prompt.md");
+        String content = readUtf8(authoritativeModify);
+
+        assertTrue(content.contains("Would you like to review the proposed implementation steps before I modify the test script?"),
+                "modify-test prompt must ask the exact optional plan-review question");
+        assertTrue(content.contains("Do not create unnecessary approval friction for trivial, mechanical fixes"),
+                "modify-test prompt must keep trivial/mechanical fixes lightweight, without forced approval");
+        assertTrue(content.contains("Request Changes"), "modify-test prompt must support Request Changes");
+        assertTrue(content.contains("Cancel"), "modify-test prompt must support Cancel");
+    }
+
     private static int expectedGeneratedTestMethodCount(List<String> tcIds) {
         return distinctTcIdCount(tcIds);
     }

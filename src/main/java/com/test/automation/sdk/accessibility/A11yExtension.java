@@ -91,9 +91,9 @@ public class A11yExtension implements BeforeAllCallback, AfterEachCallback, Afte
         // so it's obvious the extension is registered and whether scanning is on.
         boolean enabled = A11ySessionManager.isEnabled();
         Class<?> testClass = ctx.getRequiredTestClass();
-        Diag.print("JUnit 5 extension LOADED for '{}'. enabled={}, output dir='{}'. "
+        Diag.print("JUnit 5 extension LOADED for '{}'. enabled={}, working dir='{}', published report dir='{}'. "
                 + "(If you can see this line, the extension is registered.)",
-                testClass.getSimpleName(), enabled, A11yConfig.outputDir().toAbsolutePath());
+                testClass.getSimpleName(), enabled, A11yConfig.workingDir().toAbsolutePath(), A11yConfig.outputDir().toAbsolutePath());
         if (!enabled) {
             Diag.print("Scanning is DISABLED (accessibility.checking.enabled is not true) — no artifacts will be produced.");
             log.debug("[A11Y EXTENSION] Scanning disabled — skipping setup");

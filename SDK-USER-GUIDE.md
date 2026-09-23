@@ -1039,7 +1039,8 @@ path, but it is deprecated and should not be the primary setup path for new work
 | `reporting.domDumpsDir` | `test-output/dom-dumps` | Saved DOM dump HTML files. |
 | `reporting.logsDir` | `test-output/logs` | Root directory for SDK, Selenium, browser, and driver logs. |
 | `reporting.crawlerDir` | `test-output/crawler` | Web/mobile crawler output reports. |
-| `reporting.accessibilityDir` | `test-output/accessibility` | Accessibility JSON, Excel, and HTML artifacts. |
+| `reporting.accessibilityDir` | `test-output/accessibility` | Published accessibility reports only: HTML summary, timestamped Excel, VPAT draft. |
+| `reporting.accessibilityWorkingDir` | `target/accessibility-work` | Internal accessibility working directory: raw axe/interaction JSON, JSONL rollup, legacy workbook. Never published. |
 | `reporting.gapOutputDir` | `docs/test-case-gaps` | Gap and blocker markdown report directory. |
 
 #### `reporting.allure`
@@ -1109,7 +1110,8 @@ path, but it is deprecated and should not be the primary setup path for new work
 | `accessibility.fail.on.violation` | `false` | **Legacy.** Honored as `fail-test` (minor threshold — fail on any violation) only when `accessibility.mode` is unset; ignored once `accessibility.mode` is explicitly set. |
 | `accessibility.reporting.allure` | `true` | Routes live accessibility findings to Allure steps/attachments. Part of the default reporting configuration. |
 | `accessibility.reporting.extent` | `true` | Routes live accessibility findings to the active ExtentReports test. Part of the default reporting configuration. |
-| `accessibility.reporting.excel` | `true` | Generates the `accessibility-report_<timestamp>.xlsx` workbook at suite end. Part of the default reporting configuration — set to `false` to explicitly disable. |
+| `accessibility.reporting.excel` | `true` | Generates the published, timestamped `accessibility-report_<timestamp>.xlsx` workbook at suite end. Part of the default reporting configuration — set to `false` to explicitly disable. Does not affect the separate legacy internal workbook (see `accessibility.reporting.legacyExcel`). |
+| `accessibility.reporting.legacyExcel` | `false` | Optional/legacy internal workbook (`accessibility-report.xlsx`), written continuously to the working directory only. Opt-in for consumers who previously depended on this pre-Engine/Finding-Type-model workbook directly; never published or linked from any reporting sink. |
 | `accessibility.wcag.tags` | `wcag2a,wcag2aa` | Axe-core tag set used for Layer 1 scanning. |
 | `accessibility.debug` | `false` | Enables verbose accessibility debug output. |
 | `accessibility.session.noise.threshold` | `MINOR` | Minimum severity recorded by the session manager. |
@@ -2098,7 +2100,8 @@ artifact type is configured from the unified `reporting:` section in
 | `reporting.domDumpsDir` | `test-output/dom-dumps` | `-Dreporting.domDumpsDir` | DOM dump HTML artifacts from `saveDomDump()` and listeners |
 | `reporting.logsDir` | `test-output/logs` | `-Dreporting.logsDir` | SDK, Selenium, browser, and driver log files |
 | `reporting.crawlerDir` | `test-output/crawler` | `-Dreporting.crawlerDir` | Locator crawler and PageObjectGenerator reports |
-| `reporting.accessibilityDir` | `test-output/accessibility` | `-Dreporting.accessibilityDir` | Accessibility JSON, Excel, and HTML reports |
+| `reporting.accessibilityDir` | `test-output/accessibility` | `-Dreporting.accessibilityDir` | Published accessibility reports only (HTML/Excel/VPAT) |
+| `reporting.accessibilityWorkingDir` | `target/accessibility-work` | `-Dreporting.accessibilityWorkingDir` | Internal accessibility working artifacts (raw JSON/JSONL/legacy workbook); never published |
 | `reporting.gapOutputDir` | `docs/test-case-gaps` | `-Dreporting.gapOutputDir` | Gap and blocker markdown reports |
 | `reporting.allure.enabled` | `true` | `-Dreporting.allure.enabled` | Master on/off switch for automatic Allure report generation |
 | `reporting.allure.generateAfterExecution` | `true` | `-Dreporting.allure.generateAfterExecution` | Runs `allure generate` once the whole test execution finishes |
@@ -3005,25 +3008,71 @@ triggered them while avoiding constant full-page rescans.
 | `accessibility.scan.on.dialog` | `false` | Auto-scan newly opened modal/dialog content. |
 | `accessibility.scan.dialog.poll.interval.ms` | `1000` | Poll interval for dialog detection. |
 
-Accessibility artifacts are written under `reporting.accessibilityDir`.
+Accessibility maintains two physically separate directories so that Azure DevOps'
+`PublishBuildArtifacts@1` step -- which publishes the entire `test-output` tree
+wholesale and must not be narrowed -- never surfaces internal/intermediate
+accessibility artifacts:
+
+| Directory | Config key | Default | Contents |
+|---|---|---|---|
+| **Working directory** (internal) | `reporting.accessibilityWorkingDir` (or `accessibility.working.dir`) | `target/accessibility-work` | Raw axe-core JSON, interaction JSON, `accessibility-summary.jsonl`, and the legacy `accessibility-report.xlsx` workbook. Lives OUTSIDE `test-output` and is never published. |
+| **Published directory** | `reporting.accessibilityDir` (or `accessibility.output.dir`) | `test-output/accessibility` | Only the final, authoritative reports -- HTML summary, timestamped Excel workbook, VPAT draft. Published as part of `test-output` by the existing `PublishBuildArtifacts@1` step, unchanged. |
+
+Report generators (`AccessibilityExcelReporter`, `AccessibilitySummaryReportGenerator`,
+`AccessibilityVpatReportGenerator`) read raw scan data from the working directory and
+write their final reports to the published directory. Consumers never need to interact
+with the working directory directly.
 
 ### 14.6 Output artifacts
 
-All generated files are written under the directory resolved from
-`reporting.accessibilityDir`:
+**Working directory** (`target/accessibility-work` by default) -- internal, not published:
 
 | Artifact | Description |
 |---|---|
-| `*.json` | Raw accessibility scan output per page/test. |
-| `*_interaction_*.json` | Interaction-layer detail output. |
+| `*_a11y.json` | Raw axe-core (Layer 1) scan output per page/test. |
+| `*_interaction_*.json` | Interaction-layer (Layers 2-5) detail output. |
 | `accessibility-summary.jsonl` | One-line-per-scan rollup (JSON Lines), useful for CI dashboards/log aggregation. |
-| `accessibility_report_<timestamp>.xlsx` | Consolidated Excel workbook of all violations. |
-| `accessibility_summary_<timestamp>.html` | Human-readable HTML summary report. |
+| `accessibility-report.xlsx` | Legacy, continuously-rewritten internal workbook produced by `AccessibilityChecker.writeExcelReport()`. **Not a supported report** -- disabled by default (`accessibility.reporting.legacyExcel=false`); never advertised via Allure/ExtentReports/console. See note below. |
 
-You can also resolve the directory programmatically:
+**Published directory** (`test-output/accessibility` by default) -- the SDK's only
+supported, user-facing accessibility reports, included in the `PublishBuildArtifacts@1`
+artifact automatically:
+
+| Artifact | Description |
+|---|---|
+| `accessibility-report_<timestamp>.xlsx` | **Authoritative** Excel workbook -- Engine/Finding Type/Impact columns, all axe-core violations + `incomplete` (Needs Review), all interaction findings, suppression info. |
+| `accessibility-summary.html` | **Authoritative** HTML summary report -- same complete dataset as the Excel workbook, with live filtering (Engine/Finding Type/Impact/Page/WCAG/Rule/Category/Search). |
+| `accessibility-vpat-draft.html` | **Draft** WCAG 2.1 A/AA conformance report in VPAT&reg;-style "Criteria / Conformance Level / Remarks" table format, populated from this run's automated scan evidence. |
+
+> [!]? **Published accessibility report contract.** These three reports --
+> `accessibility-summary.html`, `accessibility-report_<timestamp>.xlsx`, and
+> `accessibility-vpat-draft.html` -- are the SDK's complete set of supported, user-facing
+> accessibility reports. All three are generated unconditionally at suite end (the Excel
+> report can additionally be disabled via `accessibility.reporting.excel=false`) and are
+> published automatically as part of the existing `test-output` → `PublishBuildArtifacts@1`
+> step.
+
+> [!]? **VPAT draft is NOT an official VPAT.** `accessibility-vpat-draft.html` is
+> explicitly a **draft, automated-evidence-only** starting point -- it is not a
+> Voluntary Product Accessibility Template, is not a certification, and does not
+> represent formal compliance approval. The report itself carries a prominent
+> "DRAFT -- Automated Evidence Only, Not an Official VPAT®" disclaimer explaining that
+> a "Supports" result only means no automated finding fired in this run (not manual
+> verification), and that criteria with zero automated coverage are marked
+> "Not Evaluated" and always require manual assessment by a qualified accessibility
+> professional. Never distribute this file externally as a certified VPAT.
+
+> [!]? **Legacy workbook note:** `accessibility-report.xlsx` predates the current
+> Engine/Finding Type/Impact model, never contains axe-core `incomplete`/Needs Review
+> findings, and is disabled by default. It exists only as an optional internal/legacy
+> artifact for consumers who previously depended on it directly (`accessibility.reporting.legacyExcel=true`
+> to re-enable); even when enabled it is written to the working directory and is never
+> published or linked from any reporting sink.
+
+You can also resolve the directories programmatically:
 
 ```java
-File outputDir = getAccessibilityOutputDirectory();
+File publishedDir = getAccessibilityOutputDirectory(); // test-output/accessibility
 ```
 
 #### Example: raw scan JSON (`<timestamp>_<pageName>_a11y.json`)
@@ -3111,18 +3160,116 @@ document per line, easy to `tail -f` or feed into a log aggregator):
 {"timestamp":"2026-09-02_16-42-10","pageName":"LoginPage","outcome":"FAIL","violationCount":2,"iframesScanned":1,"shadowDomScanned":false}
 ```
 
-#### Excel workbook (`accessibility_report_<timestamp>.xlsx`) -- sheet layout
+#### Excel workbook (`accessibility-report_<timestamp>.xlsx`) -- sheet layout
 
 | Sheet | Columns |
 |---|---|
-| **Run Overview** | Run-level summary + Impact Distribution (Impact, Count) + Top 10 Rule IDs (Rule ID, Occurrences) |
-| **Scan History** | Timestamp, Page Name, Outcome, Violations, WCAG Tags, Error |
-| **Violations Detail** | Timestamp, Page Name, Outcome, Rule ID, Impact, Description, Help, Help URL, Affected Elements, First Element (HTML) |
+| **Summary** | Run-level KPIs + Impact Distribution (Impact, Count) + Top 10 Rule IDs (Rule ID, Occurrences) |
+| **Scan History** | Timestamp, Page Name, Outcome, Violations, WCAG Tags, Error (native Excel AutoFilter enabled on the header row) |
+| **Violations Detail** | Timestamp, Page Name, Outcome, Rule ID, Impact, Description, Help, Help URL, Affected Elements, First Element (HTML), WCAG SC, Confidence, **Engine** (native Excel AutoFilter enabled on the header row) |
+| **Suppressions** | Present only when one or more `A11ySuppressionRegistry` entries are active for the run. |
 
-The HTML summary (`accessibility_summary_<timestamp>.html`) presents the same
-Run Overview / Scan History / Violations Detail data as a standalone, styled page
+The HTML summary (`accessibility-summary.html`) presents the same
+Summary / Scan History / Violations Detail data as a standalone, styled page
 you can open directly in a browser or attach to a CI build artifact -- no Excel
 required to review results at a glance.
+
+### 14.6a Accessibility Report Filters
+
+Both the HTML summary and the Excel workbook expose a **report-only** engine
+filter: it changes what a reviewer currently sees, but never changes what the
+SDK detected, how findings are classified, or the pass/fail enforcement outcome
+described in §14.1a. This mirrors the reference `AccessibilityTestAutomation`
+framework's filtering model, adapted to this SDK's existing finding taxonomy
+(see the mapping table below).
+
+**Engine Filter (HTML report).** A two-chip toggle (`axe-core`, `Interaction`)
+renders above the report body. Every violation/issue row and the Recent Scans /
+Scan Details / Violations Drilldown / All Issues sections carry a `data-engine`
+attribute:
+
+| `data-engine` value | Source |
+|---|---|
+| `axe-core` | Layer 1 static WCAG findings (`*_a11y.json`) |
+| `Interaction:<checkId>` | Layer 2-5 interaction findings (`*_interaction_<checkId>.json`), e.g. `Interaction:keyboard-navigation` |
+
+Toggling the `Interaction` chip matches **every** `Interaction:<checkId>` value
+(prefix match) -- there is no separate chip per `checkId`. Unchecking a chip only
+hides matching rows client-side and live-recomputes the KPI cards, Impact
+Distribution, Cross-Page/Top Rules/Top Pages tables, and per-scan PASS/FAIL
+badges from the still-visible rows; it never deletes data from the underlying
+report or re-runs enforcement. Reloading the page (or the `Reset` control where
+present) restores the full, unfiltered view.
+
+**"Needs review" is not a third engine chip, and it is not an impact value.**
+This SDK models "needs review" as an independent **Finding Type** dimension —
+`findingType = VIOLATION | NEEDS_REVIEW` — that is separate from both `engine`
+and `impact` (severity). Engine, Finding Type, and Impact are three
+independent classification dimensions:
+
+```text
+Engine        axe-core | Interaction:<checkId>
+Finding Type  VIOLATION | NEEDS_REVIEW
+Impact        CRITICAL | SERIOUS | MODERATE | MINOR | UNKNOWN
+```
+
+axe-core's `incomplete` rules (findings that could not be automatically
+confirmed pass/fail) map to `findingType = NEEDS_REVIEW`; axe-core `violations`
+and interaction-layer findings without `needsReview: true` map to
+`findingType = VIOLATION`. In every case, `impact` continues to hold the
+finding's real severity metadata (`CRITICAL`/`SERIOUS`/`MODERATE`/`MINOR`) —
+it is never overwritten with the string `NEEDS_REVIEW`. An earlier revision of
+this feature encoded "needs review" into the `impact` field itself; that was
+corrected because it conflated two independent facts (severity vs. "requires
+human confirmation") and made needs-review findings invisible in the
+hardcoded 5-bucket (`CRITICAL`/`SERIOUS`/`MODERATE`/`MINOR`/`UNKNOWN`) Impact
+Distribution/drilldown, which only ever renders those five buckets.
+
+**Finding Type Filter (HTML report).** A second, independent two-chip toggle
+(`Violation`, `Needs Review`) renders directly below the Engine Filter. Every
+violation/issue row carries both a `data-engine` and a `data-finding-type`
+attribute, and the two filters combine with AND logic (a row must match the
+enabled engine(s) **and** the enabled finding type(s) to remain visible); each
+filter's own chips combine with OR logic. A "Needs Review" KPI card
+(`kpi-needs-review`) shows the live count of visible `NEEDS_REVIEW` findings,
+recomputed alongside the other KPI cards whenever either filter changes.
+
+| `data-finding-type` value | Meaning |
+|---|---|
+| `VIOLATION` | Confirmed violation (axe-core `violations`, or an interaction finding without `needsReview: true`) |
+| `NEEDS_REVIEW` | Requires human confirmation (axe-core `incomplete` rules, or an interaction finding with `needsReview: true`) |
+
+Toggling the `Interaction` engine chip still matches **every**
+`Interaction:<checkId>` value (prefix match) -- there is no separate chip per
+`checkId`. Unchecking a chip only hides matching rows client-side and
+live-recomputes the KPI cards, Impact Distribution, Cross-Page/Top Rules/Top
+Pages tables, and per-scan PASS/FAIL badges from the still-visible rows; it
+never deletes data from the underlying report or re-runs enforcement.
+Reloading the page (or the `Reset` control where present) restores the full,
+unfiltered view.
+
+**AutoFilter (Excel report, SDK enhancement).** The reference framework's Excel
+report has no column filtering at all. This SDK adds a native Excel `AutoFilter`
+dropdown to the header row of the **Scan History** and **Violations Detail**
+sheets (opened in Excel, Google Sheets, or LibreOffice Calc — no macro/add-in
+required) so reviewers can filter by any column, including the independent
+**Engine** and **Finding Type** columns on Violations Detail (in addition to
+the existing **Impact** column) -- e.g. a reviewer can filter
+`Finding Type = Needs Review` and `Impact = Serious` at the same time. The
+**Summary** sheet is a multi-section
+key/value layout and intentionally has no AutoFilter.
+
+**What report filtering does *not* affect:**
+
+- Suppressed findings (`A11ySuppressionRegistry`) remain suppressed regardless
+  of chip state -- suppression is a policy decision made before reporting, not
+  a display toggle.
+- The `accessibility.mode` / `accessibility.failOnSeverity` enforcement
+  decision (§14.1a) is computed once, before the report is rendered; hiding a
+  `Critical` finding behind the `axe-core` chip does not change a `fail-test`
+  result that already failed because of it.
+- The raw `*.json` / `*_interaction_*.json` artifacts under
+  `reporting.accessibilityDir` (§14.6) are never modified by report filtering.
 
 ### 14.7 Important caveats
 

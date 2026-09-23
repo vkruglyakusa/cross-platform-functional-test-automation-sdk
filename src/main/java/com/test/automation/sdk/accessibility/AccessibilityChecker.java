@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.test.automation.sdk.accessibility.config.A11yConfig;
 import com.test.automation.sdk.accessibility.report.A11yReporter;
+import com.test.automation.sdk.accessibility.report.A11yReporterFactory;
 import com.test.automation.sdk.accessibility.report.NoOpReporter;
 import com.test.automation.sdk.accessibility.report.Slf4jReporter;
 import org.slf4j.Logger;
@@ -78,10 +79,12 @@ import java.util.stream.Collectors;
  * accessibility.failOnSeverity=minor         # minor|moderate|serious|critical — threshold for fail-test
  * accessibility.fail.on.violation=false      # legacy: honored as fail-test when accessibility.mode is unset
  * accessibility.wcag.tags=wcag2a,wcag2aa     # axe-core tag set
- * accessibility.output.dir=test-output/accessibility  # artifact root (optional)
+ * accessibility.output.dir=test-output/accessibility        # PUBLISHED report root (optional; final HTML/Excel/VPAT only)
+ * accessibility.working.dir=target/accessibility-work       # INTERNAL working root (optional; raw JSON/JSONL/legacy workbook)
  * accessibility.reporting.allure=true        # live Allure steps (default true)
  * accessibility.reporting.extent=true        # live ExtentReports steps (default true)
  * accessibility.reporting.excel=true         # accessibility-report_&lt;timestamp&gt;.xlsx (default true)
+ * accessibility.reporting.legacyExcel=false  # legacy, internal-only accessibility-report.xlsx (default false, opt-in)
  * </pre>
  *
  * <h3>Usage</h3>
@@ -109,20 +112,29 @@ public class AccessibilityChecker {
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
 
     /**
-     * Returns the configured output directory, resolved fresh on every call so that
-     * {@code -Daccessibility.output.dir} set after class-load (e.g. in a
-     * {@code @BeforeClass} or via Surefire {@code <systemPropertyVariables>}) is
-     * always respected.  Previously this was a {@code static final} field frozen at
+     * Returns the configured accessibility <b>working directory</b>, resolved fresh on
+     * every call so that {@code -Daccessibility.working.dir} set after class-load (e.g.
+     * in a {@code @BeforeClass} or via Surefire {@code <systemPropertyVariables>}) is
+     * always respected. Previously this was a {@code static final} field frozen at
      * class-init time, which caused all output to land in the default directory even
      * when the consumer overrode it at runtime.
+     *
+     * <p>This is an <b>internal</b> location -- raw {@code *_a11y.json}/
+     * {@code *_interaction_*.json} scan artifacts, the {@code accessibility-summary.jsonl}
+     * rollup, and the legacy {@code accessibility-report.xlsx} workbook are written here,
+     * deliberately outside {@code test-output} so Azure DevOps'
+     * {@code PublishBuildArtifacts@1} (which publishes {@code test-output} wholesale)
+     * never surfaces them. Final, published reports go to {@link A11yConfig#outputDir()}
+     * instead (see {@link AccessibilityExcelReporter}, {@link AccessibilitySummaryReportGenerator},
+     * {@link AccessibilityVpatReportGenerator}).</p>
      */
-    static Path reportDir() {
-        return A11yConfig.outputDir();
+    static Path workingDir() {
+        return A11yConfig.workingDir();
     }
 
-    /** Derived convenience: the live-updating Excel workbook path. */
+    /** Derived convenience: the live-updating, internal-only legacy Excel workbook path. */
     static Path excelReportPath() {
-        return reportDir().resolve("accessibility-report.xlsx");
+        return workingDir().resolve("accessibility-report.xlsx");
     }
 
     /** Pluggable reporting sink. Defaults to SLF4J; never null. */
@@ -451,7 +463,7 @@ public class AccessibilityChecker {
         String pageUrl = driver.getCurrentUrl();
         if (!isEnabled()) {
             logger.debug("Accessibility checking disabled — skipping scan for: {}", pageName);
-            writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), "SKIPPED", "accessibility.checking.enabled=false", null);
+            writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), Collections.emptyList(), "SKIPPED", "accessibility.checking.enabled=false", null);
             return 0;
         }
 
@@ -480,7 +492,7 @@ public class AccessibilityChecker {
                         + "Check for CSP headers, page-not-loaded state, or driver focus on a sub-frame.";
                 logger.error(msg);
                 reporter.fail(msg);
-                writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), "INJECTION_FAILURE",
+                writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), Collections.emptyList(), "INJECTION_FAILURE",
                         "axe returned 0 results across all categories", scopeInfo);
                 return 0;
             }
@@ -497,7 +509,7 @@ public class AccessibilityChecker {
 
             logFindings(pageName, violations, incomplete, tags, scopeInfo);
             logToConsole(pageName, violations);
-            writeScanArtifact(pageName, pageUrl, tags, violations, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
+            writeScanArtifact(pageName, pageUrl, tags, violations, incomplete, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
             recordFindings(violations, incomplete, pageUrl, results);
 
             if (!violations.isEmpty() && shouldFailForViolations(violations)) {
@@ -511,7 +523,7 @@ public class AccessibilityChecker {
             String msg = "[A11Y ERROR] Scan threw an exception for '" + pageName + "': " + e.getMessage()
                     + " — returning 0 violations. Fix the scan error before trusting these results.";
             logger.error(msg, e);
-            writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), "ERROR", e.getMessage(), null);
+            writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), Collections.emptyList(), "ERROR", e.getMessage(), null);
             reporter.fail(msg + "<br/><pre>" + e + "</pre>");
             return 0;
         }
@@ -529,7 +541,7 @@ public class AccessibilityChecker {
     public static void assertNoViolations(WebDriver driver, String pageName) {
         String pageUrl = driver.getCurrentUrl();
         if (!isEnabled()) {
-            writeScanArtifact(pageName, pageUrl, getWcagTags(), Collections.emptyList(), "SKIPPED", "accessibility.checking.enabled=false", null);
+            writeScanArtifact(pageName, pageUrl, getWcagTags(), Collections.emptyList(), Collections.emptyList(), "SKIPPED", "accessibility.checking.enabled=false", null);
             return;
         }
         String[] tags = getWcagTags();
@@ -551,13 +563,13 @@ public class AccessibilityChecker {
             if (scopeInfo.totalIFramesIncluded > 0) scanIndividualFrames(driver, tags, violations, scopeInfo);
             logFindings(pageName, violations, incomplete, tags, scopeInfo);
             logToConsole(pageName, violations);
-            writeScanArtifact(pageName, pageUrl, tags, violations, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
+            writeScanArtifact(pageName, pageUrl, tags, violations, incomplete, violations.isEmpty() ? "PASS" : "FAIL", null, scopeInfo);
             recordFindings(violations, incomplete, pageUrl, results);
             if (!violations.isEmpty()) throw new AccessibilityViolationException(buildFailureSummary(pageName, violations));
         } catch (AccessibilityViolationException ave) {
             throw ave;
         } catch (Exception e) {
-            writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), "ERROR", e.getMessage(), null);
+            writeScanArtifact(pageName, pageUrl, tags, Collections.emptyList(), Collections.emptyList(), "ERROR", e.getMessage(), null);
             throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
         }
     }
@@ -858,16 +870,17 @@ public class AccessibilityChecker {
                                           String pageUrl,
                                           String[] tags,
                                           List<Rule> violations,
+                                          List<Rule> incomplete,
                                           String outcome,
                                           String errorMessage,
                                           ScanScopeInfo scopeInfo) {
         try {
-            Files.createDirectories(reportDir());
+            Files.createDirectories(workingDir());
 
             String timestamp = LocalDateTime.now().format(TS_FORMAT);
             String safePageName = sanitizeFileName(pageName);
             String fileName = timestamp + "_" + safePageName + "_a11y.json";
-            Path filePath = reportDir().resolve(fileName);
+            Path filePath = workingDir().resolve(fileName);
 
             ObjectNode root = REPORT_MAPPER.createObjectNode();
             root.put("timestamp", timestamp);
@@ -923,6 +936,30 @@ public class AccessibilityChecker {
                         .forEach(node -> nodes.add(node.getHtml() != null ? node.getHtml() : "(element)"));
             }
 
+            // "incomplete" axe-core rules (could not be confirmed as pass/fail) are persisted
+            // separately so downstream reports classify them as findingType=NEEDS_REVIEW rather
+            // than merging them into confirmed "violations" -- never affects violationCount/outcome.
+            ArrayNode incompleteNode = root.putArray("incomplete");
+            for (Rule inc : incomplete) {
+                ObjectNode v = incompleteNode.addObject();
+                v.put("id", inc.getId());
+                v.put("description", inc.getDescription());
+                v.put("impact", inc.getImpact() != null ? inc.getImpact().toUpperCase() : "UNKNOWN");
+                v.put("help", inc.getHelp());
+                v.put("helpUrl", inc.getHelpUrl());
+                String wcagCriterion = AccessibilityFinding.extractWcagCriterion(
+                        inc.getTags() != null ? inc.getTags() : Collections.emptyList());
+                v.put("wcagCriterion", wcagCriterion != null ? wcagCriterion : "");
+                v.put("confidence", AccessibilityFinding.CONFIDENCE_MANUAL_REVIEW);
+
+                ArrayNode incNodes = v.putArray("affectedElements");
+                if (inc.getNodes() != null) {
+                    inc.getNodes().stream()
+                            .limit(20)
+                            .forEach(node -> incNodes.add(node.getHtml() != null ? node.getHtml() : "(element)"));
+                }
+            }
+
             REPORT_MAPPER.writerWithDefaultPrettyPrinter().writeValue(filePath.toFile(), root);
 
             String relativePath = "accessibility/" + fileName;
@@ -944,7 +981,7 @@ public class AccessibilityChecker {
                 String impact = v.getImpact() != null ? v.getImpact().toUpperCase() : "UNKNOWN";
                 EXCEL_ISSUE_ROWS.add(new Object[]{
                     impact,
-                    deriveIssueType(impact, "axe-core"),
+                    deriveIssueType("VIOLATION"),
                     v.getDescription(),
                     extractComponent(affected),
                     affected,
@@ -954,6 +991,28 @@ public class AccessibilityChecker {
                     pageUrl,
                     "axe-core",
                     v.getHelpUrl(),
+                    timestamp});
+            }
+            // axe-core "incomplete" rules map to the independent findingType=NEEDS_REVIEW
+            // dimension -- never merged into the confirmed "Violation" bucket, and the
+            // Engine column stays the real "axe-core" value (never a corrupted marker).
+            for (Rule inc : incomplete) {
+                String affected = inc.getNodes() != null ? inc.getNodes().stream().limit(3)
+                    .map(n -> n.getHtml() != null ? n.getHtml() : "(element)")
+                    .collect(Collectors.joining(" | ")) : "";
+                String impact = inc.getImpact() != null ? inc.getImpact().toUpperCase() : "UNKNOWN";
+                EXCEL_ISSUE_ROWS.add(new Object[]{
+                    impact,
+                    deriveIssueType("NEEDS_REVIEW"),
+                    inc.getDescription(),
+                    extractComponent(affected),
+                    affected,
+                    inc.getId(),
+                    tagsStr,
+                    pageName,
+                    pageUrl,
+                    "axe-core",
+                    inc.getHelpUrl(),
                     timestamp});
             }
             writeExcelReport();
@@ -969,7 +1028,7 @@ public class AccessibilityChecker {
                                           String errorMessage,
                                           String[] tags,
                                           ScanScopeInfo scopeInfo) throws IOException {
-        Path summaryPath = reportDir().resolve("accessibility-summary.jsonl");
+        Path summaryPath = workingDir().resolve("accessibility-summary.jsonl");
 
         ObjectNode summaryNode = REPORT_MAPPER.createObjectNode();
         summaryNode.put("timestamp", timestamp);
@@ -1437,9 +1496,9 @@ public class AccessibilityChecker {
 
     private static void writeInteractionArtifact(String checkId, String pageName, List<InteractionIssue> issues) {
         try {
-            Files.createDirectories(reportDir());
+            Files.createDirectories(workingDir());
             String ts = LocalDateTime.now().format(TS_FORMAT);
-            Path file = reportDir().resolve(ts + "_" + sanitizeFileName(pageName) + "_interaction_" + checkId + ".json");
+            Path file = workingDir().resolve(ts + "_" + sanitizeFileName(pageName) + "_interaction_" + checkId + ".json");
             ObjectNode root = REPORT_MAPPER.createObjectNode();
             root.put("timestamp", ts); root.put("pageName", pageName);
             root.put("checkId", checkId); root.put("outcome", issues.isEmpty() ? "PASS" : "FAIL");
@@ -1464,10 +1523,11 @@ public class AccessibilityChecker {
                 "Interaction:" + checkId, "", 0, "N/A", ts});
             for (InteractionIssue i : issues) {
                 String element = i.element != null ? i.element : "";
-                String engine = i.needsReview ? "NeedsReview" : "Interaction";
+                String engine = "Interaction";
+                String findingType = i.needsReview ? "NEEDS_REVIEW" : "VIOLATION";
                 EXCEL_ISSUE_ROWS.add(new Object[]{
                     i.impact,
-                    deriveIssueType(i.impact, engine),
+                    deriveIssueType(findingType),
                     i.description,
                     extractComponent(element),
                     element,
@@ -1491,12 +1551,34 @@ public class AccessibilityChecker {
     // -----------------------------------------------------------------------
 
     /**
-     * (Re)generates {@code <output>/accessibility-report.xlsx} from all in-memory
-     * accumulated scan results. Called automatically after every scan.
+     * (Re)generates the legacy, live-updating {@code <working>/accessibility-report.xlsx}
+     * from all in-memory accumulated scan results. Called automatically after every scan,
+     * but only when {@code accessibility.reporting.legacyExcel=true} (default {@code false}
+     * -- opt-in only); by default this legacy workbook is no longer generated at all, since
+     * it has no runtime consumers and the modern, complete {@code
+     * accessibility-report_<timestamp>.xlsx} (see {@link AccessibilityExcelReporter}) is the
+     * authoritative Excel deliverable.
+     *
+     * <p><b>Publication boundary:</b> this workbook, when generated, is a working/internal
+     * execution artifact only -- it lives in the accessibility working directory
+     * ({@link A11yConfig#workingDir()}), is never advertised via the live {@link A11yReporter}
+     * sinks (Allure/ExtentReports), and is <em>not</em> part of the SDK's supported
+     * published-report contract. It always lacks axe-core {@code incomplete}/
+     * {@code findingType=NEEDS_REVIEW} findings (a pre-existing, out-of-scope gap -- see
+     * {@code AccessibilityLegacyExcelReportTest}), so it must never be presented to users as
+     * an authoritative report. The single authoritative, user-facing accessibility
+     * deliverables are {@code accessibility-report_<timestamp>.xlsx} and
+     * {@code accessibility-summary.html} (see {@link AccessibilityExcelReporter}/
+     * {@link AccessibilitySummaryReportGenerator}); do not add a second advertised Excel
+     * report to any live reporting sink or CI publish step.</p>
      */
     public static synchronized void writeExcelReport() {
+        if (!A11yReporterFactory.isLegacyExcelEnabled()) {
+            // Internal-only artifact, no proven runtime consumer -- off by default.
+            return;
+        }
         try {
-            Files.createDirectories(reportDir());
+            Files.createDirectories(workingDir());
             try (XSSFWorkbook wb = new XSSFWorkbook()) {
 
                 CellStyle headerStyle = createHeaderStyle(wb);
@@ -1600,7 +1682,10 @@ public class AccessibilityChecker {
                 logger.info("Excel report updated ({} scan(s), {} issue(s)): {}",
                     EXCEL_SUMMARY_ROWS.size(), EXCEL_ISSUE_ROWS.size(), excelReportPath().toAbsolutePath());
 
-                reporter.info("Excel Report: <a href='accessibility/accessibility-report.xlsx' target='_blank'>accessibility-report.xlsx</a>");
+                // Publication boundary: this legacy workbook is a working/internal execution
+                // artifact only (see class javadoc on writeExcelReport()) and must never be
+                // advertised through a live reporter sink (Allure/ExtentReports/etc.) — do not
+                // reintroduce a reporter.info(...) link to it here.
             }
         } catch (Exception e) {
             logger.warn("Could not write Excel accessibility report: {}", e.getMessage(), e);
@@ -1664,15 +1749,14 @@ public class AccessibilityChecker {
         }
     }
 
-    private static String deriveIssueType(String impact, String engine) {
-        if ("Interaction".equalsIgnoreCase(engine))  return "Interaction Check";
-        if ("NeedsReview".equalsIgnoreCase(engine))  return "Needs Review";
-        if (impact == null) return "Best Practice";
-        switch (impact.toUpperCase()) {
-            case "CRITICAL":
-            case "SERIOUS":  return "Violation";
-            default:         return "Best Practice";
-        }
+    /**
+     * Derives the legacy Excel "Issue Type" column value purely from the independent
+     * {@code findingType} dimension ({@code VIOLATION}/{@code NEEDS_REVIEW}) — never from
+     * {@code engine} (originating analysis layer) or {@code impact} (severity), which must
+     * remain free to carry their own real values untouched.
+     */
+    private static String deriveIssueType(String findingType) {
+        return "NEEDS_REVIEW".equalsIgnoreCase(findingType) ? "Needs Review" : "Violation";
     }
 
     private static String extractComponent(String html) {

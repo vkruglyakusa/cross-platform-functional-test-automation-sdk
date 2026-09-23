@@ -82,11 +82,11 @@ public class A11yTestNGListener implements ITestListener {
         // Always log a one-line status so it's obvious the listener IS registered
         // and whether scanning is actually on — the #1 source of "nothing happened".
         boolean enabled = A11ySessionManager.isEnabled();
-        Diag.print("TestNG listener LOADED for suite '{}'. enabled={}, output dir='{}'. "
+        Diag.print("TestNG listener LOADED for suite '{}'. enabled={}, working dir='{}', published report dir='{}'. "
                 + "(If you can see this line, the listener is registered.)",
-                context.getName(), enabled, A11yConfig.outputDir().toAbsolutePath());
-        log.info("[A11Y LISTENER] Registered for suite '{}' — accessibility.checking.enabled={}, output dir='{}'",
-                context.getName(), enabled, A11yConfig.outputDir().toAbsolutePath());
+                context.getName(), enabled, A11yConfig.workingDir().toAbsolutePath(), A11yConfig.outputDir().toAbsolutePath());
+        log.info("[A11Y LISTENER] Registered for suite '{}' — accessibility.checking.enabled={}, working dir='{}', published report dir='{}'",
+                context.getName(), enabled, A11yConfig.workingDir().toAbsolutePath(), A11yConfig.outputDir().toAbsolutePath());
         if (!enabled) {
             Diag.print("Scanning is DISABLED (accessibility.checking.enabled is not true) — no artifacts will be produced.");
             log.warn("[A11Y LISTENER] Scanning is DISABLED — no artifacts will be produced. "
