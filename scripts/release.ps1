@@ -664,7 +664,7 @@ if ($SkipTemplates) {
 } else {
     foreach ($tr in $templateResults) {
         if ($tr.Applicable) {
-            $tplPathFinal = $templateDefs | Where-Object { $_.Name -eq $tr.Name } | Select-Object -First 1 -ExpandProperty Path
+            $tplPathFinal = ($templateDefs | Where-Object { $_.Name -eq $tr.Name } | Select-Object -First 1).Path
             $tplPomFinal = Get-Content "$tplPathFinal\pom.xml" -Raw
             $versionMatches = $tplPomFinal -match "<artifactId>$artifactIdEsc</artifactId>\s*<version>$([regex]::Escape($version))</version>"
             Add-Check "$($tr.Name) template pom.xml == v$version" $versionMatches

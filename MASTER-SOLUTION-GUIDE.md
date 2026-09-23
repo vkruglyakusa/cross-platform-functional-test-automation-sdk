@@ -726,6 +726,20 @@ assertVisualMatch(screenshot, "loginPage-desktop");
 - `#report-test-gap` (`report-test-gap.prompt.md`) — document a test case that cannot be automated.
 - `update-sdk-docs.prompt.md` — SDK-maintainer-facing documentation-sync prompt.
 
+**Optional Implementation Plan Review gate:** `#create-test` and `#modify-test`
+(for significant changes) always ask whether the operator wants to review a
+**repository-aware, detailed implementation plan** (exact files/classes/methods
+to create or modify, existing components reused vs. genuinely new ones, test
+flow, assertions, test data, suite/configuration/dependency impact) before any
+code is written. This applies to every test type the SDK supports (Web, API,
+Mobile, Accessibility, and general/E2E/integration/regression/smoke test
+creation) — it is not platform- or feature-specific. Declining review
+(**No**) preserves the existing fast workflow; opting in (**Yes**) requires
+explicit **Approve** / **Request Changes** / **Cancel** before implementation
+begins, and a post-implementation **Approved Plan vs Implemented Result**
+comparison. Does not change the standing no-commit/no-push/no-tag/no-release
+policy.
+
 ### AI/skill resources (`src/main/resources/ai/`)
 
 `README.md`, `prompts/element-discovery/analyze-locator-candidates.md`, `schemas/discovery-result-v1.schema.json`, `schemas/locator-recommendation-v1.schema.json`, `skills/element-discovery/element-discovery.skill.yaml`.
