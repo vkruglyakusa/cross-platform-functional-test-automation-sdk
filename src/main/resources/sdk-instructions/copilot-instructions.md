@@ -48,25 +48,42 @@ It will ask what you want to do and collect everything needed before starting wo
 ### Implementation Plan Review (Optional)
 
 `#create-test` and `#modify-test` (for significant changes) always ask whether
-you want to review the proposed implementation steps before any code is
-generated -- a human-in-the-loop planning gate that lets a Test Engineer
-validate the automation approach (objective, test flow, reused vs. new
-components, test data, assertions, evidence, cleanup, expected files) before
-code is produced:
+you want to review the **detailed, repository-aware implementation plan**
+before any code is generated -- a human-in-the-loop planning gate applicable to
+every test type (Web, API, Mobile, Accessibility, end-to-end, integration,
+regression, smoke), not just one platform or feature:
 
 ```text
-Would you like to review the proposed test implementation steps
-before I create the test script?
+Would you like to review the detailed implementation plan
+before I create or modify the test script?
 ```
 
 - **No** -- proceeds with the normal workflow immediately (the default; no
-  extra friction for routine test creation).
-- **Yes** -- presents a `Proposed Test Implementation Plan` and waits for an
-  explicit `Approve` / `Request Changes` / `Cancel` decision before writing any
-  code. `Request Changes` produces a revised plan and asks again; only clear
-  approval intent (e.g. "Approve", "Go ahead") is accepted. If implementation
-  later discovers a material deviation from an approved plan, it stops and asks
-  for renewed approval before continuing.
+  extra friction for routine test creation/modification).
+- **Yes** -- inspects the actual repository first (existing tests, Page
+  Objects/screen objects, API clients, services, utilities, data builders,
+  fixtures, configuration, TestNG suites, base classes, SDK APIs) so the plan
+  never invents classes/methods/locators/endpoints that already exist, and
+  labels anything that doesn't yet exist as `NEW`. Presents a `Detailed Test
+  Implementation Plan` describing the actual intended code changes -- not just
+  a restatement of test-case steps -- covering: Implementation Summary; Files
+  to Create/Modify (real paths, MODIFY/NEW); Class/Method Changes (exact
+  ADD/MODIFY per method, purpose, reuse); Existing Components to Reuse; New
+  Components (only if genuinely required, with proposed methods); Test Flow;
+  Assertions (every meaningful expected result); Test Data; a Locators/UI,
+  API, or Mobile implementation section as applicable; Test Suite Impact;
+  Configuration Impact; Dependency Impact; Reporting/Evidence; Expected
+  Result; Cleanup; and Assumptions/Risks when uncertainty exists. Then waits
+  for an explicit `Approve` / `Request Changes` / `Cancel` decision before
+  writing any code. `Request Changes` produces a revised plan (with changes
+  clearly highlighted) and asks again; only clear approval intent (e.g.
+  "Approve", "Go ahead") is accepted -- ambiguous responses are not approval.
+  If implementation later discovers a material deviation from an approved plan
+  (missing API/Page Object, different architecture, unavailable test data,
+  etc.), it stops, explains the deviation, and asks for renewed approval before
+  continuing; minor implementation details do not require it. Once
+  implementation and validation are complete, an `Approved Plan vs Implemented
+  Result` comparison is reported alongside the completion report.
 
 This gate does not change the standing release policy below -- approving an
 implementation plan authorizes creating/modifying test code only, never

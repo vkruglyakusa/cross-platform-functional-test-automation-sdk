@@ -201,17 +201,29 @@ class AiInstructionContractTest {
     }
 
     @Test
-    @DisplayName("create-test prompt offers an optional implementation plan review gate with a real approval loop")
+    @DisplayName("create-test prompt offers an optional, repository-aware detailed implementation plan review gate with a real approval loop")
     void createTestPromptOffersOptionalPlanReviewGate() throws Exception {
         String content = readUtf8(AUTHORITATIVE_CREATE);
 
-        assertTrue(content.contains("Would you like to review the proposed test implementation steps before I create the test script?"),
+        assertTrue(content.contains("Would you like to review the detailed implementation plan before I create or modify the test script?"),
                 "create-test prompt must ask the exact optional plan-review question");
         assertTrue(content.contains("**If No:** continue directly to Step 1"),
-                "create-test prompt must permit the engineer to skip plan review and proceed normally");
-        assertTrue(content.contains("Proposed Test Implementation Plan"),
-                "create-test prompt must define a Proposed Test Implementation Plan format");
-        assertTrue(content.contains("Do you approve these implementation steps?"),
+                "create-test prompt must permit the operator to skip plan review and proceed normally");
+        assertTrue(content.contains("Detailed Test Implementation Plan"),
+                "create-test prompt must define a Detailed Test Implementation Plan format");
+        assertTrue(content.contains("not invent class names, methods, directories, endpoints, or locators"),
+                "create-test prompt's plan must be repository-aware and never invent existing implementation");
+        assertTrue(content.contains("must be explicitly labeled `NEW`"),
+                "create-test prompt must require non-existent components to be explicitly labeled NEW");
+        assertTrue(content.contains("### Files to Create / Modify") && content.contains("### Class / Method Changes"),
+                "create-test prompt's plan must show exact files and class/method changes");
+        assertTrue(content.contains("### Existing Components to Reuse") && content.contains("### New Components"),
+                "create-test prompt's plan must separate reused components from new components");
+        assertTrue(content.contains("### Test Suite Impact") && content.contains("### Configuration Impact") && content.contains("### Dependency Impact"),
+                "create-test prompt's plan must cover suite, configuration, and dependency impact");
+        assertTrue(content.contains("### Implementation Summary"),
+                "create-test prompt's plan must include an Implementation Summary section");
+        assertTrue(content.contains("Do you approve this implementation plan?"),
                 "create-test prompt must ask for explicit plan approval");
         assertTrue(content.contains("**Approve**") && content.contains("**Request Changes**") && content.contains("**Cancel**"),
                 "create-test prompt must offer Approve / Request Changes / Cancel outcomes");
@@ -225,20 +237,28 @@ class AiInstructionContractTest {
                 "create-test prompt must reject ambiguous responses as approval");
         assertTrue(content.contains("Material deviations after approval"),
                 "create-test prompt must require renewed approval after a material deviation from the approved plan");
+        assertTrue(content.contains("Approved Plan vs Implemented Result") || content.contains("Approved Plan vs. Implemented Result"),
+                "create-test prompt must report an approved-plan-vs-implemented-result comparison after implementation");
     }
 
     @Test
-    @DisplayName("modify-test prompt offers the same optional plan review gate for significant changes")
+    @DisplayName("modify-test prompt offers the same detailed plan review gate for significant changes")
     void modifyTestPromptOffersOptionalPlanReviewGate() throws Exception {
         Path authoritativeModify = Paths.get("src", "main", "resources", "sdk-prompts", "modify-test.prompt.md");
         String content = readUtf8(authoritativeModify);
 
-        assertTrue(content.contains("Would you like to review the proposed implementation steps before I modify the test script?"),
+        assertTrue(content.contains("Would you like to review the detailed implementation plan before I modify the test script?"),
                 "modify-test prompt must ask the exact optional plan-review question");
         assertTrue(content.contains("Do not create unnecessary approval friction for trivial, mechanical fixes"),
                 "modify-test prompt must keep trivial/mechanical fixes lightweight, without forced approval");
+        assertTrue(content.contains("Detailed Test Implementation Plan"),
+                "modify-test prompt must reuse the repository-aware Detailed Test Implementation Plan format");
+        assertTrue(content.contains("Do you approve this"),
+                "modify-test prompt must ask for explicit plan approval");
         assertTrue(content.contains("Request Changes"), "modify-test prompt must support Request Changes");
         assertTrue(content.contains("Cancel"), "modify-test prompt must support Cancel");
+        assertTrue(content.contains("Approved Plan vs Implemented Result"),
+                "modify-test prompt must report an approved-plan-vs-implemented-result comparison after implementation");
     }
 
     private static int expectedGeneratedTestMethodCount(List<String> tcIds) {

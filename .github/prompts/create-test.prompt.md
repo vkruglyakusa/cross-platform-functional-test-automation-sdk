@@ -73,32 +73,53 @@ See `#report-test-gap` prompt and `test-case-gap.instructions.md`.
 ### Step 0.5 -- Optional Implementation Plan Review
 
 This is a **human-in-the-loop planning gate**, independent from Autonomous Mode
-above. Autonomous Mode controls whether you're asked about *routine* implementation
-choices; this gate controls whether the Test Engineer wants to see the overall
-approach *once*, up front, before any code is generated. After understanding the
-requested test (and passing the Step 0 gate check), ask:
+above, and it applies to **every kind of test creation** this prompt covers --
+Web, API, Mobile, Accessibility, end-to-end, integration, regression, and smoke
+tests alike. This is not an accessibility-specific or platform-specific feature.
+Autonomous Mode controls whether you're asked about *routine* implementation
+choices; this gate controls whether the Test Engineer / Operator wants to see the
+**exact code-level implementation** *once*, up front, before any file is created
+or modified. After understanding the requested test (and passing the Step 0 gate
+check), ask:
 
-> **Would you like to review the proposed test implementation steps before I create the test script?**
+> **Would you like to review the detailed implementation plan before I create or modify the test script?**
 
-Treat the response conceptually as **Yes** or **No**. Do not force the engineer to
+Treat the response conceptually as **Yes** or **No**. Do not force the operator to
 review the plan -- this question must always be asked, but a "No" answer is a
 first-class, equally valid outcome.
 
 **If No:** continue directly to Step 1. Still perform the same internal analysis
-(objective, required pages/screens/endpoints, reusable components, test data,
-assertions, cleanup, reporting/evidence) -- you simply don't present it for a
-separate approval interaction. Do not later force the engineer through the
-plan-approval workflow below unless a material ambiguity or genuine blocker
-requires clarification (see Step 6).
+(existing reusable code, test flow, test data, assertions, files to modify,
+validation approach) -- you simply don't present it for a separate approval
+interaction. Do not later force the operator through the plan-approval workflow
+below unless a material ambiguity or genuine blocker requires clarification (see
+Step 6).
 
-**If Yes:** do NOT begin implementation (no crawler run, no file creation/edits)
-yet. Inspect the repository first -- do not invent Page Objects, components,
-`ApiClient`s, or test data builders before checking what already exists (see
-"Reuse before creation" below). Then present a **Proposed Test Implementation
-Plan**:
+**If Yes:** STOP before implementation. No crawler run, no file creation, no file
+edits, no suite/config changes yet. First inspect the actual repository --
+existing tests, Page Objects/screen objects, API clients, services, utilities,
+data builders, fixtures, configuration, TestNG suites, base classes, listeners,
+SDK APIs, and other common components. The plan must be **repository-aware**: do
+not invent class names, methods, directories, endpoints, or locators if the
+repository already contains the real implementation. Anything that does not
+already exist must be explicitly labeled `NEW`. Then present a **Detailed Test
+Implementation Plan** describing the actual code changes intended, not merely a
+restatement of business/test-case steps:
 
 ```markdown
-## Proposed Test Implementation Plan
+## Detailed Test Implementation Plan
+
+### Implementation Summary
+Files modified: <count>
+New files: <count>
+New test methods: <count>
+New Page Objects / Components: <count>
+Existing Page Objects / Components reused: <count>
+New test data: <description or "None">
+New configuration: <description or "None">
+New dependencies: <description or "None">
+Suite XML changes: <Yes/No>
+Assertions: <count>
 
 ### Test Objective
 <what behavior is being validated>
@@ -106,36 +127,117 @@ Plan**:
 ### Preconditions
 <environment, test data, authentication, existing records, browser/device/API state>
 
+### Files to Create / Modify
+MODIFY
+<actual repository path>
+Reason: <why this file changes>
+
+NEW
+<actual repository path -- only if reuse is genuinely insufficient>
+Reason: <why no existing file/class covers this>
+
+### Class / Method Changes
+<ClassName>
+ADD / MODIFY:
+<methodSignature()>
+Purpose: <what it does>
+Uses: <existing methods/components it calls>
+Change (if MODIFY): <exactly what is being changed and why>
+
+### Existing Components to Reuse
+<ComponentName>
+    <one-line description of the existing behavior being reused>
+... (list every reused Page Object / ApiClient / utility / base class / service)
+
+### New Components (only if required)
+NEW COMPONENT
+<ComponentName>
+Reason: <why no existing component covers this>
+Methods proposed:
+<method1()>
+<method2()>
+
 ### Test Flow
 1. <numbered, implementation-level automation steps -- not vague business language>
 2. ...
 
-### Page Objects / Components
-- Existing: <PageObject/ApiClient/component names actually found in the repo>
-- New (required): <name + one-line reason, only if reuse is genuinely insufficient>
+### Assertions
+ASSERTION 1
+<expected condition being validated>
+Reusable helper: <existing assertion helper, or "New -- none exists">
+ASSERTION 2
+...
+(every meaningful expected result must appear here -- a plan of actions with no
+assertions is not acceptable)
 
 ### Test Data
-<required data, source, dynamic/generated data, cleanup requirements -- never
-include actual passwords/secrets, describe how they are resolved instead
-(e.g. "via existing SDK credential/secret-resolution flow")>
+Reuse: <existing test-data file/sheet, or "None">
+Add: <new scenario/record description, or "None">
+Credentials: <"No credentials hardcoded -- resolved via existing SDK
+credential/secret-resolution flow" or equivalent -- never include actual secrets>
+Cleanup requirements: <description or "None">
 
-### Assertions
-<every expected/intermediate result that will be asserted -- every plan must
-include meaningful validation, not just actions>
+### Locators / UI Interaction Plan  (Web/Mobile only -- omit for API-only tests)
+Reuse: <existing @FindBy fields/locators actually found in the page object>
+New locator (if required):
+Preferred strategy: <e.g. id/data-testid/formcontrolname per locator-strategy.instructions.md>
+Fallback: <only a stable alternative -- never introduce a brittle/positional locator>
 
-### Reporting / Evidence
-<only the applicable SDK evidence: Allure, Extent, Screenshot, DOM, Console,
-Network, RCA, Accessibility>
+### API Implementation Plan  (API tests only -- omit for pure Web/Mobile UI tests)
+HTTP method: <GET/POST/...>
+Endpoint: <actual endpoint>
+Request payload: <request model/class>
+Authentication: <existing auth mechanism used>
+Headers: <if relevant>
+Expected status: <e.g. 201>
+Response model: <class/schema>
+Schema validation: <applicable or "None">
+Business assertions: <field-level assertions>
+Cleanup: <resource deletion/expiry approach>
 
-### Cleanup
-<postconditions if the test creates/modifies data; "None" if not applicable>
+### Mobile Implementation Plan  (Mobile tests only)
+Appium screens/components: <existing MobileScreen classes reused, new ones needed>
+Device/application state: <preconditions>
+Platform: <Android/iOS differences, if any>
+Gestures: <swipe/tap/etc., if any>
+Navigation: <screen transitions>
+Permissions: <if applicable>
+Test data: <mobile-specific>
+Cleanup: <if applicable>
 
-### Expected Files
-<existing files expected to change, new files expected to be created -- based on
-repository inspection, not assumption>
+### Test Suite Impact
+TestNG Suite Change: <Yes/No>
+File: <actual suite XML path, if Yes>
+Change: <exact class/method being added>
+
+### Configuration Impact
+SDK configuration change: <description or "None">
+Environment configuration change: <description or "None">
+New property: <description or "None">
+
+### Dependency Impact
+New Maven dependencies required: <Yes -- name + reason / No>
+pom.xml / SDK version / plugin changes: <description or "None">
+
+### Reporting and Evidence
+<only the applicable SDK evidence already handled automatically -- Allure, Extent,
+Screenshot, DOM, Console, Network, RCA, Accessibility -- do not propose redundant
+custom reporting code the SDK already provides>
+
+### Expected Result
+<the intended business validation in one or two sentences>
+
+### Cleanup / Postconditions
+<what happens to any created/modified state after the test runs, or "None
+required" with the reason>
+
+### Assumptions / Risks  (include only if genuine uncertainty exists)
+ASSUMPTION: <...>
+RISK: <...>
+PROPOSED APPROACH: <how the plan resolves it, pending repository evidence>
 ```
 
-Adapt the plan's content to the platform:
+Adapt the plan's content to the platform, per the sections above:
 - **Web**: Page Objects, locators (only from a fresh crawler run's `UNIQUE [x]` results, referenced not yet executed), browser interaction, wait strategy, navigation, screenshot/DOM/console evidence.
 - **API**: endpoint, HTTP method, request payload, authentication, response status/schema/business assertions, cleanup of created resources. Do not introduce browser steps.
 - **Mobile**: Appium screens/components, device/app state, gestures, platform (Android/iOS) differences, mobile test data.
@@ -143,7 +245,7 @@ Adapt the plan's content to the platform:
 
 After presenting the plan, ask for an explicit decision:
 
-> **Do you approve these implementation steps?**
+> **Do you approve this implementation plan?**
 
 Offer **Approve**, **Request Changes**, or **Cancel** as the conceptual choices,
 and do not implement anything while waiting for this decision.
@@ -155,25 +257,56 @@ and do not implement anything while waiting for this decision.
   Do **not** treat ambiguous responses ("maybe", "interesting", "looks close",
   "continue explaining") as approval -- ask again if intent is unclear.
 - **Request Changes** -- do not start implementation. Incorporate the requested
-  changes, present the revised plan, and ask for approval again. Repeat until
-  **Approved** or **Cancelled**. A request for changes is never itself approval.
+  changes, clearly highlight what changed, present the revised plan, and ask for
+  approval again. Repeat until **Approved** or **Cancelled**. A request for
+  changes is never itself approval.
 - **Cancel** -- do not create or modify the test. Report that test creation was
-  cancelled by the engineer, and stop.
+  cancelled by the operator, and stop.
 
 **Material deviations after approval:** if implementation later discovers a
-meaningful difference from the approved plan (e.g. a required API/Page Object
-doesn't actually exist, a different authentication architecture is required,
-test data can't be created as planned, or a framework constraint changes the
-test flow/assertions/architecture), stop implementation, explain the deviation,
-and ask the engineer to approve the revised approach before continuing. Minor
-implementation details that don't change the agreed test behavior (e.g. exact
-wait timeout, internal helper method name) do not require another approval.
+meaningful difference from the approved plan (e.g. a planned method/API/Page
+Object doesn't actually exist, the API behaves differently, the Page Object
+architecture differs, test data cannot be created as planned, an additional
+shared component is required, a planned assertion cannot be implemented
+correctly, or a framework constraint changes the test flow/files/architecture/
+assertions/data/scope/configuration/dependencies), STOP implementation and
+explain using this structure:
+
+```markdown
+Approved Plan:
+<relevant excerpt of what was approved>
+
+Discovered During Implementation:
+<what repository reality actually is>
+
+Required Change:
+<the revised approach>
+```
+
+Ask the operator to approve the revised approach before continuing. Minor
+implementation details that don't change the agreed test behavior (local
+variable names, import ordering, minor private helper extraction, formatting,
+exact wait timeout) do not require another approval.
 
 **Reuse before creation:** whether or not the plan-review gate is used, prefer
 reusing existing Page Objects, components, utilities, `ApiClient`s, test data
 builders, SDK services, helper methods, fixtures, and suite configuration over
 proposing new ones. The plan (when presented) should make it clear whether any
 new framework code is actually required.
+
+**Final comparison after implementation (only when the plan was reviewed and
+approved):** once implementation and validation (Step 5) are complete, report an
+**Approved Plan vs. Implemented Result** comparison before or as part of the Step
+7 completion report:
+
+```markdown
+## Approved Plan vs Implemented Result
+Approved files to change: <count>       Actual files changed: <count>
+Approved new components: <count>        Actual new components: <count>
+Approved assertions: <count>            Implemented assertions: <count>
+Approved suite changes: <Yes/No>        Implemented suite changes: <Yes/No>
+Material deviations: <None, or list with the approval obtained for each>
+```
 
 ### Step 1 -- Run the Crawler
 Before writing any `@FindBy` locator, run the crawler on the target page.
@@ -296,10 +429,17 @@ After `mvn test` passes, output the following report:
 |  Environment  : ${environment}                                   |
 +==================================================================+
 |  IMPLEMENTATION PLAN                                              |
-|  Plan reviewed by engineer : Yes / No                            |
-|  Plan approved              : Yes / No / N/A (not reviewed)       |
+|  Plan reviewed by operator  : Yes / No                            |
+|  Plan explicitly approved   : Yes / Not required (not reviewed)   |
 |  Implemented per approved plan : Yes / No + reason if No          |
 |  Deviations from approved plan : ${none or description}          |
++==================================================================+
+|  APPROVED PLAN VS IMPLEMENTED RESULT (only if plan was reviewed) |
+|  Approved / Actual files changed      : ${N} / ${N}              |
+|  Approved / Actual new components     : ${N} / ${N}              |
+|  Approved / Implemented assertions    : ${N} / ${N}              |
+|  Approved / Implemented suite changes : Yes|No / Yes|No           |
+|  Material deviations                  : ${none or list}          |
 +==================================================================+
 |  COVERAGE                                                        |
 |  Test case steps      : ${N}                                     |
@@ -323,9 +463,11 @@ After `mvn test` passes, output the following report:
 +==================================================================+
 ```
 
-Omit the `IMPLEMENTATION PLAN` block's individual lines only when the engineer
-never used the plan-review gate at all (Step 0.5 answered "No") -- in that case a
-single `Plan reviewed by engineer : No` line is sufficient.
+Omit the `IMPLEMENTATION PLAN` and `APPROVED PLAN VS IMPLEMENTED RESULT` blocks'
+individual lines only when the operator never used the plan-review gate at all
+(Step 0.5 answered "No") -- in that case a single `Plan reviewed by operator : No`
+line is sufficient. Never claim success if only compilation was performed --
+`Tests run` / `Tests passed` must reflect an actual `mvn test` execution.
 
 ---
 
@@ -379,7 +521,9 @@ Include in class JavaDoc:
 
 ## Output Checklist
 - [ ] Autonomous mode declared by user
-- [ ] Implementation plan review offered (Step 0.5); if accepted, plan presented and explicit approval obtained before any implementation began
+- [ ] Detailed implementation plan review offered (Step 0.5) for every test creation request (Web/API/Mobile/Accessibility/other); if accepted, the plan was repository-aware (existing components inspected, `NEW` items explicitly labeled), covered files/classes/methods/reuse/new components/test flow/assertions/test data/locators-or-API-or-mobile detail/suite impact/configuration impact/dependency impact/reporting/expected result/cleanup, and explicit approval was obtained before any implementation began
+- [ ] Material deviations from an approved plan (if any) were paused on and re-approved before continuing
+- [ ] Approved Plan vs Implemented Result comparison produced when the plan was reviewed
 - [ ] Crawler ran and report reviewed
 - [ ] Page object created/updated with `UNIQUE [x]` locators only
 - [ ] Test class created following template

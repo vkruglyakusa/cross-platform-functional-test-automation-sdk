@@ -159,23 +159,45 @@ published-directory vs. report-filter vs. suppression vs. enforcement distinctio
   were required.
 
 ### Added — Optional Implementation Plan Review Gate (Test Creation / Modification Prompts)
-- `create-test.prompt.md` and `modify-test.prompt.md` gain an optional, engineer-driven
-  human-in-the-loop planning step ("Step 0.5 -- Optional Implementation Plan Review"): before
-  writing any code, the agent asks whether the engineer wants to review a
-  **Proposed Test Implementation Plan** (objective, preconditions, numbered test flow, reused vs.
-  new Page Objects/components, test data, assertions, evidence/reporting, cleanup, expected
-  files) and requires an explicit **Approve** / **Request Changes** / **Cancel** decision before
-  proceeding, if the engineer opted in. Declining the review (**No**) continues the existing
-  workflow unchanged. Material deviations discovered after approval (missing API, missing Page
-  Object, changed auth architecture, etc.) require renewed approval; minor implementation details
-  do not. Plan content adapts to Web / API / Mobile / Accessibility test types. This does not
-  change the standing no-commit/no-push/no-tag/no-release policy.
-- `copilot-instructions.md` documents the new gate under "Available Prompts".
+- `create-test.prompt.md` and `modify-test.prompt.md` gain an optional, operator-driven
+  human-in-the-loop planning step ("Step 0.5 -- Optional Implementation Plan Review"), applicable
+  to every test type this SDK supports (Web, API, Mobile, Accessibility, end-to-end, integration,
+  regression, smoke) -- not an Accessibility- or platform-specific feature. Before writing any
+  code, the agent asks whether the operator wants to review a **Detailed Test Implementation
+  Plan**. Declining the review (**No**) continues the existing workflow unchanged.
+- **The plan is repository-aware**: before it is produced, the agent inspects the actual
+  repository (existing tests, Page Objects/screen objects, API clients, services, utilities, data
+  builders, fixtures, configuration, TestNG suites, base classes, SDK APIs) and must not invent
+  classes, methods, directories, endpoints, or locators that already exist; anything that does not
+  yet exist is explicitly labeled `NEW`.
+- **The plan describes actual intended code changes**, not just test-case steps, via dedicated
+  sections: Implementation Summary (counts of files/components/assertions/suite changes); Files to
+  Create/Modify (real repository paths, `MODIFY`/`NEW`); Class/Method Changes (exact `ADD`/`MODIFY`
+  per method with purpose and usage); Existing Components to Reuse; New Components (only when
+  genuinely required, with proposed methods); Test Flow; Assertions (every meaningful expected
+  result, with reusable-helper status); Test Data; a Locators/UI, API, or Mobile implementation
+  section as applicable; Test Suite Impact; Configuration Impact; Dependency Impact;
+  Reporting/Evidence; Expected Result; Cleanup/Postconditions; and Assumptions/Risks when genuine
+  uncertainty exists.
+- Requires an explicit **Approve** / **Request Changes** / **Cancel** decision before proceeding,
+  if the operator opted in; ambiguous responses ("maybe", "looks close") are never treated as
+  approval. **Request Changes** produces a revised, clearly-highlighted plan and asks again; a
+  request for changes is never itself approval. Material deviations discovered after approval
+  (missing API, missing Page Object, changed auth architecture, unavailable test data, etc.)
+  require renewed approval, reported via an "Approved Plan / Discovered During Implementation /
+  Required Change" structure; minor implementation details (variable names, formatting) do not.
+- After implementation and validation, an **Approved Plan vs Implemented Result** comparison
+  (files changed, new components, assertions, suite changes, material deviations) is reported
+  alongside the existing completion report. This does not change the standing
+  no-commit/no-push/no-tag/no-release policy.
+- `copilot-instructions.md` documents the enhanced gate under "Available Prompts".
 - `AiInstructionContractTest` gains `createTestPromptOffersOptionalPlanReviewGate` and
-  `modifyTestPromptOffersOptionalPlanReviewGate`, asserting the exact review question, plan
-  section markers, the Approve/Request Changes/Cancel choices, no-implementation-while-waiting
-  language, rejection of ambiguous responses as approval, and the material-deviation
-  re-approval requirement.
+  `modifyTestPromptOffersOptionalPlanReviewGate`, asserting the exact review question, the
+  repository-awareness/`NEW`-labeling requirement, the detailed plan section markers (files,
+  class/method changes, reuse vs. new components, suite/configuration/dependency impact), the
+  Approve/Request Changes/Cancel choices, no-implementation-while-waiting language, rejection of
+  ambiguous responses as approval, the material-deviation re-approval requirement, and the
+  approved-plan-vs-implemented-result comparison.
 
 ---
 
