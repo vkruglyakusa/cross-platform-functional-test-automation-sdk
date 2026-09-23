@@ -19,6 +19,11 @@ Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATC
 ## [Unreleased]
 <!-- Add entries here during development; move to a version heading on release -->
 
+---
+
+## [1.5.4] — 2026-09-23
+<!-- Add entries here during development; move to a version heading on release -->
+
 ### Added
 - **Accessibility Report Filters**, ported from the `AccessibilityTestAutomation` reference
   framework and adapted to this SDK's existing finding taxonomy:
